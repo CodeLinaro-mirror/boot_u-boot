@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+*/
+
+#include "ipq5332.dtsi"
+
+/ {
+	config_name = "config@mi01.6", "config@rdp468";
+
+	aliases {
+		console = &blsp1_uart1;
+		sdhci = &mmc;
+	};
+
+	soc: soc {
+		tlmm: pinctrl@1000000 {
+			sdhci_pinmux: mmc {
+				emmc_data {
+					pins = "GPIO_8", "GPIO_9", "GPIO_10",
+						"GPIO_11";
+					function = "sdc";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				emmc_cmd{
+					pins = "GPIO_12";
+					function = "sdc";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				emmc_clk{
+					pins = "GPIO_13";
+					function = "sdc";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+			};
+
+			serial_pinmux: uart {
+				data {
+					pins = "GPIO_18", "GPIO_19";
+					function = "blsp0_uart0";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+		};
+
+
+		blsp1_uart1: serial@78af000 {
+			pinctrl-names = "uart";
+			pinctrl-0 = <&serial_pinmux>;
+			status = "okay";
+		};
+
+		mmc: sdhci@7800000 {
+			pinctrl-names = "mmc";
+			pinctrl-0 = <&sdhci_pinmux>;
+			status = "okay";
+		};
+	};
+};

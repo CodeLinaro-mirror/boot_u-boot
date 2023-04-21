@@ -3,6 +3,8 @@
  * Copyright 2011, Marvell Semiconductor Inc.
  * Lei Wen <leiwen@marvell.com>
  *
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  * Back ported to the 8xx platform (from the 8260 platform) by
  * Murray.Jensen@cmst.csiro.au, 27-Jan-01.
  */
@@ -707,12 +709,20 @@ static int sdhci_set_ios(struct mmc *mmc)
 static int sdhci_init(struct mmc *mmc)
 {
 	struct sdhci_host *host = mmc->priv;
+	bool bus_pwr_off_rst = false;
+	int val;
 #if CONFIG_IS_ENABLED(DM_MMC) && CONFIG_IS_ENABLED(DM_GPIO)
 	struct udevice *dev = mmc->dev;
 
 	gpio_request_by_name(dev, "cd-gpios", 0,
 			     &host->cd_gpio, GPIOD_IS_IN);
 #endif
+	bus_pwr_off_rst = dev_read_bool(mmc->dev, "bus_pwr_off_rst");
+	if (bus_pwr_off_rst) {
+		val = sdhci_readb(host, SDHCI_HOST_CONTROL);
+		sdhci_writeb(host,(val & (~SDHCI_POWER_ON)),
+				SDHCI_POWER_CONTROL);
+	}
 
 	sdhci_reset(host, SDHCI_RESET_ALL);
 

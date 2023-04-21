@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2020 Sartura Ltd.
  * Copyright (c) 2022 Linaro Ltd.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Author: Robert Marko <robert.marko@sartura.hr>
  *         Sumit Garg <sumit.garg@linaro.org>
@@ -102,6 +103,20 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 };
 #endif
 
+#ifdef CONFIG_TARGET_IPQ5332
+#include <dt-bindings/reset/ipq5332-reset.h>
+static const struct qcom_reset_map gcc_qcom_resets[] = {
+	[GCC_SDCC1_BCR] = {0x33000, 0},
+};
+#endif
+
+#ifdef CONFIG_TARGET_IPQ9574
+#include <dt-bindings/reset/ipq9574-reset.h>
+static const struct qcom_reset_map gcc_qcom_resets[] = {
+	[GCC_SDCC1_BCR] = {0x33000, 0},
+};
+#endif
+
 #ifdef CONFIG_TARGET_QCS404EVB
 #include <dt-bindings/clock/qcom,gcc-qcs404.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {
@@ -171,6 +186,7 @@ static const struct reset_ops qcom_reset_ops = {
 static const struct udevice_id qcom_reset_ids[] = {
 	{ .compatible = "qcom,gcc-reset-ipq4019" },
 	{ .compatible = "qcom,gcc-reset-qcs404" },
+	{ .compatible = "qti,gcc-reset-ipqsoc" },
 	{ }
 };
 
