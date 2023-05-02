@@ -58,6 +58,23 @@
 					bias-pull-up;
 				};
 			};
+
+			mdio_pinmux: mdio {
+				mdc {
+					pins = "GPIO_38";
+					function = "mdc";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				mdio {
+					pins = "GPIO_39";
+					function = "mdio";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+
 		};
 
 
@@ -70,6 +87,12 @@
 		mmc: sdhci@7800000 {
 			pinctrl-names = "mmc";
 			pinctrl-0 = <&sdhci_pinmux>;
+			status = "okay";
+		};
+
+		mdio: mdio@90000 {
+			pinctrl-names = "mdio";
+			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 		};
 	};

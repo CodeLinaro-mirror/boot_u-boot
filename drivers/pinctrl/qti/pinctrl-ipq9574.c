@@ -20,10 +20,8 @@ static const struct pinctrl_function msm_pinctrl_functions[] = {
 	{"blsp0_spi", 1},
 	{"sdc", 1},
 	{"qspi", 2},
-	{"mdio_0", 1},
-	{"mdio_1", 2},
-	{"mdc_0", 1},
-	{"mdc_1", 2},
+	{"mdio", 1},
+	{"mdc", 1},
 };
 
 static const char *ipq9574_get_function_name(struct udevice *dev,

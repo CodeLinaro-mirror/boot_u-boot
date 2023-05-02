@@ -21,9 +21,9 @@ static const struct pinctrl_function msm_pinctrl_functions[] = {
 	{"sdc", 1},
 	{"qspi", 2},
 	{"mdio_0", 1},
-	{"mdio_1", 2},
+	{"mdio_1", 1},
 	{"mdc_0", 1},
-	{"mdc_1", 2},
+	{"mdc_1", 1},
 };
 
 static const char *ipq5332_get_function_name(struct udevice *dev,
