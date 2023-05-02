@@ -81,6 +81,12 @@
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
+
+				qti_aquantia_rst {
+					pins = "GPIO_36";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
 			};
 		};
 
@@ -121,6 +127,19 @@
 			phy3: phy@19 {
 				reg = <19>;
 				phy-type = <0x1>;
+			};
+
+			phy4: phy@8 {
+				phy-reset-gpio = <&tlmm 36 0>;
+				reg = <8>;
+				phy-type = <0x3>;
+				phy-mode = "usxgmii";
+			};
+
+			phy5: phy@0 {
+				reg = <0>;
+				phy-type = <0x3>;
+				phy-mode = "usxgmii";
 			};
 		};
 	};

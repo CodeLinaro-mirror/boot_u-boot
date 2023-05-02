@@ -21,6 +21,7 @@
 #define __str_fmt(x)		"%-" #x "s"
 #define _str_fmt(x)		__str_fmt(x)
 #define smem_ptn_name_fmt	_str_fmt(SMEM_PTN_NAME_MAX)
+#define QTI_ETH_FW_PART_NAME	"0:ETHPHYFW"
 
 #ifdef CONFIG_SMEM_VERSION_C
 #define part_which_flash(p)    (((p)->attr & 0xff000000) >> 24)
@@ -254,6 +255,19 @@ struct smem_ptable {
 	unsigned len;
 	struct smem_ptn parts[SMEM_PTABLE_PARTS_MAX];
 } __attribute__ ((__packed__));
+
+typedef struct {
+        unsigned int image_type;
+        unsigned int header_vsn_num;
+        unsigned int image_src;
+        unsigned int image_dest_ptr;
+        unsigned int image_size;
+        unsigned int code_size;
+        unsigned int signature_ptr;
+        unsigned int signature_size;
+        unsigned int cert_chain_ptr;
+        unsigned int cert_chain_size;
+} mbn_header_t;
 
 /*
  * Function declaration

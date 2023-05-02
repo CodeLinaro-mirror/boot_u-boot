@@ -31,19 +31,6 @@
 
 extern int part_get_info_efi_by_name(const char *name,
 					struct disk_partition *info);
-typedef struct {
-	unsigned int image_type;
-	unsigned int header_vsn_num;
-	unsigned int image_src;
-	unsigned char *image_dest_ptr;
-	unsigned int image_size;
-	unsigned int code_size;
-	unsigned char *signature_ptr;
-	unsigned int signature_size;
-	unsigned char *cert_chain_ptr;
-	unsigned int cert_chain_size;
-} mbn_header_t;
-
 #ifdef CONFIG_IPQ_ELF_AUTH
 typedef struct {
 	unsigned int img_offset;
