@@ -9,5 +9,6 @@
 #include <linux/compat.h>
 
 int phy_8x8x_init(void);
+int phy_8075_init(void);
 
 #endif                          /* _QTI_H_ */

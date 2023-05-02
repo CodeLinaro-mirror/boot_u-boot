@@ -75,6 +75,13 @@
 				};
 			};
 
+			phy_rst_pinmux: phy_rst {
+				qti_8085_rst {
+					pins = "GPIO_60";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
 		};
 
 
@@ -94,6 +101,27 @@
 			pinctrl-names = "mdio";
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
+
+			phy0: phy@16 {
+				phy-reset-gpio = <&tlmm 60 0>;
+				reg = <16>;
+				phy-type = <0x1>;
+			};
+
+			phy1: phy@17 {
+				reg = <17>;
+				phy-type = <0x1>;
+			};
+
+			phy2: phy@18 {
+				reg = <18>;
+				phy-type = <0x1>;
+			};
+
+			phy3: phy@19 {
+				reg = <19>;
+				phy-type = <0x1>;
+			};
 		};
 	};
 };

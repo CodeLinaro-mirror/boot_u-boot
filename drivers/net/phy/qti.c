@@ -15,5 +15,8 @@ int phy_qti_init(void)
 #ifdef CONFIG_PHY_QTI_8X8X
 	phy_8x8x_init();
 #endif
+#ifdef CONFIG_PHY_QTI_8075
+	phy_8075_init();
+#endif
 	return 0;
 }
