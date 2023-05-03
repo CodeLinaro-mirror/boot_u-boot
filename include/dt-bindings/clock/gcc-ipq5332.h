@@ -14,5 +14,8 @@
 #define GCC_BLSP1_AHB_CLK				3
 #define GCC_SDCC1_APPS_CLK				4
 #define GCC_SDCC1_AHB_CLK				5
+#define GCC_BLSP1_QUP1_SPI_APPS_CLK			6
+#define GCC_BLSP1_QUP2_SPI_APPS_CLK			7
+#define GCC_BLSP1_QUP3_SPI_APPS_CLK			8
 
 #endif

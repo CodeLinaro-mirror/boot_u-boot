@@ -19,6 +19,8 @@
 #include <dm.h>
 #include <errno.h>
 #include <linux/delay.h>
+#include <dma.h>
+#include <linux/soc/ipqsoc/bam_dma.h>
 #include <spi.h>
 
 #define QUP_CONFIG				0x0000
@@ -173,6 +175,12 @@
 #define SPI_BITLEN_MSK					0x07
 #define MAX_COUNT_SIZE					0xffff
 
+
+/* 64KB - 16byte */
+#define SPI_MAX_TRFR_BTWN_RESETS		((64 * 1024) - 16)
+#define SPI_BAM_READ				0
+#define SPI_BAM_WRITE				1
+
 struct qup_spi_priv {
 	phys_addr_t base;
 	struct clk clk;
@@ -180,13 +188,37 @@ struct qup_spi_priv {
 	struct gpio_desc cs_gpios[SPI_NUM_CHIPSELECTS];
 	bool cs_high;
 	u32 core_state;
+	bool force_cs;
+	bool use_dma;
+	struct dma dma_tx;
+	struct dma dma_rx;
 };
+
+static void qup_write_force_cs(struct udevice *dev, int assert)
+{
+	struct qup_spi_priv *priv = dev_get_priv(dev);
+
+	if (assert)
+		clrsetbits_le32(priv->base + SPI_IO_CONTROL,
+				FORCE_CS_MSK, FORCE_CS_EN);
+	else
+		clrsetbits_le32(priv->base + SPI_IO_CONTROL,
+				FORCE_CS_MSK, FORCE_CS_DIS);
+
+        return;
+
+}
 
 static int qup_spi_set_cs(struct udevice *dev, unsigned int cs, bool enable)
 {
 	struct qup_spi_priv *priv = dev_get_priv(dev);
 
 	debug("%s: cs=%d enable=%d\n", __func__, cs, enable);
+
+	if (priv->force_cs) {
+		qup_write_force_cs(dev, !enable);
+		return 0;
+	}
 
 	if (cs >= SPI_NUM_CHIPSELECTS)
 		return -ENODEV;
@@ -351,6 +383,84 @@ static int qup_spi_config_spi_state(struct udevice *dev, unsigned int state)
 	return ret;
 }
 
+static int qup_spi_bam_begin_xfer(struct udevice *dev, const u8 *buffer,
+                unsigned int bytes, unsigned int type)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qup_spi_priv *priv = dev_get_priv(bus);
+	u32 tx_bytes_to_send = 0, rx_bytes_to_recv = 0;
+	u32 n_words_xfr;
+	u32 ret = 0;
+	u32 tx_bytes_sent = 0;
+	u32 rx_bytes_rcvd = 0;
+	int state_config;
+	u32 data_xfer_size;
+	int cons_flag = 0, prod_flag = 0;
+	u32 rem_bytes = 0;
+
+	rem_bytes = bytes;
+
+#if !defined(CONFIG_SYS_DCACHE_OFF)
+	flush_cache((unsigned long)buffer, (unsigned long)bytes);
+#endif
+	while (rem_bytes) {
+		tx_bytes_to_send = min_t(u32, bytes,
+			SPI_MAX_TRFR_BTWN_RESETS);
+
+		rx_bytes_to_recv = min_t(u32, bytes,
+			SPI_MAX_TRFR_BTWN_RESETS);
+
+		if (bytes > SPI_MAX_TRFR_BTWN_RESETS)
+			rem_bytes = bytes - SPI_MAX_TRFR_BTWN_RESETS;
+		else
+			rem_bytes = 0;
+
+		writel(0, priv->base + QUP_MX_OUTPUT_CNT);
+		if (type == SPI_BAM_READ) {
+			n_words_xfr = rx_bytes_to_recv;
+			writel(n_words_xfr, priv->base + QUP_MX_INPUT_CNT);
+		}
+
+		state_config = qup_spi_config_spi_state(dev, SPI_RUN_STATE);
+		if (state_config)
+			return state_config;
+
+		if (type == SPI_BAM_WRITE) {
+				data_xfer_size = tx_bytes_to_send;
+				if (rem_bytes == 0)
+					cons_flag = BAM_DESC_EOT_FLAG |
+							BAM_DESC_NWD_FLAG;
+				cons_flag |= BAM_DESC_INT_FLAG;
+				dma_send(&priv->dma_tx, (void*)buffer,
+						data_xfer_size, &cons_flag);
+
+				tx_bytes_sent += data_xfer_size;
+				buffer = buffer + data_xfer_size;
+				bytes = rem_bytes;
+		} else if (type == SPI_BAM_READ) {
+				data_xfer_size = rx_bytes_to_recv;
+				if (rem_bytes == 0)
+					prod_flag = (BAM_DESC_EOT_FLAG |
+							BAM_DESC_NWD_FLAG);
+				prod_flag |= BAM_DESC_INT_FLAG;
+				dma_prepare_rcv_buf(&priv->dma_rx,
+						(void*)buffer, data_xfer_size);
+				dma_receive(&priv->dma_rx, (void*)buffer,
+						&prod_flag);
+
+				rx_bytes_rcvd += data_xfer_size;
+				buffer = buffer + data_xfer_size;
+				bytes = rem_bytes;
+		}
+
+		state_config = qup_spi_config_spi_state(dev, SPI_RESET_STATE);
+		if (state_config)
+			return state_config;
+	}
+
+	return ret;
+}
+
 /*
  * Function to read bytes number of data from the Input FIFO
  */
@@ -373,37 +483,42 @@ static int __qup_spi_blsp_spi_read(struct udevice *dev, u8 *data_buffer, unsigne
 	/* Configure input and output enable */
 	qup_spi_enable_io_config(dev, 0, read_bytes);
 
-	writel(bytes, priv->base + QUP_MX_INPUT_CNT);
+	if (!(priv->use_dma))
+		writel(bytes, priv->base + QUP_MX_INPUT_CNT);
 
-	state_config = qup_spi_config_spi_state(dev, SPI_RUN_STATE);
-	if (state_config)
-		return state_config;
+	if (priv->use_dma && read_bytes)
+		qup_spi_bam_begin_xfer(dev, data_buffer, bytes, SPI_BAM_READ);
+	else {
+		state_config = qup_spi_config_spi_state(dev, SPI_RUN_STATE);
+		if (state_config)
+			return state_config;
 
-	while (read_bytes) {
-		ret = qup_spi_check_fifo_status(dev, QUP_OPERATIONAL);
-		if (ret != 0)
-			goto out;
+		while (read_bytes) {
+			ret = qup_spi_check_fifo_status(dev, QUP_OPERATIONAL);
+			if (ret != 0)
+				goto out;
 
-		val = readl(priv->base + QUP_OPERATIONAL);
-		if (val & QUP_OP_IN_SERVICE_FLAG) {
-			/*
-			 * acknowledge to hw that software will
-			 * read input data
-			 */
-			val &= QUP_OP_IN_SERVICE_FLAG;
-			writel(val, priv->base + QUP_OPERATIONAL);
+			val = readl(priv->base + QUP_OPERATIONAL);
+			if (val & QUP_OP_IN_SERVICE_FLAG) {
+				/*
+				 * acknowledge to hw that software will
+				 * read input data
+				 */
+				val &= QUP_OP_IN_SERVICE_FLAG;
+				writel(val, priv->base + QUP_OPERATIONAL);
 
-			fifo_count = ((read_bytes > SPI_INPUT_BLOCK_SIZE) ?
+				fifo_count = ((read_bytes >
+					SPI_INPUT_BLOCK_SIZE) ?
 					SPI_INPUT_BLOCK_SIZE : read_bytes);
 
-			for (i = 0; i < fifo_count; i++) {
-				*data_buffer = qup_spi_read_byte(dev);
-				data_buffer++;
-				read_bytes--;
+				for (i = 0; i < fifo_count; i++) {
+					*data_buffer = qup_spi_read_byte(dev);
+					data_buffer++;
+					read_bytes--;
+				}
 			}
 		}
 	}
-
 out:
 	/*
 	 * Put the SPI Core back in the Reset State
@@ -416,17 +531,27 @@ out:
 
 static int qup_spi_blsp_spi_read(struct udevice *dev, u8 *data_buffer, unsigned int bytes)
 {
+	struct udevice *bus = dev_get_parent(dev);
+	struct qup_spi_priv *priv = dev_get_priv(bus);
 	int length, ret;
 
-	while (bytes) {
-		length = (bytes < MAX_COUNT_SIZE) ? bytes : MAX_COUNT_SIZE;
+	if (!priv->use_dma) {
+		while (bytes) {
+			length = (bytes < MAX_COUNT_SIZE) ?
+				bytes : MAX_COUNT_SIZE;
 
-		ret = __qup_spi_blsp_spi_read(dev, data_buffer, length);
+			ret = __qup_spi_blsp_spi_read(dev, data_buffer,
+					length);
+			if (ret != 0)
+				return ret;
+
+			data_buffer += length;
+			bytes -= length;
+		}
+	} else {
+		ret = __qup_spi_blsp_spi_read(dev, data_buffer, bytes);
 		if (ret != 0)
 			return ret;
-
-		data_buffer += length;
-		bytes -= length;
 	}
 
 	return 0;
@@ -451,69 +576,88 @@ static int __qup_blsp_spi_write(struct udevice *dev, const u8 *cmd_buffer, unsig
 	if (state_config)
 		return state_config;
 
-	writel(bytes, priv->base + QUP_MX_OUTPUT_CNT);
-	writel(bytes, priv->base + QUP_MX_INPUT_CNT);
-	state_config = qup_spi_config_spi_state(dev, SPI_RUN_STATE);
-	if (state_config)
-		return state_config;
+	if (priv->use_dma) {
+		/* No of bytes to be written in Output FIFO */
+		writel(0, priv->base + QUP_MX_READ_CNT);
+		writel(0, priv->base + QUP_MX_WRITE_CNT);
+		writel(0, priv->base + QUP_MX_OUTPUT_CNT);
+		writel(0, priv->base + QUP_MX_INPUT_CNT);
+	} else {
+		writel(bytes, priv->base + QUP_MX_OUTPUT_CNT);
+		writel(bytes, priv->base + QUP_MX_INPUT_CNT);
+		state_config = qup_spi_config_spi_state(dev, SPI_RUN_STATE);
+		if (state_config)
+			return state_config;
+	}
 
 	/* Configure input and output enable */
-	qup_spi_enable_io_config(dev, write_len, read_len);
+	if (!(priv->use_dma))
+		qup_spi_enable_io_config(dev, write_len, read_len);
+	else
+		qup_spi_enable_io_config(dev, write_len, 0);
 
-	/*
-	 * read_len considered to ensure that we read the dummy data for the
-	 * write we performed. This is needed to ensure with WR-RD transaction
-	 * to get the actual data on the subsequent read cycle that happens
-	 */
-	while (write_len || read_len) {
-		ret = qup_spi_check_fifo_status(dev, QUP_OPERATIONAL);
-		if (ret != 0)
-			goto out;
+	if (priv->use_dma && write_len)
+		qup_spi_bam_begin_xfer(dev, cmd_buffer, bytes, SPI_BAM_WRITE);
+	else {
+		/*
+		 * read_len considered to ensure that we read the dummy data
+		 * for the write we performed. This is needed to ensure with
+		 * WR-RD transaction to get the actual data on the subsequent
+		 * read cycle that happens
+		 */
+		while (write_len || read_len) {
+			ret = qup_spi_check_fifo_status(dev, QUP_OPERATIONAL);
+			if (ret != 0)
+				goto out;
 
-		val = readl(priv->base + QUP_OPERATIONAL);
-		if (val & QUP_OP_OUT_SERVICE_FLAG) {
-			/*
-			 * acknowledge to hw that software will write
-			 * expected output data
-			 */
-			val &= QUP_OP_OUT_SERVICE_FLAG;
-			writel(val, priv->base + QUP_OPERATIONAL);
-
-			if (write_len > SPI_OUTPUT_BLOCK_SIZE)
-				fifo_count = SPI_OUTPUT_BLOCK_SIZE;
-			else
-				fifo_count = write_len;
-
-			for (i = 0; i < fifo_count; i++) {
-				/* Write actual data to output FIFO */
-				qup_spi_write_byte(dev, *cmd_buffer);
-				cmd_buffer++;
-				write_len--;
-			}
-		}
-		if (val & QUP_OP_IN_SERVICE_FLAG) {
-			/*
-			 * acknowledge to hw that software
-			 * will read input data
-			 */
-			val &= QUP_OP_IN_SERVICE_FLAG;
-			writel(val, priv->base + QUP_OPERATIONAL);
-
-			if (read_len > SPI_INPUT_BLOCK_SIZE)
-				fifo_count = SPI_INPUT_BLOCK_SIZE;
-			else
-				fifo_count = read_len;
-
-			for (i = 0; i < fifo_count; i++) {
-				/* Read dummy data for the data written */
-				(void)qup_spi_read_byte(dev);
-
-				/* Decrement the write count after reading the
-				 * dummy data from the device. This is to make
-				 * sure we read dummy data before we write the
-				 * data to fifo
+			val = readl(priv->base + QUP_OPERATIONAL);
+			if (val & QUP_OP_OUT_SERVICE_FLAG) {
+				/*
+				 * acknowledge to hw that software will write
+				 * expected output data
 				 */
-				read_len--;
+				val &= QUP_OP_OUT_SERVICE_FLAG;
+				writel(val, priv->base + QUP_OPERATIONAL);
+
+				if (write_len > SPI_OUTPUT_BLOCK_SIZE)
+					fifo_count = SPI_OUTPUT_BLOCK_SIZE;
+				else
+					fifo_count = write_len;
+
+				for (i = 0; i < fifo_count; i++) {
+					/* Write actual data to output FIFO */
+					qup_spi_write_byte(dev, *cmd_buffer);
+					cmd_buffer++;
+					write_len--;
+				}
+			}
+			if (val & QUP_OP_IN_SERVICE_FLAG) {
+				/*
+				 * acknowledge to hw that software
+				 * will read input data
+				 */
+				val &= QUP_OP_IN_SERVICE_FLAG;
+				writel(val, priv->base + QUP_OPERATIONAL);
+
+				if (read_len > SPI_INPUT_BLOCK_SIZE)
+					fifo_count = SPI_INPUT_BLOCK_SIZE;
+				else
+					fifo_count = read_len;
+
+				for (i = 0; i < fifo_count; i++) {
+					/* Read dummy data for the data
+					 * written
+					 */
+					(void)qup_spi_read_byte(dev);
+
+					/* Decrement the write count after
+					 * reading the dummy data from the
+					 * device. This is to make sure we
+					 * read dummy data before we write
+					 * the data to fifo
+					 */
+					read_len--;
+				}
 			}
 		}
 	}
@@ -529,17 +673,26 @@ out:
 
 static int qup_spi_blsp_spi_write(struct udevice *dev, const u8 *cmd_buffer, unsigned int bytes)
 {
+	struct udevice *bus = dev_get_parent(dev);
+	struct qup_spi_priv *priv = dev_get_priv(bus);
 	int length, ret;
 
-	while (bytes) {
-		length = (bytes < MAX_COUNT_SIZE) ? bytes : MAX_COUNT_SIZE;
+	if (!priv->use_dma) {
+		while (bytes) {
+			length = (bytes < MAX_COUNT_SIZE) ?
+				bytes : MAX_COUNT_SIZE;
 
-		ret = __qup_blsp_spi_write(dev, cmd_buffer, length);
+			ret = __qup_blsp_spi_write(dev, cmd_buffer, length);
+			if (ret != 0)
+				return ret;
+
+			cmd_buffer += length;
+			bytes -= length;
+		}
+	} else {
+		ret = __qup_blsp_spi_write(dev, cmd_buffer, bytes);
 		if (ret != 0)
 			return ret;
-
-		cmd_buffer += length;
-		bytes -= length;
 	}
 
 	return 0;
@@ -616,6 +769,7 @@ static int qup_spi_hw_init(struct udevice *dev)
 {
 	struct udevice *bus = dev_get_parent(dev);
 	struct qup_spi_priv *priv = dev_get_priv(bus);
+	struct dm_spi_slave_plat *slave_plat = dev_get_parent_plat(dev);
 	int ret;
 
 	/* QUPn module configuration */
@@ -625,6 +779,11 @@ static int qup_spi_hw_init(struct udevice *dev)
 	ret = qup_spi_config_spi_state(dev, SPI_RESET_STATE);
 	if (ret)
 		return ret;
+
+	if (priv->use_dma) {
+		dma_enable(&priv->dma_tx);
+		dma_enable(&priv->dma_rx);
+	}
 
 	/*
 	 * Configure Mini core to SPI core with Input Output enabled,
@@ -659,22 +818,49 @@ static int qup_spi_hw_init(struct udevice *dev)
 	/*
 	 * Configure SPI IO Modes.
 	 * OUTPUT_BIT_SHIFT_EN = 1
+	 * INPUT_MODE = BAM Mode
+	 * OUTPUT MODE = BAM Mode
+	 */
+
+	if (priv->use_dma)
+		clrsetbits_le32(priv->base + QUP_IO_M_MODES,
+				(OUTPUT_BIT_SHIFT_MSK |
+						INPUT_BLOCK_MODE_MSK |
+						OUTPUT_BLOCK_MODE_MSK |
+						PACK_EN_MSK |
+						UNPACK_EN_MSK),
+						(OUTPUT_BIT_SHIFT_EN |
+						INPUT_BAM_MODE |
+						OUTPUT_BAM_MODE | PACK_EN |
+						UNPACK_EN));
+	else
+	/*
+	 * Configure SPI IO Modes.
+	 * OUTPUT_BIT_SHIFT_EN = 1
 	 * INPUT_MODE = Block Mode
 	 * OUTPUT MODE = Block Mode
 	 */
-
-	clrsetbits_le32(priv->base + QUP_IO_M_MODES, (OUTPUT_BIT_SHIFT_MSK |
+		clrsetbits_le32(priv->base + QUP_IO_M_MODES,
+				(OUTPUT_BIT_SHIFT_MSK |
 				INPUT_BLOCK_MODE_MSK |
 				OUTPUT_BLOCK_MODE_MSK),
 				(OUTPUT_BIT_SHIFT_EN |
 				INPUT_BLOCK_MODE |
 				OUTPUT_BLOCK_MODE));
 
+	qup_spi_set_mode(bus, slave_plat->mode);
+
 	/* Disable Error mask */
 	writel(0, priv->base + SPI_ERROR_FLAGS_EN);
 	writel(0, priv->base + QUP_ERROR_FLAGS_EN);
 	writel(0, priv->base + BLSP0_SPI_DEASSERT_WAIT_REG);
 
+	if (priv->use_dma)
+		clrsetbits_le32(priv->base + QUP_OPERATIONAL_MASK,
+				(OUTPUT_SERVICE_MSK |
+				INPUT_SERVICE_MSK),
+				(OUTPUT_SERVICE_DIS |
+				INPUT_SERVICE_DIS));
 	return ret;
 }
 
@@ -702,6 +888,7 @@ static int qup_spi_xfer(struct udevice *dev, unsigned int bitlen,
 {
 	struct udevice *bus = dev_get_parent(dev);
 	struct dm_spi_slave_plat *slave_plat = dev_get_parent_plat(dev);
+	struct qup_spi_priv *priv = dev_get_priv(bus);
 	unsigned int len;
 	const u8 *txp = dout;
 	u8 *rxp = din;
@@ -715,9 +902,11 @@ static int qup_spi_xfer(struct udevice *dev, unsigned int bitlen,
 	len = bitlen >> 3;
 
 	if (flags & SPI_XFER_BEGIN) {
-		ret = qup_spi_hw_init(dev);
-		if (ret != 0)
-			return ret;
+		if (!priv->use_dma) {
+			ret = qup_spi_hw_init(dev);
+			if (ret != 0)
+				return ret;
+		}
 
 		ret = qup_spi_set_cs(bus, slave_plat->cs, false);
 		if (ret != 0)
@@ -762,7 +951,18 @@ static int qup_spi_probe(struct udevice *dev)
 	if (ret < 0)
 		return ret;
 
+	priv->use_dma = 1;
+
+	ret = dma_get_by_name(dev, "tx", &priv->dma_tx);
+	if (ret < 0)
+		priv->use_dma = 0;
+
+	ret = dma_get_by_name(dev, "rx", &priv->dma_rx);
+	if (ret < 0)
+		priv->use_dma = 0;
+
 	priv->num_cs = dev_read_u32_default(dev, "num-cs", 1);
+	priv->force_cs = dev_read_bool(dev, "force-cs");
 
 	ret = gpio_request_list_by_name(dev, "cs-gpios", priv->cs_gpios,
 					priv->num_cs, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);

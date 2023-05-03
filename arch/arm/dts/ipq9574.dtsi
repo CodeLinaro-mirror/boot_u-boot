@@ -63,6 +63,14 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		blsp_dma: dma@7884000 {
+			compatible = "qti,bam-v1.7.0";
+			reg = <0x07884000 0x1d000>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>;
+			#dma-cells = <6>;
+			status = "okay";
+		};
+
 		blsp1_uart1: serial@78B1000 {
 			compatible = "qcom,msm-uartdm-v1.4";
 			#address-cells = <1>;
@@ -72,6 +80,19 @@
 				<&gcc GCC_BLSP1_AHB_CLK>;
 			bit-rate = <0xFF>;
 			status = "okay";
+			u-boot,dm-pre-reloc;
+		};
+
+		blsp1_spi: spi@78b5000 {
+			compatible = "qcom,spi-qup-v2.2.1";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x78b5000 0x600>;
+			clocks = <&gcc GCC_BLSP1_QUP1_SPI_APPS_CLK>;
+			dma-names = "tx", "rx";
+			dmas = <&blsp_dma 12 1 16 0 0xFFFF 16>,
+			     <&blsp_dma 13 2 16 0 0xFFFF 16>;
+			status = "disabled";
 			u-boot,dm-pre-reloc;
 		};
 
