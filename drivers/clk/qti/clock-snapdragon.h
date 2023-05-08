@@ -35,6 +35,12 @@ struct bcr_regs {
 	uintptr_t D;
 };
 
+struct bcr_regs_v2 {
+	uintptr_t cfg_rcgr;
+	uintptr_t cmd_rcgr;
+	uintptr_t div_cdivr;
+};
+
 struct msm_clk_priv {
 	phys_addr_t base;
 };
@@ -45,5 +51,7 @@ void clk_enable_cbc(phys_addr_t cbcr);
 void clk_enable_vote_clk(phys_addr_t base, const struct vote_clk *vclk);
 void clk_rcg_set_rate_mnd(phys_addr_t base, const struct bcr_regs *regs,
 			  int div, int m, int n, int source);
+void clk_rcg_set_rate_v2(phys_addr_t base, const struct bcr_regs_v2 *regs,
+			  int div, int cdiv, int source);
 
 #endif

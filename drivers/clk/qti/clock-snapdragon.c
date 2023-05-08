@@ -23,6 +23,11 @@
 
 extern ulong msm_set_rate(struct clk *clk, ulong rate);
 extern int msm_enable(struct clk *clk);
+extern ulong msm_get_rate(struct clk *clk);
+extern int msm_set_parent(struct clk *clk, struct clk *parent);
+
+__weak ulong msm_get_rate(struct clk *clk) {return 0;}
+__weak int msm_set_parent(struct clk *clk, struct clk *parent) {return 0;}
 
 /* Enable clock controlled by CBC soft macro */
 void clk_enable_cbc(phys_addr_t cbcr)
@@ -113,6 +118,32 @@ void clk_rcg_set_rate_mnd(phys_addr_t base, const struct bcr_regs *regs,
 	clk_bcr_update(base + regs->cmd_rcgr);
 }
 
+/* root set rate for clocks without the MND divider */
+void clk_rcg_set_rate_v2(phys_addr_t base, const struct bcr_regs_v2 *regs,
+			  int div, int cdiv, int source)
+{
+	u32 cfg;
+
+	/* setup src select and divider */
+	cfg  = readl(base + regs->cfg_rcgr);
+	cfg &= ~CFG_MASK;
+	cfg |= source & CFG_CLK_SRC_MASK; /* Select clock source */
+
+	/* Set the divider; HW permits fraction dividers (+0.5), but
+	   for simplicity, we will support integers only */
+	if (div)
+		cfg |= div & CFG_DIVIDER_MASK;
+
+	writel(cfg, base + regs->cfg_rcgr); /* Write new clock configuration */
+
+	/* Write the common divider clock configuration */
+	if (cdiv)
+		writel(cdiv, base + regs->div_cdivr);
+
+	/* Inform h/w to start using the new config. */
+	clk_bcr_update(base + regs->cmd_rcgr);
+}
+
 static int msm_clk_probe(struct udevice *dev)
 {
 	struct msm_clk_priv *priv = dev_get_priv(dev);
@@ -134,9 +165,21 @@ static int msm_clk_enable(struct clk *clk)
 	return msm_enable(clk);
 }
 
+static ulong msm_clk_get_rate(struct clk *clk)
+{
+	return msm_get_rate(clk);
+}
+
+static int msm_clk_set_parent(struct clk *clk, struct clk *parent)
+{
+	return msm_set_parent(clk, parent);
+}
+
 static struct clk_ops msm_clk_ops = {
 	.set_rate = msm_clk_set_rate,
 	.enable = msm_clk_enable,
+	.get_rate = msm_clk_get_rate,
+	.set_parent = msm_clk_set_parent,
 };
 
 static const struct udevice_id msm_clk_ids[] = {

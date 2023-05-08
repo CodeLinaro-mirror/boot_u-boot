@@ -107,6 +107,17 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 #include <dt-bindings/reset/ipq5332-reset.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {
 	[GCC_SDCC1_BCR] = {0x33000, 0},
+	[GCC_UNIPHY0_BCR] = {0x16000, 0},
+	[GCC_UNIPHY1_BCR] = {0x16014, 0},
+	[GCC_UNIPHY0_SOFT_RESET] = {0x1600C, 2},
+	[GCC_UNIPHY1_SOFT_RESET] = {0x16018, 2},
+	[GCC_UNIPHY0_XPCS_RESET] = {0x16050, 0},
+	[GCC_UNIPHY1_XPCS_RESET] = {0x16060, 0},
+	[NSS_CC_PPE_BCR] = {0x003E4, 0},
+	[NSS_CC_UNIPHY_PORT1_RX_RESET] = {0x004B4, 2},
+	[NSS_CC_UNIPHY_PORT1_TX_RESET] = {0x004B8, 2},
+	[NSS_CC_UNIPHY_PORT2_RX_RESET] = {0x004BC, 2},
+	[NSS_CC_UNIPHY_PORT2_TX_RESET] = {0x004C0, 2},
 };
 #endif
 
@@ -114,6 +125,30 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 #include <dt-bindings/reset/ipq9574-reset.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {
 	[GCC_SDCC1_BCR] = {0x33000, 0},
+	[GCC_UNIPHY0_SOFT_RESET] = {0x17050, 0},
+	[GCC_UNIPHY1_SOFT_RESET] = {0x17060, 0},
+	[GCC_UNIPHY2_SOFT_RESET] = {0x17070, 0},
+	[GCC_UNIPHY0_XPCS_RESET] = {0x17050, 2},
+	[GCC_UNIPHY1_XPCS_RESET] = {0x17060, 2},
+	[GCC_UNIPHY2_XPCS_RESET] = {0x17070, 2},
+	[NSS_CC_PPE_BTQ_RESET] = {0x28A08, 20},
+	[NSS_CC_PPE_IPE_RESET] = {0x28A08, 19},
+	[NSS_CC_PPE_RESET] = {0x28A08, 18},
+	[NSS_CC_PPE_CFG_RESET] = {0x28A08, 17},
+	[NSS_CC_PPE_EDMA_RESET] = {0x28A08, 16},
+	[NSS_CC_PPE_EDMA_CFG_RESET] = {0x28A08, 15},
+	[NSS_CC_UNIPHY_PORT1_RX_RESET] = {0x28A24, 23},
+	[NSS_CC_UNIPHY_PORT1_TX_RESET] = {0x28A24, 22},
+	[NSS_CC_UNIPHY_PORT2_RX_RESET] = {0x28A24, 21},
+	[NSS_CC_UNIPHY_PORT2_TX_RESET] = {0x28A24, 20},
+	[NSS_CC_UNIPHY_PORT3_RX_RESET] = {0x28A24, 19},
+	[NSS_CC_UNIPHY_PORT3_TX_RESET] = {0x28A24, 18},
+	[NSS_CC_UNIPHY_PORT4_RX_RESET] = {0x28A24, 17},
+	[NSS_CC_UNIPHY_PORT4_TX_RESET] = {0x28A24, 16},
+	[NSS_CC_UNIPHY_PORT5_RX_RESET] = {0x28A24, 15},
+	[NSS_CC_UNIPHY_PORT5_TX_RESET] = {0x28A24, 14},
+	[NSS_CC_UNIPHY_PORT6_RX_RESET] = {0x28A24, 13},
+	[NSS_CC_UNIPHY_PORT6_TX_RESET] = {0x28A24, 12},
 };
 #endif
 
