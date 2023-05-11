@@ -26,6 +26,19 @@ config TEXT_SIZE
 	hex "Define Size of u-boot text size in DDR region"
 	default 0x100000
 
+config IPQ_SPI_NOR
+	bool "Enable SPI NOR flash support in IPQ SOC"
+	select DMA
+	select DMA_CHANNELS
+	select BAM_DMA
+	select SPI
+	select DM_SPI
+	select DM_SPI_FLASH
+	select SPI_QUP
+	select SPI_FLASH_STMICRO
+	select SPI_FLASH_GIGADEVICE
+	select SPI_FLASH_MACRONIX
+
 choice
 	prompt "IPQ board select"
 
