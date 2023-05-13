@@ -39,6 +39,9 @@ config IPQ_SPI_NOR
 	select SPI_FLASH_GIGADEVICE
 	select SPI_FLASH_MACRONIX
 
+config IPQ_SPI_NOR_DEV_NAME
+	string "IPQ SPI NOR boot device name"
+
 choice
 	prompt "IPQ board select"
 

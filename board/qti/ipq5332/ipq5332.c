@@ -7,6 +7,8 @@
 #include <cpu_func.h>
 #include <asm/cache.h>
 #include <asm/global_data.h>
+#include <jffs2/load_kernel.h>
+#include <mtd_node.h>
 #include <sysreset.h>
 #include <linux/psci.h>
 #ifdef CONFIG_ARM64
@@ -14,6 +16,18 @@
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#if CONFIG_FDT_FIXUP_PARTITIONS
+struct node_info ipq_fnodes[] = {
+	{ "n25q128a11", MTD_DEV_TYPE_NOR},
+	{ "micron,n25q128a11", MTD_DEV_TYPE_NOR},
+};
+
+int ipq_fnode_entires = ARRAY_SIZE(ipq_fnodes);
+
+struct node_info * fnodes = ipq_fnodes ;
+int * fnode_entires = &ipq_fnode_entires;
+#endif
 
 void reset_cpu(void)
 {

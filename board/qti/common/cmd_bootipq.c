@@ -44,6 +44,9 @@ unsigned int get_rootfs_active_partition(void)
 	int i;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
+	if (!sfi->ipq_smem_bootconfig_info)
+		return 0;
+
 	for (i = 0; i < sfi->ipq_smem_bootconfig_info->numaltpart; i++) {
 		if (strncmp("rootfs",
 			sfi->ipq_smem_bootconfig_info->per_part_entry[i].name,

@@ -87,6 +87,11 @@ ipq_smem_flash_info_t * get_ipq_smem_flash_info(void)
 	return &ipq_smem_flash_info;
 }
 
+struct smem_ptable * get_ipq_part_table_info(void)
+{
+	return ptable;
+}
+
 socinfo_t * get_socinfo(void)
 {
 	return &ipq_socinfo;

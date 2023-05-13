@@ -273,6 +273,12 @@ typedef struct {
 } mbn_header_t;
 
 /*
+ * Extern variables
+ */
+extern struct node_info * fnodes;
+extern int * fnode_entires;
+
+/*
  * Function declaration
  */
 unsigned int get_which_flash_param(char *part_name);
