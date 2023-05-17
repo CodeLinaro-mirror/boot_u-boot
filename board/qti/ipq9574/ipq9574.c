@@ -8,6 +8,8 @@
 #include <asm/cache.h>
 #include <configs/ipq9574.h>
 #include <asm/global_data.h>
+#include <sysreset.h>
+#include <linux/psci.h>
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
 #endif
@@ -16,6 +18,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 void reset_cpu(void)
 {
+	psci_sys_reset(SYSRESET_COLD);
 	return;
 }
 

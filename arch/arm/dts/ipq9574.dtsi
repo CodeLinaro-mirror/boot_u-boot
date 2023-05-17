@@ -36,6 +36,11 @@
 		u-boot,dm-pre-reloc;
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	soc: soc {
 		#address-cells = <1>;
 		#size-cells = <1>;
