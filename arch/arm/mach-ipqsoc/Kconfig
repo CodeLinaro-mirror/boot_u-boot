@@ -1,5 +1,15 @@
 if ARCH_IPQSOC
 
+config ARCH_32BIT_SUPPORT
+	bool "IPQSOC 32-bit support"
+	select CPU_V7A
+	default n
+
+config ARCH_64BIT_SUPPORT
+	bool "IPQSOC 64-bit support"
+	select ARM64
+	default n
+
 config SYS_SOC
 	default "ipqsoc"
 
@@ -57,6 +67,8 @@ config TARGET_IPQ5332
 	select IPQ_FDT_FIXUP
 	select SYS_DEVICE_NULLDEV
 	select CMD_XIMG
+	select ENV_IS_NOWHERE
+	select SYS_ARCH_TIMER if CPU_V7A
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -75,6 +87,8 @@ config TARGET_IPQ9574
 	select IPQ_FDT_FIXUP
 	select SYS_DEVICE_NULLDEV
 	select CMD_XIMG
+	select ENV_IS_NOWHERE
+	select SYS_ARCH_TIMER if CPU_V7A
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

@@ -2054,7 +2054,6 @@ config ARCH_GXP
 
 config ARCH_IPQSOC
 	bool "QTI IPQ SoCs"
-	select ARM64
 	select DM
 	select SMEM
 	select MSM_SMEM
