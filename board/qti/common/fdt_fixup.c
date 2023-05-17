@@ -211,6 +211,8 @@ void ipq_fdt_fixup(void *blob)
 			parse_fdt_fixup(s, blob);
 	}
 }
+
+__weak 	void fdt_fixup_flash(void *blob) { return; }
 #endif /* CONFIG_IPQ_FDT_FIXUP */
 
 __weak void ipq_fdt_fixup_socinfo(void *blob)
@@ -411,6 +413,7 @@ static const fdt_fixup_t fixup_functions[] = {
 	ipq_fdt_fixup_mtdparts,
 #endif
 #ifdef CONFIG_IPQ_FDT_FIXUP
+	fdt_fixup_flash,
 	ipq_fdt_fixup,
 #endif
 	NULL

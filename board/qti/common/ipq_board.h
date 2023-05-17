@@ -282,6 +282,7 @@ extern int * fnode_entires;
  * Function declaration
  */
 unsigned int get_which_flash_param(char *part_name);
+int get_current_board_flash_config(void);
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void);
 socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
@@ -294,5 +295,6 @@ int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
 #ifdef CONFIG_IPQ_FDT_FIXUP
 void ipq_fdt_fixup(void *blob);
 void parse_fdt_fixup(char* buf, void *blob0);
+void fdt_fixup_flash(void *blob);
 #endif /* CONFIG_IPQ_FDT_FIXUP */
 #endif
