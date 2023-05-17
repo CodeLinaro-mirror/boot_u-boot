@@ -18,6 +18,9 @@ config RAM_NUM_PART_ENTRIES
 	int "Number of RAM partition entries which are usable by APPS"
 	default 32
 
+config IPQ_FDT_FIXUP
+	bool "Enable FDT parser"
+
 config RAM_PART_NAME_LENGTH
 	int "Max length of ram partition name"
 	default 16
@@ -51,6 +54,7 @@ config TARGET_IPQ5332
 	select OF_BOARD_SETUP
 	select PINCTRL_QTI
 	select CLK_QTI
+	select IPQ_FDT_FIXUP
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -66,6 +70,7 @@ config TARGET_IPQ9574
 	select OF_BOARD_SETUP
 	select PINCTRL_QTI
 	select CLK_QTI
+	select IPQ_FDT_FIXUP
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
