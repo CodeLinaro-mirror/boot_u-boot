@@ -19,6 +19,11 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		tz_mem: tz@4A600000 {
+			reg = <0x4A600000 0x400000>;
+			no-map;
+		};
+
 		smem_mem: smem_region@4AA00000 {
 			reg = <0x4AA00000 0x100000>;
 			no-map;

@@ -48,6 +48,7 @@
 #include <dm.h>
 #include <smem.h>
 #include <common.h>
+#include <lmb.h>
 #ifdef CONFIG_PHY_AQUANTIA
 #include <u-boot/crc.h>
 #include <miiphy.h>
@@ -566,6 +567,13 @@ int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 	}
 
 	return ret;
+}
+
+void board_lmb_reserve(struct lmb *lmb)
+{
+	if (lmb)
+		lmb->reserved.region[0].size = (CONFIG_TEXT_BASE -
+				lmb->reserved.region[0].base);
 }
 
 #ifdef CONFIG_PHY_AQUANTIA
