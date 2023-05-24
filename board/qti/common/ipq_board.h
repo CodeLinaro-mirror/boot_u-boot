@@ -11,6 +11,8 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <asm/byteorder.h>
+#include <mtd_node.h>
+#include <part.h>
 #ifdef CONFIG_TARGET_IPQ9574
 #include "../ipq9574/ipq9574.h"
 #endif
@@ -101,6 +103,7 @@ struct smem_ram_ptable {
 /*
  * function declaration
  */
+int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
 int smem_ram_ptable_init(struct smem_ram_ptable *smem_ram_ptable);
 int smem_ram_ptable_init_v2(
 		struct usable_ram_partition_table *usable_ram_partition_table);
@@ -272,7 +275,14 @@ typedef struct {
 /*
  * Function declaration
  */
+unsigned int get_which_flash_param(char *part_name);
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void);
 socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
+struct smem_ptable * get_ipq_part_table_info(void);
+int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size);
+unsigned int get_rootfs_active_partition(void);
+#ifdef CONFIG_MMC
+int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
+#endif
 #endif
