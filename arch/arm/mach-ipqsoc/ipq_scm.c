@@ -201,6 +201,53 @@ int qti_scm_call_read(u32 svc_id, u32 cmd_id, u32 *addr, u32 *val)
         desc.args[0] = (uintptr_t)addr;
 	ret = qcom_scm_call(SCM_OWNR_SIP, svc_id,\
 				cmd_id, &desc, &res);
-	*val = res.a1; 
+	*val = res.a1;
         return ret;
+}
+
+int qti_scm_call_write(u32 svc_id, u32 cmd_id, u32 *addr, u32 val)
+{
+	int ret = 0;
+        struct qti_scm_desc desc = {0};
+	struct arm_smccc_res res;
+
+	/* In ipq807x, this SCM call is called as a Fast
+	 * SCM call which means it will get executed in
+	 * EL3 monitor mode itself without jumping to QSEE.
+	 * But, In ipq6018, We need to jump into QSEE which
+	 * will execute the SCM call, as we do not have
+	 * support for Fast SCM call in ipq6018.
+	 */
+
+	desc.arginfo = QCOM_SCM_ARGS(2, SCM_VAL, SCM_VAL);
+
+	desc.args[0] = (uintptr_t)addr;
+	desc.args[1] = val;
+	ret = qcom_scm_call(SCM_OWNR_SIP, svc_id,\
+				cmd_id, &desc, &res);
+	return ret;
+}
+
+int qca_scm_sdi(void)
+{
+        int ret;
+        struct qti_scm_desc desc = {0};
+	struct arm_smccc_res res;
+
+	desc.args[0] = 1ul;    /* Disable wdog debug */
+	desc.args[1] = 0ul;    /* SDI Enable */
+	desc.arginfo = QCOM_SCM_ARGS(2, SCM_VAL, SCM_VAL);
+	ret = qcom_scm_call(SCM_OWNR_SIP, SCM_SVC_BOOT,\
+				SCM_CMD_TZ_CONFIG_HW_FOR_RAM_DUMP_ID,
+				&desc, &res);
+	if (ret)
+		return ret;
+
+	return desc.ret[0];
+}
+
+int qca_scm_dload(u32 *tcsr_addr, u32 magic_cookie)
+{
+	return qti_scm_call_write(SCM_SVC_IO, SCM_IO_WRITE,
+			tcsr_addr, magic_cookie);
 }

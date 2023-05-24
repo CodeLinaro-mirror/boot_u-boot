@@ -45,8 +45,36 @@ struct node_info * fnodes = ipq_fnodes ;
 int * fnode_entires = &ipq_fnode_entires;
 #endif
 
+struct dumpinfo_t dumpinfo_n[] = {
+	/* TZ stores the DDR physical address at which it stores the
+	 * APSS regs, UTCM copy dump. We will have the TZ IMEM
+	 * IMEM Addr at which the DDR physical address is stored as
+	 * the start
+	 *     --------------------
+         *     |  DDR phy (start) | ----> ------------------------
+         *     --------------------       | APSS regsave (8k)    |
+         *                                ------------------------
+         *                                |                      |
+	 *                                | 	 UTCM copy	 |
+         *                                |        (192k)        |
+	 *                                |                      |
+         *                                ------------------------
+	 */
+
+	{ "EBICS0.BIN", 0x40000000, 0x40000000, 0 },
+	{ "CODERAM.BIN", 0x00200000, 0x00028000, 0 },
+	{ "DATARAM.BIN", 0x00290000, 0x00014000, 0 },
+	{ "MSGRAM.BIN", 0x00060000, 0x00006000, 1 },
+	{ "IMEM.BIN", 0x08600000, 0x00001000, 0 },
+};
+int dump_entries_n = ARRAY_SIZE(dumpinfo_n);
+
+struct dumpinfo_t * dumpinfo = dumpinfo_n;
+int * dump_entries = &dump_entries_n;
+
 void reset_cpu(void)
 {
+	reset_crashdump();
 	psci_sys_reset(SYSRESET_COLD);
 	return;
 }

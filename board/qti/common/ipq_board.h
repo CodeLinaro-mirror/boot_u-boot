@@ -278,6 +278,31 @@ typedef struct {
 extern struct node_info * fnodes;
 extern int * fnode_entires;
 
+/* Crashdump levels */
+enum {
+	FULL_DUMP,
+	MINIMAL_DUMP
+};
+
+struct dumpinfo_t {
+	char name[256]; /* use only file name in 8.3 format */
+	uint32_t start;
+	uint32_t size;
+	int is_aligned_access; /* non zero represent 4 byte access */
+	uint32_t is_redirected; /* If this flag is set, 'start' is considered
+				 * a ptr to address to be dumped
+				 */
+	uint32_t offset; /* offset to be added to start address */
+	uint32_t dump_level;
+	uint32_t to_compress; /* non-zero represent for compressed dump*/
+};
+
+/*
+ * Extern variables
+ */
+extern struct dumpinfo_t * dumpinfo;
+extern int * dump_entries;
+
 /*
  * Function declaration
  */
@@ -299,4 +324,5 @@ void ipq_fdt_fixup(void *blob);
 void parse_fdt_fixup(char* buf, void *blob0);
 void fdt_fixup_flash(void *blob);
 #endif /* CONFIG_IPQ_FDT_FIXUP */
+void reset_crashdump(void);
 #endif

@@ -30,4 +30,13 @@ typedef enum {
 	SMEM_MAX_SIZE = SMEM_SPI_FLASH_ADDR_LEN + 1,
 } smem_mem_type_t;
 
+/* Crashdump Magic registers & values */
+#define TCSR_BOOT_MISC_REG			((u32*)0x193D100)
+
+#define DLOAD_MAGIC_COOKIE			0x10
+#define DLOAD_DISABLED				0x40
+#define DLOAD_ENABLE				BIT(4)
+#define DLOAD_DISABLE				(~BIT(4))
+#define CRASHDUMP_RESET				BIT(11)
+
 #endif /* _IPQ9574_H_ */

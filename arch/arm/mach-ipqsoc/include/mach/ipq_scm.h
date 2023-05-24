@@ -49,7 +49,6 @@
 #define KERNEL_AUTH_CMD				0x1E
 #define SCM_CMD_SEC_AUTH			0x1F
 #define SCM_CMD_TZ_CONFIG_HW_FOR_RAM_DUMP_ID	0x9
-#define TCSR_BOOT_MISC_REG			((u32 *)0x193D100)
 #define SCM_CMD_TZ_FORCE_DLOAD_ID		0x10
 
 /* scm_v8 */
@@ -224,4 +223,6 @@ typedef struct {
 
 void __attribute__ ((noreturn)) jump_kernel(void *kernel_entry,
 		void *fdt_addr);
+int qca_scm_sdi(void);
+int qca_scm_dload(u32 *tcsr_addr, u32 magic_cookie);
 #endif
