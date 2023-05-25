@@ -155,36 +155,66 @@
 			phy0: phy@16 {
 				phy-reset-gpio = <&tlmm 60 0>;
 				reg = <16>;
-				phy-type = <0x1>;
+				phy_id = <0>;
+				id = <1>;
+				uniphy_id = <0>;
+				uniphy_type = <0>;
 			};
 
 			phy1: phy@17 {
 				reg = <17>;
-				phy-type = <0x1>;
+				phy_id = <0>;
+				id = <2>;
+				uniphy_id = <0>;
+				uniphy_type = <0>;
 			};
 
 			phy2: phy@18 {
 				reg = <18>;
-				phy-type = <0x1>;
+				phy_id = <0>;
+				id = <3>;
+				uniphy_id = <0>;
+				uniphy_type = <0>;
 			};
 
 			phy3: phy@19 {
 				reg = <19>;
-				phy-type = <0x1>;
+				phy_id = <0>;
+				id = <4>;
+				uniphy_id = <0>;
+				uniphy_type = <0>;
 			};
 
 			phy4: phy@8 {
 				phy-reset-gpio = <&tlmm 36 0>;
 				reg = <8>;
-				phy-type = <0x3>;
+				phy_id = <2>;
 				phy-mode = "usxgmii";
+				id = <5>;
+				uniphy_id = <1>;
+				uniphy_type = <1>;
+				xgmac;
 			};
 
 			phy5: phy@0 {
 				reg = <0>;
-				phy-type = <0x3>;
 				phy-mode = "usxgmii";
+				phy_id = <2>;
+				id = <6>;
+				uniphy_id = <2>;
+				uniphy_type = <0>;
+				xgmac;
 			};
+		};
+
+		ethernet: nss-switch {
+			phy-handle0 = <&phy0>;
+			phy-handle1 = <&phy1>;
+			phy-handle2 = <&phy2>;
+			phy-handle3 = <&phy3>;
+			phy-handle4 = <&phy4>;
+			phy-handle5 = <&phy5>;
+			status = "okay";
 		};
 	};
 };

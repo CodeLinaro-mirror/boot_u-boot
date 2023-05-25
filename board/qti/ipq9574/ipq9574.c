@@ -18,6 +18,14 @@
 
 #include "../common/ipq_board.h"
 
+#include <asm/io.h>
+#include <linux/delay.h>
+
+#define CMN_BLK_ADDR			0x0009B780
+#define FREQUENCY_MASK			0xfffffdf0
+#define INTERNAL_48MHZ_CLOCK		0x7
+#define PORT_WRAPPER_MAX		0xFF
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define LINUX6_1_NAND_DTS "/soc@0/nand@79b0000/"
@@ -92,6 +100,28 @@ void fdt_fixup_flash(void *blob)
 	return;
 }
 #endif /* CONFIG_IPQ_FDT_FIXUP */
+
+void ipq_config_cmn_clock(void)
+{
+	unsigned int reg_val;
+	/*
+	 * Init CMN clock for ethernet
+	 */
+	reg_val = readl(CMN_BLK_ADDR + 4);
+	reg_val = (reg_val & FREQUENCY_MASK) | INTERNAL_48MHZ_CLOCK;
+	writel(reg_val, CMN_BLK_ADDR + 0x4);
+	reg_val = readl(CMN_BLK_ADDR);
+	reg_val = reg_val | 0x40;
+	writel(reg_val, CMN_BLK_ADDR);
+	mdelay(1);
+	reg_val = reg_val & (~0x40);
+	writel(reg_val, CMN_BLK_ADDR);
+	mdelay(1);
+	writel(0xbf, CMN_BLK_ADDR);
+	mdelay(1);
+	writel(0xff, CMN_BLK_ADDR);
+	mdelay(1);
+}
 
 #ifdef CONFIG_ARM64
 /*
