@@ -53,6 +53,16 @@
 #include <u-boot/crc.h>
 #include <miiphy.h>
 #endif
+#ifdef CONFIG_MMC_SDHCI
+#include <mmc.h>
+#include <sdhci.h>
+#endif
+#ifdef CONFIG_CMD_NAND
+#include <nand.h>
+#endif
+#include <net.h>
+#include <spi.h>
+#include <spi_flash.h>
 
 #include "ipq_board.h"
 
@@ -70,8 +80,9 @@ extern int ipq_smem_get_socinfo(void);
 extern int part_get_info_efi(struct blk_desc *dev_desc, int part,
 		struct disk_partition *info);
 
-__weak
-void ipq_uboot_fdt_fixup(void)
+void set_ethmac_addr(void);
+
+__weak void ipq_uboot_fdt_fixup(void)
 {
 	return;
 }
@@ -81,6 +92,10 @@ __weak void set_flash_secondary_type(uint32_t flash_type)
 	return;
 }
 
+__weak void ipq_config_cmn_clock(void)
+{
+	return;
+}
 
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void)
 {
@@ -482,6 +497,21 @@ int board_fix_fdt(void *rw_fdt_blob)
 
 int board_late_init(void)
 {
+	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
+	if (sfi->flash_type != SMEM_BOOT_MMC_FLASH) {
+		get_kernel_fs_part_details();
+	}
+#ifdef CONFIG_QTI_NSS_SWITCH
+	/*
+	 * configure CMN clock for ethernet
+	 */
+	ipq_config_cmn_clock();
+#endif
+	/*
+	 * setup mac address
+	 */
+	set_ethmac_addr();
+
 	return 0;
 }
 
@@ -602,7 +632,7 @@ void board_lmb_reserve(struct lmb *lmb)
 }
 
 #ifdef CONFIG_PHY_AQUANTIA
-static int qti_aquantia_load_memory(struct phy_device *phydev, u32 addr,
+static int ipq_aquantia_load_memory(struct phy_device *phydev, u32 addr,
 				const u8 *data, size_t len)
 {
 	size_t pos;
@@ -639,7 +669,7 @@ static int qti_aquantia_load_memory(struct phy_device *phydev, u32 addr,
 	return 0;
 }
 
-static int qti_aquantia_upload_firmware(struct phy_device *phydev,
+static int ipq_aquantia_upload_firmware(struct phy_device *phydev,
 		uint8_t *addr,	uint32_t file_size)
 {
 	int ret;
@@ -709,14 +739,14 @@ static int qti_aquantia_upload_firmware(struct phy_device *phydev,
 	computed_crc = 0;
 
 	printf("PHYFW:Loading IRAM...........");
-	ret = qti_aquantia_load_memory(phydev, 0x40000000,
+	ret = ipq_aquantia_load_memory(phydev, 0x40000000,
 			&buf[primary_iram_ptr], primary_iram_sz);
 	if (ret < 0)
 		goto exit;
 	printf("done.\n");
 
 	printf("PHYFW:Loading DRAM..............");
-	ret = qti_aquantia_load_memory(phydev, 0x3ffe0000,
+	ret = ipq_aquantia_load_memory(phydev, 0x3ffe0000,
 			&buf[primary_dram_ptr], primary_dram_sz);
 	if (ret < 0)
 		goto exit;
@@ -734,14 +764,14 @@ exit:
 	return ret;
 }
 
-int qti_aquantia_load_fw(struct phy_device *phydev)
+int ipq_aquantia_load_fw(struct phy_device *phydev)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	u8 *fw_load_addr = NULL;
 	int ret = 0;
 	char runcmd[256];
 	mbn_header_t *fwimg_header;
-	char * eth_fw_part_name = QTI_ETH_FW_PART_NAME;
+	char * eth_fw_part_name = IPQ_ETH_FW_PART_NAME;
 	size_t part_size = 0;
 
 	uint32_t start_blk;		/* starting block */
@@ -781,7 +811,7 @@ int qti_aquantia_load_fw(struct phy_device *phydev)
 		goto exit;
 	}
 
-	fw_load_addr = (u8 *)malloc(part_size);
+	fw_load_addr = (u8 *)malloc_cache_aligned(part_size);
 
 	/* We only need memory equivalent to max size ETHPHYFW
 	 * which is currently assumed as 512 KB.
@@ -823,7 +853,7 @@ int qti_aquantia_load_fw(struct phy_device *phydev)
 
 	if (fwimg_header->image_type == 0x13 &&
 			fwimg_header->header_vsn_num == 0x3) {
-		ret = qti_aquantia_upload_firmware(phydev,
+		ret = ipq_aquantia_upload_firmware(phydev,
 				(uint8_t*)((uint32_t)sizeof(mbn_header_t)
 				+ fw_load_addr),
 				(uint32_t)(fwimg_header->image_size));
@@ -841,3 +871,132 @@ exit:
 	return ret;
 }
 #endif /* CONFIG_PHY_AQUANTIA */
+
+int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
+{
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	u32 length = (6 * no_of_macs);
+	int ret = 0;
+	char *part_name = "0:ART";
+#ifdef CONFIG_IPQ_SPI_NOR
+	struct spi_flash *flash = NULL;
+#endif
+	uint32_t start_blk;
+	uint32_t blk_cnt;
+	ipq_part_entry_t art;
+#if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
+	struct mmc *mmc;
+	struct blk_desc *desc;
+	struct disk_partition disk_info;
+	unsigned char *mmc_blks = (unsigned char*) malloc_cache_aligned(512);
+	if(mmc_blks == NULL)
+		return -ENOMEM;
+#endif
+
+	/* check the smem info to see which flash used for booting */
+	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
+	    (sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
+	    (sfi->flash_type == SMEM_BOOT_SPI_FLASH)) {
+		ret = smem_getpart(part_name, &start_blk, &blk_cnt);
+		if (ret < 0) {
+			debug("cdp: get part failed for %s\n",
+					part_name);
+			ret = -ENXIO;
+			goto exit;
+		} else {
+			ipq_set_part_entry(part_name, sfi, &art, start_blk,
+						blk_cnt);
+		}
+	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
+#if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
+		mmc = find_mmc_device(CONFIG_SYS_MMC_ENV_DEV);
+		if (!mmc) {
+			printf("Failed to find MMC device \n");
+			ret = -ENXIO;
+			goto exit;
+		}
+		desc = mmc_get_blk_desc(mmc);
+		if (!desc) {
+			printf("Failed to find the desc \n");
+			ret = -1;
+			goto exit;
+		}
+		ret = part_get_info_by_name(desc, part_name, &disk_info);
+		if (ret == -ENOENT) {
+			printf("Failed to find the partition info \n");
+			goto exit;
+		}
+#ifdef CONFIG_BLK
+		ret = blk_dread(desc, (uint)disk_info.start, 1, mmc_blks);
+#else
+		ret = mmc->block_dev.block_read(&mmc->block_dev,
+						(uint)disk_info.start,
+						1,
+						mmc_blks);
+#endif
+		if(ret < 0) {
+			printf("MMC: 0:ART read failed %d\n", ret);
+			goto exit;
+		}
+		memcpy(enetaddr, mmc_blks, length);
+		if(mmc_blks)
+			free(mmc_blks);
+#endif
+	} else {
+		printf("Unsupported BOOT flash type\n");
+		ret = -ENXIO;
+		goto exit;
+	}
+#ifdef CONFIG_IPQ_SPI_NOR
+	if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
+		flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS,
+					CONFIG_SF_DEFAULT_CS,
+					CONFIG_SF_DEFAULT_SPEED,
+					CONFIG_SF_DEFAULT_MODE);
+		if (flash == NULL){
+			printf("No SPI flash device found\n");
+			ret = -1;
+		} else {
+			spi_flash_read(flash, art.offset, length, enetaddr);
+		}
+	}
+#endif
+#ifdef CONFIG_CMD_NAND
+	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
+		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
+		nand_read(get_nand_dev_by_index(0),art.offset,
+			(size_t *)&length, enetaddr);
+	}
+#endif
+exit:
+	return ret;
+}
+
+void set_ethmac_addr(void)
+{
+	int i, ret;
+	uchar enetaddr[CONFIG_ETH_MAX_MAC * 6];
+	uchar *mac_addr;
+	char ethaddr[16] = "ethaddr";
+	char mac[64];
+	/* Get the MAC address from ART partition */
+	ret = get_eth_mac_address(enetaddr, CONFIG_ETH_MAX_MAC);
+	for (i = 0; (ret >= 0) && (i < CONFIG_ETH_MAX_MAC); i++) {
+		mac_addr = &enetaddr[i * 6];
+		if (!is_valid_ethaddr(mac_addr)) {
+			printf("eth%d MAC Address from ART is not valid\n", i);
+		} else {
+			/*
+			 * U-Boot uses these to patch the 'local-mac-address'
+			 * dts entry for the ethernet entries, which in turn
+			 * will be picked up by the HLOS driver
+			 */
+			snprintf(mac, sizeof(mac), "%x:%x:%x:%x:%x:%x",
+					mac_addr[0], mac_addr[1],
+					mac_addr[2], mac_addr[3],
+					mac_addr[4], mac_addr[5]);
+			eth_env_set_enetaddr(ethaddr, mac);
+		}
+		snprintf(ethaddr, sizeof(ethaddr), "eth%daddr", (i + 1));
+	}
+}

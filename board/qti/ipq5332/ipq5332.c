@@ -17,6 +17,14 @@
 
 #include "../common/ipq_board.h"
 
+#include <asm/io.h>
+#include <linux/delay.h>
+
+#define PLL_POWER_ON_AND_RESET			0x9B780
+#define PLL_REFERENCE_CLOCK			0x9B784
+#define FREQUENCY_MASK				0xfffffdf0
+#define INTERNAL_48MHZ_CLOCK			0x7
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define LINUX_NAND_DTS "/soc/nand@79b0000/"
@@ -96,6 +104,27 @@ void fdt_fixup_flash(void *blob)
 	return;
 }
 #endif /* CONFIG_IPQ_FDT_FIXUP */
+
+void ipq_config_cmn_clock(void)
+{
+	unsigned int reg_val;
+	/*
+	 * Init CMN clock for ethernet
+	 */
+	reg_val = readl(PLL_REFERENCE_CLOCK);
+	reg_val = (reg_val & FREQUENCY_MASK) | INTERNAL_48MHZ_CLOCK;
+	/*Select clock source*/
+	writel(reg_val, PLL_REFERENCE_CLOCK);
+
+	/* Soft reset to calibration clocks */
+	reg_val = readl(PLL_POWER_ON_AND_RESET);
+	reg_val &= ~BIT(6);
+	writel(reg_val, PLL_POWER_ON_AND_RESET);
+	mdelay(1);
+	reg_val |= BIT(6);
+	writel(reg_val, PLL_POWER_ON_AND_RESET);
+	mdelay(1);
+}
 
 #ifdef CONFIG_ARM64
 /*

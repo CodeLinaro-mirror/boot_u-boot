@@ -55,6 +55,10 @@ config IPQ_SPI_NOR
 config IPQ_SPI_NOR_DEV_NAME
 	string "IPQ SPI NOR boot device name"
 
+config ETH_MAX_MAC
+	hex "Define Maximum MAC support in SoC"
+	default 2
+
 choice
 	prompt "IPQ board select"
 
@@ -69,6 +73,20 @@ config TARGET_IPQ5332
 	select CMD_XIMG
 	select ENV_IS_NOWHERE
 	select SYS_ARCH_TIMER if CPU_V7A
+	select PHYLIB
+	select DM_MDIO
+	select MDIO_IPQ4019
+	select CMD_MDIO
+	select CMD_MII
+	select CMD_NET
+	select PHY_QTI
+	select CMD_TFTPPUT
+	select ETH
+	select CMD_PING
+	select QTI_NSS_SWITCH
+	select TFTP_PORT
+	select CMD_DHCP
+	select PHY_QTI_8X8X
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -89,6 +107,21 @@ config TARGET_IPQ9574
 	select CMD_XIMG
 	select ENV_IS_NOWHERE
 	select SYS_ARCH_TIMER if CPU_V7A
+	select PHYLIB
+	select DM_MDIO
+	select MDIO_IPQ4019
+	select CMD_MDIO
+	select CMD_MII
+	select CMD_NET
+	select PHY_QTI
+	select CMD_TFTPPUT
+	select ETH
+	select CMD_PING
+	select QTI_NSS_SWITCH
+	select TFTP_PORT
+	select CMD_DHCP
+	select PHY_QTI_8075
+	select PHY_AQUANTIA
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

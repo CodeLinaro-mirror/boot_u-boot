@@ -23,7 +23,7 @@
 #define __str_fmt(x)		"%-" #x "s"
 #define _str_fmt(x)		__str_fmt(x)
 #define smem_ptn_name_fmt	_str_fmt(SMEM_PTN_NAME_MAX)
-#define QTI_ETH_FW_PART_NAME	"0:ETHPHYFW"
+#define IPQ_ETH_FW_PART_NAME	"0:ETHPHYFW"
 
 #ifdef CONFIG_SMEM_VERSION_C
 #define part_which_flash(p)    (((p)->attr & 0xff000000) >> 24)
