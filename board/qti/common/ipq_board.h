@@ -289,6 +289,8 @@ uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
 struct smem_ptable * get_ipq_part_table_info(void);
 int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size);
 unsigned int get_rootfs_active_partition(void);
+int mibib_ptable_init(unsigned int* addr);
+void get_kernel_fs_part_details(void);
 #ifdef CONFIG_MMC
 int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
 #endif

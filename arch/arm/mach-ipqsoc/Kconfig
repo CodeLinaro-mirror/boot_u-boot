@@ -55,6 +55,8 @@ config TARGET_IPQ5332
 	select PINCTRL_QTI
 	select CLK_QTI
 	select IPQ_FDT_FIXUP
+	select SYS_DEVICE_NULLDEV
+	select CMD_XIMG
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -71,6 +73,8 @@ config TARGET_IPQ9574
 	select PINCTRL_QTI
 	select CLK_QTI
 	select IPQ_FDT_FIXUP
+	select SYS_DEVICE_NULLDEV
+	select CMD_XIMG
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

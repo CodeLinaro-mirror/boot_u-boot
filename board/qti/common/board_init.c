@@ -111,12 +111,11 @@ void *smem_get_item(unsigned int item) {
 		ret = uclass_get_device_by_name(UCLASS_SMEM, name, &smem);
 
 	if (ret < 0) {
-		printf("Failed to find SMEM node. Check device tree %d\n", ret);
+		printf("Failed to find SMEM node. Check device tree %d\n",ret);
 		return 0;
 	}
 
 	return smem_get(reloc_flag ? smem : smem_tmp, -1, item, &size);
-
 }
 
 uint32_t get_part_block_size(struct smem_ptn *p,
@@ -414,6 +413,27 @@ int ipq_smem_get_socinfo()
 
 	return 0;
 
+}
+
+/**
+ * mibib_ptable_init - initializes SMEM partition table
+ *
+ * Initialize partition table from MIBIB.
+ */
+int mibib_ptable_init(unsigned int* addr)
+{
+	struct smem_ptable* mib_ptable;
+
+	mib_ptable = (struct smem_ptable*) addr;
+	if (mib_ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
+		mib_ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
+		return -ENOMSG;
+
+	debug("smem ptable found: ver: %d len: %d\n",
+	      ptable->version, ptable->len);
+
+	memcpy(ptable, addr, sizeof(ptable));
+	return 0;
 }
 
 /*
