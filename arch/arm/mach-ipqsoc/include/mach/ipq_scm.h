@@ -187,6 +187,19 @@ struct qti_scm_desc {
 #define N_REGISTER_ARGS (MAX_QCOM_SCM_ARGS - N_EXT_QCOM_SCM_ARGS + 1)
 
 typedef struct {
+#ifdef CONFIG_CPU_V7A
+	u64 reg_x0;
+	u64 reg_x1;
+	u64 reg_x2;
+	u64 reg_x3;
+	u64 reg_x4;
+	u64 reg_x5;
+	u64 reg_x6;
+	u64 reg_x7;
+	u64 reg_x8;
+	u64 kernel_start;
+#endif
+#ifdef CONFIG_ARM64
 	uintptr_t reg_x0;
 	uintptr_t reg_x1;
 	uintptr_t reg_x2;
@@ -197,6 +210,7 @@ typedef struct {
 	uintptr_t reg_x7;
 	uintptr_t reg_x8;
 	uintptr_t kernel_start;
+#endif
 } kernel_params;
 
 #define SCM_ARCH64_SWITCH_ID	0x1

@@ -160,17 +160,19 @@ void __attribute__ ((noreturn)) jump_kernel(void *kernel_entry,
 	struct qti_scm_desc desc = {0};
 	int ret = 0;
 	kernel_params param = {0};
-	param.kernel_start = (ulong)kernel_entry;
 	struct arm_smccc_res res;
 
 	desc.arginfo = QCOM_SCM_ARGS(2, SCM_READ_OP);
-	desc.args[0] = (uintptr_t) &param;
 	desc.args[1] = sizeof(param);
 #ifdef CONFIG_CPU_V7A
+	param.kernel_start = (u32)kernel_entry;
 	param.reg_x0 = (u32)fdt_addr;
+	desc.args[0] = (u32) &param;
 	printf("Jumping to AARCH64 kernel via monitor\n");
 #elif CONFIG_ARM64
+	param.kernel_start = (ulong)kernel_entry;
 	param.reg_x2 = (uintptr_t)fdt_addr;
+	desc.args[0] = (uintptr_t) &param;
 	printf("Jumping to AARCH32 kernel via monitor\n");
 #endif
 	ret = qcom_scm_call(SCM_OWNR_SIP, SCM_ARCH64_SWITCH_ID,\
