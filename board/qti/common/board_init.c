@@ -99,7 +99,7 @@ socinfo_t * get_socinfo(void)
 
 void *smem_get_item(unsigned int item) {
 
-	int ret;
+	int ret = 0;
 	struct udevice *smem_tmp;
 	const char *name = "smem";
 	size_t size;

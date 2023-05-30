@@ -85,6 +85,10 @@ static int msm_sdc_clk_init(struct udevice *dev)
 		return ret;
 
 	ret = clk_set_rate(&clk, clk_rate);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_enable(&clk);
 	clk_free(&clk);
 	if (ret < 0)
 		return ret;

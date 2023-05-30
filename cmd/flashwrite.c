@@ -24,7 +24,6 @@
 #include <sdhci.h>
 #include <ubi_uboot.h>
 #include <fdtdec.h>
-//#include <mach/qpic_nand.h>
 #include <nand.h>
 
 #include "../board/qti/common/ipq_board.h"
@@ -359,16 +358,25 @@ char * const argv[])
 #endif
 #ifdef CONFIG_MMC
 		if (flash_type == SMEM_BOOT_MMC_FLASH) {
-			ret = part_get_info_efi_by_name(
-					part_name, &disk_info);
-			if (ret)
-				return retn;
+			if (!((strncmp(GPT_PART_NAME, (const char *)part_name,
+				sizeof(GPT_PART_NAME))  == 0) ||
+				(strncmp(GPT_BACKUP_PART_NAME,
+				(const char *)part_name,
+				sizeof(GPT_BACKUP_PART_NAME)) == 0))) {
 
-			if (disk_info.blksz) {
-				file_size = file_size / disk_info.blksz;
-				adj_size = file_size_cpy % disk_info.blksz;
-				if (adj_size)
-					file_size = file_size + 1;
+				ret = part_get_info_efi_by_name(
+					part_name, &disk_info);
+				if(ret)
+					return retn;
+
+				if (disk_info.blksz) {
+					file_size = file_size /
+						disk_info.blksz;
+					adj_size = file_size_cpy %
+						disk_info.blksz;
+					if (adj_size)
+						file_size = file_size + 1;
+				}
 			}
 		}
 #endif

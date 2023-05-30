@@ -329,6 +329,9 @@ int msm_enable(struct clk *clk)
 	case GCC_BLSP1_QUP3_SPI_APPS_CLK:
 		clk_enable_cbc(priv->base + BLSP1_QUP_SPI_APPS_CBCR(2));
 		break;
+	case GCC_SDCC1_APPS_CLK:
+		clk_enable_cbc(priv->base + SDCC1_APPS_CBCR);
+		break;
 	case GCC_QDSS_AT_CLK:
 		clk_enable_cbc(priv->base + GCC_QDSS_AT_CBCR);
 		break;
