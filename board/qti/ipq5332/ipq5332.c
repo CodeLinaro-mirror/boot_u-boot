@@ -15,6 +15,8 @@
 #include <asm/armv8/mmu.h>
 #endif
 
+#include "../common/ipq_board.h"
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define LINUX_NAND_DTS "/soc/nand@79b0000/"
