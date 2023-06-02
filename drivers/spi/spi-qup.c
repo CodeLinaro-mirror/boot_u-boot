@@ -21,6 +21,7 @@
 #include <linux/delay.h>
 #include <dma.h>
 #include <linux/soc/ipqsoc/bam_dma.h>
+#include <cpu_func.h>
 #include <spi.h>
 
 #define QUP_CONFIG				0x0000

@@ -848,11 +848,10 @@ static int qti_8075_config(struct phy_device *phydev)
 	u16 phy_data;
 	u32 port_id = 0;
 
-	printf("%s %d PHY ID: 0x%x \n", __func__, __LINE__, phydev->drv->uid);
 	phy_data = phy_read_mmd(phydev, QTI_8085_PHY_MMD7_NUM,
 			QTI_8085_PHY_MMD7_DAC_CTRL);
 	if (!(phy_data & QTI_8085_DAC_CTRL_INIT_CHECK)) {
-		printf("%s phy_addr: 0x%x config already done!! \n",
+		debug("%s phy_addr: 0x%x config already done!! \n",
 				__func__, phydev->addr);
 		return 0;
 	}
@@ -953,10 +952,6 @@ static int qti_8075_config(struct phy_device *phydev)
 static int qti_8075_startup(struct phy_device *phydev)
 {
 	int ret = 0;
-
-	ret = genphy_update_link(phydev);
-	if (ret)
-		return ret;
 
 	ret = qti_8075_parse_status(phydev);
 	if (ret)

@@ -245,7 +245,6 @@ static int qti_8x8x_get_core_clk_status(struct phy_device *phydev,
 	u32 val;
 
 	val = qti_8x8x_mii_read(phydev, reg);
-	printf("%s %d reg@0x%x val: 0x%x \n", __func__, __LINE__, reg, val);
 	return (val & BIT(0));
 }
 
@@ -1043,23 +1042,6 @@ static void qti_8x8x_clk_reset(struct phy_device *phydev,
 
 	qti_8x8x_clk_deassert(phydev, clock_id);
 	return;
-}
-
-static uint8_t qti_8x8x_clk_is_enabled(struct phy_device *phydev,
-		const char *clock_id)
-{
-	struct clk_lookup *clk;
-	uint32_t reg_val = 0;
-
-	clk = qti_8x8x_clk_find(clock_id);
-	if (!clk) {
-		pr_dbg("CLK %s is not found!\n", clock_id);
-		return 0;
-	}
-
-	reg_val = qti_8x8x_mii_read(phydev,
-			(QTI_8X8X_CLK_BASE_REG + clk->rcg - 4));
-	return (reg_val & RCGR_CMD_ROOT_OFF) == 0;
 }
 
 static void qti_8x8x_clk_enable(struct phy_device *phydev,
@@ -2726,17 +2708,6 @@ static int qti_8x8x_gpio_set_bit(struct phy_device *phydev,
 	return rv;
 }
 
-static int qti_8x8x_gpio_get_bit(struct phy_device *phydev,
-		u32 pin, u32 *data)
-{
-	int rv = 0;
-
-	QTI_8X8X_REG_FIELD_GET(phydev, TLMM_GPIO_IN_OUTN,
-			pin, GPIO_IN, (u8 *) (data));
-	pr_dbg("[%s] select pin:%d value:%d\n", __func__, pin, *data);
-	return rv;
-}
-
 static int qti_8x8x_gpio_pin_mux_set(struct phy_device *phydev,
 		u32 pin, u32 func)
 {
@@ -2778,36 +2749,6 @@ static int qti_8x8x_gpio_pin_cfg_set_bias(struct phy_device *phydev,
 	return rv;
 }
 
-static int qti_8x8x_gpio_pin_cfg_get_bias(struct phy_device *phydev,
-		u32 pin, enum qti_8x8x_pin_config_param *bias)
-{
-	int rv = 0;
-	u32 data = 0;
-
-	QTI_8X8X_REG_FIELD_GET(phydev, TLMM_GPIO_CFGN, pin, GPIO_PULL,
-			(u8 *) (&data));
-	switch (data) {
-	case QTI_8X8X_TLMM_GPIO_CFGN_GPIO_PULL_DISABLE:
-		*bias = QTI_8X8X_PIN_CONFIG_BIAS_DISABLE;
-		break;
-	case QTI_8X8X_TLMM_GPIO_CFGN_GPIO_PULL_DOWN:
-		*bias = QTI_8X8X_PIN_CONFIG_BIAS_PULL_DOWN;
-		break;
-	case QTI_8X8X_TLMM_GPIO_CFGN_GPIO_PULL_BUS_HOLD:
-		*bias = QTI_8X8X_PIN_CONFIG_BIAS_BUS_HOLD;
-		break;
-	case QTI_8X8X_TLMM_GPIO_CFGN_GPIO_PULL_UP:
-		*bias = QTI_8X8X_PIN_CONFIG_BIAS_PULL_UP;
-		break;
-	default:
-		printf("[%s] doesn't support bias:%d\n", __func__, data);
-		return -1;
-	}
-
-	pr_dbg("[%s]pin:%d bias:%d", __func__, pin, *bias);
-	return rv;
-}
-
 static int qti_8x8x_gpio_pin_cfg_set_drvs(struct phy_device *phydev,
 		u32 pin, u32 drvs)
 {
@@ -2826,17 +2767,6 @@ static int qti_8x8x_gpio_pin_cfg_set_drvs(struct phy_device *phydev,
 	return rv;
 }
 
-static int qti_8x8x_gpio_pin_cfg_get_drvs(struct phy_device *phydev,
-		u32 pin, u32 *drvs)
-{
-	int rv = 0;
-
-	QTI_8X8X_REG_FIELD_GET(phydev, TLMM_GPIO_CFGN, pin, DRV_STRENGTH,
-			(u8 *) (drvs));
-	pr_dbg("[%s]%d", __func__, pin);
-	return rv;
-}
-
 static int qti_8x8x_gpio_pin_cfg_set_oe(struct phy_device *phydev,
 		u32 pin, bool oe)
 {
@@ -2845,20 +2775,6 @@ static int qti_8x8x_gpio_pin_cfg_set_oe(struct phy_device *phydev,
 	pr_dbg("[%s]%d oe:%d", __func__, pin, oe);
 	QTI_8X8X_REG_FIELD_SET(phydev, TLMM_GPIO_CFGN, pin, GPIO_OEA,
 			(u8 *) (&oe));
-	return rv;
-}
-
-static int qti_8x8x_gpio_pin_cfg_get_oe(struct phy_device *phydev,
-		u32 pin, bool *oe)
-{
-	int rv = 0;
-	u32 data = 0;
-
-	QTI_8X8X_REG_FIELD_GET(phydev, TLMM_GPIO_CFGN, pin, GPIO_OEA,
-			(u8 *) (&data));
-	*oe = data ? true : false;
-
-	pr_dbg("[%s]%d oe:%d", __func__, pin, *oe);
 	return rv;
 }
 
@@ -4026,7 +3942,7 @@ static void qti_8x8x_phy_uqxgmii_speed_fixup(struct phy_device *phydev)
 	qti_8x8x_phy_ipg_config(phydev, phy_addr, new_speed);
 }
 
-static int qti_8x8x_phy_interface_mode_set(struct phy_device *phydev)
+int qti_8x8x_phy_interface_mode_set(struct phy_device *phydev)
 {
 	int ret = 0;
 
@@ -4202,7 +4118,6 @@ static int qti_8x8x_probe(struct phy_device *phydev)
 {
 	struct qti_8x8x_device *dev;
 
-	printf("%s %d \n", __func__, __LINE__);
 	dev = malloc(sizeof(*dev));
 	if (!dev)
 		return -ENOMEM;
@@ -4232,7 +4147,6 @@ static int qti_8x8x_config(struct phy_device *phydev)
 	int ret = 0;
 	unsigned int i;
 
-	printf("%s %d \n", __func__, __LINE__);
 	/*
 	 * parse all the details from the ofnode
 	 * number of ports
@@ -4249,14 +4163,12 @@ static int qti_8x8x_config(struct phy_device *phydev)
 
 	qti_8x8x_work_mode_t work_mode;
 	qti_8x8x_work_mode_get(phydev, &work_mode);
-	printf("%s %d work_mode: 0x%x \n", __func__, __LINE__, work_mode);
 
 	if (work_mode == QTI_8X8X_SWITCH_BYPASS_PORT5_MODE) {
 		dev->mode = DEV_8X8X_BYPASS_MODE;
 		return ret;
 	}
 
-	printf("%s %d dev->mode: 0x%x \n", __func__, __LINE__, dev->mode);
 	if ((dev->mode != DEV_8X8X_SWITCH_MODE) &&
 			(dev->mode != DEV_8X8X_BYPASS_MODE))
 		qti_8x8x_phy_init(phydev);
@@ -4298,7 +4210,7 @@ static int qti_8x8x_config(struct phy_device *phydev)
 			switch_node = ofnode_find_subnode(phydev->node,
 					"ports");
 			if (!ofnode_valid(switch_node)) {
-				printf("%s ports node of switch not found!\n",
+				debug("%s ports node of switch not found!\n",
 						__func__);
 				return -EINVAL;
 			}
@@ -4306,7 +4218,7 @@ static int qti_8x8x_config(struct phy_device *phydev)
 			snprintf(port_no, sizeof(port_no), "port@%d", i);
 			port_node = ofnode_find_subnode(switch_node, port_no);
 			if (!ofnode_valid(port_node)) {
-				pr_dbg("%s node not found ! \n", port_no);
+				debug("%s node not found ! \n", port_no);
 				switch_cfg->port[i].addr = -1;
 				switch_cfg->port[i].mode =
 					PHY_INTERFACE_MODE_MAX;
@@ -4398,8 +4310,6 @@ static int qti_8x8x_startup(struct phy_device *phydev)
 	struct qti_8x8x_device *dev = phydev->priv;
 	int ret = 0;
 
-	printf("%s %d \n", __func__, __LINE__);
-
 	if (dev->mode != DEV_8X8X_SWITCH_MODE) {
 		ret = genphy_update_link(phydev);
 		if (ret)
@@ -4449,12 +4359,11 @@ static struct phy_driver qti_8x8x_driver = {
 void qti_8x8x_pre_init(struct phy_device *phydev)
 {
 	if (qti_8x8x_get_core_clk_status(phydev, QTI_8X8X_SRDS0_SYS_CBCR)) {
-		printf("%s %d addr fixup and clk init already done!!!\n",
+		debug("%s %d addr fixup and clk init already done!!!\n",
 				__func__, __LINE__);
 		return;
 	}
 
-	printf("%s %d doing addr fixup and clk init \n", __func__, __LINE__);
 	qti_8x8x_addr_fixup(phydev);
 	qti_8x8x_core_clock_init(phydev);
 	return;

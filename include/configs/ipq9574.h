@@ -27,6 +27,7 @@ extern uint32_t g_board_machid;
 
 #define CONFIG_MACH_TYPE			(g_board_machid)
 
+#define PHY_ANEG_TIMEOUT			100
 #define FDT_HIGH 				0x48500000
 
 #define IPQ9574_UBOOT_END_ADDRESS		CONFIG_TEXT_BASE + \
