@@ -422,7 +422,7 @@ class FlashScript(object):
         if nl:
             self.append("echo %s" % msg, fatal=False)
         else:
-            self.append("echo %s%s" % (r"\\c", msg), fatal=False)
+            self.append("echo %s%s" % (r"-n ", msg), fatal=False)
 
         if not verbose:
             self.redirect("nulldev")
@@ -2008,7 +2008,7 @@ class Pack(object):
         its_fp.close()
 
         try:
-            cmd = [SRC_DIR + "/mkimage", "-f", self.its_fname, self.img_fname]
+            cmd = [SRC_DIR + "/mkimage", "-f", self.its_fname, "-E", "-B 0x40", self.img_fname]
             ret = subprocess.call(cmd)
             if ret != 0:
                 print ret
