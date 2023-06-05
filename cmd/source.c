@@ -49,8 +49,14 @@ static int do_source(struct cmd_tbl *cmdtp, int flag, int argc,
 		debug("*  source: cmdline image address = 0x%08lx\n", addr);
 	}
 
+#ifdef CONFIG_ARM64
+	run_command("dcache off", 0);
+#endif
 	printf ("## Executing script at %08lx\n", addr);
 	rcode = cmd_source_script(addr, fit_uname, confname);
+#ifdef CONFIG_ARM64
+	run_command("dcache on", 0);
+#endif
 	return rcode;
 }
 
