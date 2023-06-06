@@ -16,6 +16,8 @@
 #ifndef _smemh_
 #define _smemh_
 
+struct udevice;
+
 /* struct smem_ops: Operations for the SMEM uclass */
 struct smem_ops {
 	/**

@@ -31,6 +31,11 @@ config CMDLINE_EDITING
 	  Enable editing and History functions for interactive command line
 	  input operations
 
+config CMD_FLASHWRITE
+	bool "Enable flash write support"
+	help
+	  Simplified command for flashing image
+
 config CMDLINE_PS_SUPPORT
 	bool "Enable support for changing the command prompt string at run-time"
 	depends on HUSH_PARSER

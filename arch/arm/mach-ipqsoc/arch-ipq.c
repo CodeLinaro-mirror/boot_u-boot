@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ */
+
+#include <asm/cache.h>
+#include <asm/system.h>
+#include <common.h>
+#include <asm/global_data.h>
+
+DECLARE_GLOBAL_DATA_PTR;
+
+#define UBOOT_CACHE_SETUP		0x100e
+#define GEN_CACHE_SETUP			0x101e
+
+int arch_setup_dest_addr(void)
+{
+	gd->relocaddr = CONFIG_TEXT_BASE;
+	gd->reloc_off = gd->relocaddr - CONFIG_TEXT_BASE;
+
+	return 0;
+}
+
+int arm_reserve_mmu(void)
+{
+	/* reserve TLB table */
+	gd->arch.tlb_size = PGTABLE_SIZE;
+	gd->arch.tlb_addr = CONFIG_TEXT_BASE + gd->mon_len;
+	gd->arch.tlb_addr += (0x10000 - 1);
+	gd->arch.tlb_addr &= ~(0x10000 - 1);
+
+	return 0;
+}
+
+int mach_cpu_init(void)
+{
+	gd->flags |= GD_FLG_SKIP_RELOC;
+
+	return 0;
+}
+#ifndef CONFIG_ARM64
+int arch_cpu_init(void)
+{
+	u32 val;
+	/* Read SCTLR */
+	asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
+	/* set the cp15 barrier enable bit */
+	val |= 0x20;
+	/* write back to SCTLR */
+	asm volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val));
+
+	return 0;
+}
+
+void dram_bank_mmu_setup(int bank)
+{
+	struct bd_info *bd = gd->bd;
+	int i;
+
+	/* bd->bi_dram is available only after relocation */
+	if ((gd->flags & GD_FLG_RELOC) == 0)
+		return;
+
+	debug("%s: bank: %d\n", __func__, bank);
+	for (i = bd->bi_dram[bank].start >> 20;
+		i < (bd->bi_dram[bank].start + bd->bi_dram[bank].size) >> 20;
+		i++) {
+		/* Set XN bit for all dram regions except uboot code region */
+		if (i >= (CONFIG_TEXT_BASE >> 20) &&
+				i < ((CONFIG_TEXT_BASE + 0x100000) >> 20))
+			set_section_dcache(i, UBOOT_CACHE_SETUP);
+		else
+			set_section_dcache(i, GEN_CACHE_SETUP);
+	}
+}
+#endif

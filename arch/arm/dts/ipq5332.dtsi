@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
+#include <dt-bindings/clock/gcc-ipq5332.h>
+#include <dt-bindings/reset/ipq5332-reset.h>
+
+/ {
+
+	model = "Qualcomm Technologies, Inc. IPQ5332";
+	compatible = "qti,ipq5332";
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		tz_mem: tz@4A600000 {
+			reg = <0x4A600000 0x200000>;
+			no-map;
+		};
+
+		smem_mem: smem_region@4A800000 {
+			reg = <0x4A800000 0x100000>;
+			no-map;
+		};
+	};
+
+	smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		u-boot,dm-pre-reloc;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	soc: soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+
+		tlmm: pinctrl@1000000 {
+			compatible = "qti,ipqsoc-pinctrl";
+			reg = <0x1000000 0x300000>;
+			gpio-controller;
+			gpio-count = <79>;
+			gpio-bank-name="soc";
+			#gpio-cells = <2>;
+			u-boot,dm-pre-reloc;
+		};
+
+		gcc: clock-controller@1800000 {
+			compatible = "qti,gcc-ipq5332";
+			reg = <0x1800000 0x80000>;
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+			#clock-cells = <1>;
+			u-boot,dm-pre-reloc;
+		};
+
+		reset: gcc-reset@1800000 {
+			compatible = "qti,gcc-reset-ipqsoc";
+			reg = <0x1800000 0x80000>;
+			#clock-cells = <1>;
+			#reset-cells = <1>;
+			u-boot,dm-pre-reloc;
+		};
+
+		blsp_dma: dma@7884000 {
+			compatible = "qti,bam-v1.7.0";
+			reg = <0x07884000 0x1d000>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>;
+			#dma-cells = <6>;
+			status = "okay";
+		};
+
+		blsp1_uart1: serial@78af000 {
+			compatible = "qcom,msm-uartdm-v1.4";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x78af000 0x200>;
+			clock = <&gcc GCC_BLSP1_UART0_APPS_CLK>,
+				<&gcc GCC_BLSP1_AHB_CLK>;
+			bit-rate = <0xFF>;
+			status = "okay";
+			u-boot,dm-pre-reloc;
+		};
+
+		blsp1_spi: spi@78b5000 {
+			compatible = "qcom,spi-qup-v2.2.1";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x78b5000 0x600>;
+			clocks = <&gcc GCC_BLSP1_QUP1_SPI_APPS_CLK>;
+			dma-names = "tx", "rx";
+			dmas = <&blsp_dma 4 1 16 0 0xFFFF 16>,
+			     <&blsp_dma 5 2 16 0 0xFFFF 16>;
+			status = "disabled";
+			u-boot,dm-pre-reloc;
+		};
+
+		mmc: sdhci@7800000 {
+			compatible = "qti,sdhci-msm-v5";
+			reg = <0x7804000 0x1000 0x7805000 0x1000>;
+			reg-names = "hc_mem", "cmdq_mem";
+			resets = <&reset GCC_SDCC1_BCR>;
+			reset-names = "bcr_rst";
+			clock = <&gcc GCC_SDCC1_APPS_CLK>,
+				<&gcc GCC_SDCC1_AHB_CLK>;
+			clock-frequency = <200000000>;
+			max-frequency = <200000000>;
+			sdhci-caps-mask = <0x0 0x04000000>;
+			sdhci-caps = <0x0 0x04000000>;
+			bus-width = <0x4>;
+			index = <0x0>;
+			non-removable;
+			mmc-ddr-1_8v;
+			mmc-hs200-1_8v;
+			bus_pwr_off_rst;
+			status = "okay";
+		};
+
+		mdio: mdio@90000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,ipq4019-mdio";
+			reg = <0x90000 0x64>;
+			status = "disabled";
+		};
+	};
+};

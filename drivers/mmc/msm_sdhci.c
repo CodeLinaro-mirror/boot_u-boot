@@ -4,6 +4,8 @@
  *
  * (C) Copyright 2015 Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
  *
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  * Based on Linux driver
  */
 
@@ -16,6 +18,10 @@
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <linux/bitops.h>
+#include <dm/device_compat.h>
+#include <reset.h>
+#include <linux/delay.h>
+#include <dm/pinctrl.h>
 
 /* Non-standard registers needed for SDHCI startup */
 #define SDCC_MCI_POWER   0x0
@@ -33,9 +39,6 @@
 #define SDCC_MCI_STATUS2_MCI_ACT 0x1
 #define SDCC_MCI_HC_MODE 0x78
 
-/* Non standard (?) SDHCI register */
-#define SDHCI_VENDOR_SPEC_CAPABILITIES0  0x11c
-
 struct msm_sdhc_plat {
 	struct mmc_config cfg;
 	struct mmc mmc;
@@ -48,6 +51,7 @@ struct msm_sdhc {
 
 struct msm_sdhc_variant_info {
 	bool mci_removed;
+	u32  vendor_cap_reg;/* Non standard (?) SDHCI register */
 };
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -81,6 +85,10 @@ static int msm_sdc_clk_init(struct udevice *dev)
 		return ret;
 
 	ret = clk_set_rate(&clk, clk_rate);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_enable(&clk);
 	clk_free(&clk);
 	if (ret < 0)
 		return ret;
@@ -122,9 +130,20 @@ static int msm_sdc_probe(struct udevice *dev)
 	struct msm_sdhc *prv = dev_get_priv(dev);
 	const struct msm_sdhc_variant_info *var_info;
 	struct sdhci_host *host = &prv->host;
+	struct reset_ctl bcr_rst;
 	u32 core_version, core_minor, core_major;
 	u32 caps;
 	int ret;
+
+	pinctrl_select_state(dev, "mmc");
+
+	ret = reset_get_by_name(dev, "bcr_rst", &bcr_rst);
+	if (!ret) {
+		reset_assert(&bcr_rst);
+		mdelay(10);
+		reset_deassert(&bcr_rst);
+		mdelay(10);
+	}
 
 	host->quirks = SDHCI_QUIRK_WAIT_SEND_CMD | SDHCI_QUIRK_BROKEN_R1B;
 
@@ -159,7 +178,7 @@ static int msm_sdc_probe(struct udevice *dev)
 	if (core_major >= 1 && core_minor != 0x11 && core_minor != 0x12) {
 		caps = readl(host->ioaddr + SDHCI_CAPABILITIES);
 		caps |= SDHCI_CAN_VDD_300 | SDHCI_CAN_DO_8BIT;
-		writel(caps, host->ioaddr + SDHCI_VENDOR_SPEC_CAPABILITIES0);
+		writel(caps, host->ioaddr + var_info->vendor_cap_reg);
 	}
 
 	ret = mmc_of_parse(dev, &plat->cfg);
@@ -220,15 +239,23 @@ static int msm_sdc_bind(struct udevice *dev)
 
 static const struct msm_sdhc_variant_info msm_sdhc_mci_var = {
 	.mci_removed = false,
+	.vendor_cap_reg = 0x11c,
 };
 
 static const struct msm_sdhc_variant_info msm_sdhc_v5_var = {
 	.mci_removed = true,
+	.vendor_cap_reg = 0x11c,
+};
+
+static const struct msm_sdhc_variant_info msm_sdhc_v5_ipq_var = {
+	.mci_removed = true,
+	.vendor_cap_reg = 0x21c,
 };
 
 static const struct udevice_id msm_mmc_ids[] = {
 	{ .compatible = "qcom,sdhci-msm-v4", .data = (ulong)&msm_sdhc_mci_var },
 	{ .compatible = "qcom,sdhci-msm-v5", .data = (ulong)&msm_sdhc_v5_var },
+	{ .compatible = "qti,sdhci-msm-v5", .data = (ulong)&msm_sdhc_v5_ipq_var },
 	{ }
 };
 

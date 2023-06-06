@@ -250,7 +250,8 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		puts("OK\n");
 	}
 
-	flush_cache(dest, ALIGN(len, ARCH_DMA_MINALIGN));
+	if (dest)
+		flush_cache(dest, ALIGN(len, ARCH_DMA_MINALIGN));
 
 	env_set_hex("fileaddr", data);
 	env_set_hex("filesize", len);
