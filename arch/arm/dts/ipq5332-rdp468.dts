@@ -6,7 +6,7 @@
 #include "ipq5332.dtsi"
 
 / {
-	config_name = "config@mi01.6", "config@rdp468";
+	config_name = "config@mi01.6", "config@rdp468", "config-rdp468";
 
 	aliases {
 		console = &blsp1_uart1;
