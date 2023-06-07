@@ -8,7 +8,7 @@
 #include "ipq9574.dtsi"
 
 / {
-	config_name = "config@al02-c4","config@rdp433";
+	config_name = "config@al02-c4","config@rdp433", "config-rdp433";
 
 	aliases {
 		console = &blsp1_uart1;
