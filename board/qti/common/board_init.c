@@ -511,6 +511,10 @@ int board_late_init(void)
 	 * setup mac address
 	 */
 	set_ethmac_addr();
+	/*
+	 * setup machid
+	 */
+	env_set_hex("machid", gd->bd->bi_arch_number);
 
 	return 0;
 }

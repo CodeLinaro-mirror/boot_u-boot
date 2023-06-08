@@ -64,6 +64,7 @@ choice
 
 config TARGET_IPQ5332
 	bool "QTI IPQ5332 SOC"
+	select BOARD_LATE_INIT
 	select SMEM_VERSION_C
 	select OF_BOARD_SETUP
 	select PINCTRL_QTI
@@ -98,6 +99,7 @@ config TARGET_IPQ5332
 
 config TARGET_IPQ9574
 	bool "QTI IPQ9574 SOC"
+	select BOARD_LATE_INIT
 	select SMEM_VERSION_C
 	select OF_BOARD_SETUP
 	select PINCTRL_QTI
