@@ -6,6 +6,7 @@
 #include <asm/cache.h>
 #include <asm/system.h>
 #include <common.h>
+#include <cpu_func.h>
 #include <asm/global_data.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -30,6 +31,30 @@ int arm_reserve_mmu(void)
 	gd->arch.tlb_addr &= ~(0x10000 - 1);
 
 	return 0;
+}
+
+/*
+ * Flush range from all levels of d-cache/unified-cache.
+ * Affects the range,
+ *	if cache is algined,
+ *		from : start
+ *		to   : start + size - 1
+ *	if cache is not aligned,
+ *		from : start - cache aligne address
+ *		to   : start + size - 1 + cache aligne address
+ */
+void flush_cache(unsigned long start, unsigned long size)
+{
+	unsigned long stop = start + size;
+
+	if (start & (CONFIG_SYS_CACHELINE_SIZE - 1))
+		start = start & ~(CONFIG_SYS_CACHELINE_SIZE - 1);
+
+	if (stop & (CONFIG_SYS_CACHELINE_SIZE - 1))
+		stop = CONFIG_SYS_CACHELINE_SIZE +
+			(stop & ~(CONFIG_SYS_CACHELINE_SIZE - 1));
+
+	flush_dcache_range(start, stop);
 }
 
 int mach_cpu_init(void)
