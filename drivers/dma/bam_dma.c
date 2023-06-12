@@ -36,6 +36,7 @@
 #include <dma.h>
 #include <dma-uclass.h>
 #include <errno.h>
+#include <memalign.h>
 #include <dm/device_compat.h>
 #include <linux/soc/ipqsoc/bam_dma.h>
 
@@ -307,13 +308,6 @@ int bam_add_one_desc(struct bam_dma_pipe *pipe,
 	desc->size     = (uint16_t)len;
 	desc->reserved = 0;
 
-#if !defined(CONFIG_SYS_DCACHE_OFF)
-	flush_dcache_range((unsigned long)desc,
-			((unsigned long)desc + BAM_DESC_SIZE));
-	flush_dcache_range((unsigned long)data_ptr,
-			(unsigned long)data_ptr + len);
-#endif
-
 	/* Update the FIFO to point to the head */
 	pipe->fifo.current = fifo_getnext(&pipe->fifo, pipe->fifo_size, desc);
 
@@ -372,7 +366,8 @@ static int bam_dma_request(struct dma *dma)
 	if (pipe->in_use)
 		return -EBUSY;
 
-	pipe->fifo.head = malloc(sizeof(struct bam_desc) * pipe->fifo_size);
+	pipe->fifo.head = malloc_cache_aligned(
+			sizeof(struct bam_desc) * pipe->fifo_size);
 	if (!pipe->fifo.head)
 		return -ENOMEM;
 
@@ -581,6 +576,11 @@ static int bam_dma_send(struct dma *dma, void *src,
 		n++;
 	}
 
+#if !defined(CONFIG_SYS_DCACHE_OFF)
+	flush_dcache_range((unsigned long)pipe->fifo.head,
+			((unsigned long)pipe->fifo.head +
+			 (sizeof(struct bam_desc) * pipe->fifo_size)));
+#endif
 
 	/* Create a read/write event to notify the periperal of the
 	 * added desc. */
@@ -681,6 +681,11 @@ static int bam_dma_receive(struct dma *dma, void **dst, void *metadata)
 		n++;
 	}
 
+#if !defined(CONFIG_SYS_DCACHE_OFF)
+	flush_dcache_range((unsigned long)pipe->fifo.head,
+			((unsigned long)pipe->fifo.head +
+			 (sizeof(struct bam_desc) * pipe->fifo_size)));
+#endif
 
 	/* Create a read/write event to notify the periperal of the
 	 * added desc.
