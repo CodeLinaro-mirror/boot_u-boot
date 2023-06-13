@@ -178,7 +178,7 @@
 
 			phy1: phy@4 {
 				reg = <4>;
-				phy_id = <8>;
+				phy_id = <11>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;

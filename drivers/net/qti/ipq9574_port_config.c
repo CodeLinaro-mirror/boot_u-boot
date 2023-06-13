@@ -41,18 +41,18 @@ static struct ipq_eth_port_config ipq9574_port_config[] = {
 			CLK_312_5_MHZ
 		},
 		{
-			GMAC,
-			GMAC,
-			GMAC,
+			XGMAC,
+			XGMAC,
+			XGMAC,
 			-1,
 			XGMAC
 		},
 		{
-			PORT_WRAPPER_SGMII0_RGMII4,
-			PORT_WRAPPER_SGMII0_RGMII4,
-			PORT_WRAPPER_SGMII0_RGMII4,
+			PORT_WRAPPER_UQXGMII,
+			PORT_WRAPPER_UQXGMII,
+			PORT_WRAPPER_UQXGMII,
 			-1,
-			PORT_WRAPPER_SGMII_PLUS
+			PORT_WRAPPER_UQXGMII,
 		},
 	},{
 		QCA8x8x_SWITCH_TYPE,

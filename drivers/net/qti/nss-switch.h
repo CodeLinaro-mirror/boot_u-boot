@@ -574,14 +574,27 @@
 #define UNIPHY_10GR_LINKUP 			0x1
 
 #define VR_XS_PCS_DIG_CTRL1_ADDRESS 		0x38000
+#define VR_XS_PCS_EEE_MCTRL0_ADDRESS            0x38006
+#define VR_XS_PCS_KR_CTRL_ADDRESS               0x38007
+#define VR_XS_PCS_EEE_TXTIMER_ADDRESS           0x38008
+#define VR_XS_PCS_EEE_RXTIMER_ADDRESS           0x38009
+#define VR_XS_PCS_EEE_MCTRL1_ADDRESS            0x3800b
+#define VR_XS_PCS_DIG_STS_ADDRESS               0x3800a
+
 #define USXG_EN					(1 << 9)
 #define USRA_RST				(1 << 10)
+#define USXG_MODE                               (5 << 10)
+#define VR_RST                                  (1 << 15)
+#define AM_COUNT                                (0x6018 << 0)
 
 #define SR_MII_CTRL_CHANNEL1_ADDRESS            0x1a0000
 #define SR_MII_CTRL_CHANNEL2_ADDRESS            0x1b0000
 #define SR_MII_CTRL_CHANNEL3_ADDRESS            0x1c0000
 #define SR_MII_CTRL_ADDRESS 			0x1f0000
 
+#define VR_MII_AN_CTRL_CHANNEL1_ADDRESS         0x1a8001
+#define VR_MII_AN_CTRL_CHANNEL2_ADDRESS         0x1b8001
+#define VR_MII_AN_CTRL_CHANNEL3_ADDRESS         0x1c8001
 #define VR_MII_AN_CTRL_ADDRESS			0x1f8001
 #define MII_AN_INTR_EN				(1 << 0)
 #define MII_CTRL				(1 << 8)
@@ -595,6 +608,27 @@
 
 #define VR_MII_AN_INTR_STS			0x1f8002
 #define CL37_ANCMPLT_INTR			(1 << 0)
+
+#define UNIPHYQP_USXG_OPITON1                   0x584
+#define GMII_SRC_SEL                            (1 << 0)
+
+#define VR_XAUI_MODE_CTRL_CHANNEL1_ADDRESS      0x1a8004
+#define VR_XAUI_MODE_CTRL_CHANNEL2_ADDRESS      0x1b8004
+#define VR_XAUI_MODE_CTRL_CHANNEL3_ADDRESS      0x1c8004
+#define VR_XAUI_MODE_CTRL_ADDRESS               0x1f8004
+#define IPG_CHECK                               0x1
+
+#define UNIPHY_XPCS_TSL_TIMER                   (0xa << 0)
+#define SIGN_BIT                                (1 << 6)
+#define MULT_FACT_100NS                         (1 << 8)
+#define UNIPHY_XPCS_TLU_TIMER                   (0x3 << 6)
+#define UNIPHY_XPCS_TWL_TIMER                   (0x16 << 8)
+#define UNIPHY_XPCS_100US_TIMER                 (0xc8 << 0)
+#define UNIPHY_XPCS_TWR_TIMER                   (0x1c << 8)
+#define LRX_EN                                  (1 << 0)
+#define LTX_EN                                  (1 << 1)
+#define TRN_LPI                                 (1 << 0)
+#define TRN_RXLPI                               (1 << 8)
 
 enum uniphy_reset_type {
 	UNIPHY0_SOFT_RESET = 0,
@@ -627,6 +661,7 @@ enum port_wrapper_cfg {
         PORT_WRAPPER_SGMII_PLUS = 6,
         PORT_WRAPPER_10GBASE_R = 7,
         PORT_WRAPPER_SGMII_FIBER = 8,
+	PORT_WRAPPER_UQXGMII = 9,
 };
 
 enum phy_mode {
@@ -641,6 +676,7 @@ enum phy_mode {
         QCA8x8x_PHY_TYPE = 8,
         QCA8337_SWITCH_TYPE = 9,
         QCA8x8x_SWITCH_TYPE = 10,
+        QCA8x8x_BYPASS_TYPE = 11,
         UNUSED_PHY_TYPE = 0xFF,
 };
 
@@ -983,6 +1019,8 @@ struct port_info {
 	uint8_t uniphy_mode;
 	uint8_t uniphy_type;
 	uint8_t gmac_type;
+	uint8_t cur_uniphy_mode;
+	uint8_t cur_gmac_type;
 	bool isforce_speed;
 	bool xgmac;
 	bool isconfigured;

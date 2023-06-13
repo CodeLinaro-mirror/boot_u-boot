@@ -301,6 +301,114 @@ static void ppe_uniphy_usxgmii_mode_set(struct port_info *port)
 	csr1_write(index, SR_MII_CTRL_ADDRESS, reg_value);
 }
 
+static void ppe_uniphy_uqxgmii_mode_set(struct port_info *port)
+{
+	uint32_t index = port->uniphy_id;
+	phys_addr_t base = port->uniphy_base;
+	uint32_t reg_value = 0;
+
+	writel(UNIPHY_MISC2_REG_VALUE, base + UNIPHY_MISC2_REG_OFFSET);
+
+	writel(UNIPHY_PLL_RESET_REG_VALUE, base + UNIPHY_PLL_RESET_REG_OFFSET);
+	mdelay(REG_DELAY);
+
+	writel(UNIPHY_PLL_RESET_REG_DEFAULT_VALUE,
+			base + UNIPHY_PLL_RESET_REG_OFFSET);
+	mdelay(REG_DELAY);
+
+	ppe_uniphy_reset(port, false, true);
+	mdelay(RESET_DELAY);
+
+	writel(0x1021, base + PPE_UNIPHY_MODE_CONTROL);
+
+	reg_value = readl(base + UNIPHYQP_USXG_OPITON1);
+	reg_value |= GMII_SRC_SEL;
+	writel(reg_value, base + UNIPHYQP_USXG_OPITON1);
+
+	ppe_uniphy_reset(port, true, true);
+	mdelay(RESET_DELAY);
+	ppe_uniphy_reset(port, true, false);
+	mdelay(RESET_DELAY);
+
+	ppe_uniphy_calibration(port);
+
+	ppe_uniphy_reset(port, false, false);
+	mdelay(RESET_DELAY);
+
+	ppe_uniphy_10g_r_linkup(index);
+
+	reg_value = csr1_read(index, VR_XS_PCS_DIG_CTRL1_ADDRESS);
+	reg_value |= USXG_EN;
+	csr1_write(index, VR_XS_PCS_DIG_CTRL1_ADDRESS, reg_value);
+
+	/* set QXGMII mode */
+	reg_value = csr1_read(index, VR_XS_PCS_KR_CTRL_ADDRESS);
+	reg_value |= USXG_MODE;
+	csr1_write(index, VR_XS_PCS_KR_CTRL_ADDRESS, reg_value);
+
+	/* set AM interval mode */
+	reg_value = csr1_read(index, VR_XS_PCS_DIG_STS_ADDRESS);
+	reg_value |= AM_COUNT;
+	csr1_write(index, VR_XS_PCS_DIG_STS_ADDRESS, reg_value);
+
+	reg_value = csr1_read(index, VR_XS_PCS_DIG_CTRL1_ADDRESS);
+	reg_value |= VR_RST;
+	csr1_write(index, VR_XS_PCS_DIG_CTRL1_ADDRESS, reg_value);
+
+	reg_value = csr1_read(index, VR_MII_AN_CTRL_ADDRESS);
+	reg_value |= MII_AN_INTR_EN;
+	reg_value |= MII_CTRL;
+	csr1_write(index, VR_MII_AN_CTRL_ADDRESS, reg_value);
+	csr1_write(index, VR_MII_AN_CTRL_CHANNEL1_ADDRESS, reg_value);
+	csr1_write(index, VR_MII_AN_CTRL_CHANNEL2_ADDRESS, reg_value);
+	csr1_write(index, VR_MII_AN_CTRL_CHANNEL3_ADDRESS, reg_value);
+
+	/* disable TICD */
+	reg_value = csr1_read(index, VR_XAUI_MODE_CTRL_ADDRESS);
+	reg_value |= IPG_CHECK;
+	csr1_write(index, VR_XAUI_MODE_CTRL_ADDRESS, reg_value);
+	csr1_write(index, VR_XAUI_MODE_CTRL_CHANNEL1_ADDRESS, reg_value);
+	csr1_write(index, VR_XAUI_MODE_CTRL_CHANNEL2_ADDRESS, reg_value);
+	csr1_write(index, VR_XAUI_MODE_CTRL_CHANNEL3_ADDRESS, reg_value);
+
+	/* enable uniphy autoneg ability and usxgmii 10g speed
+	 * and full duplex
+	 */
+	reg_value = csr1_read(index, SR_MII_CTRL_ADDRESS);
+	reg_value |= AN_ENABLE;
+	reg_value &= ~SS5;
+	reg_value |= SS6 | SS13 | DUPLEX_MODE;
+	csr1_write(index, SR_MII_CTRL_ADDRESS, reg_value);
+	csr1_write(index, SR_MII_CTRL_CHANNEL1_ADDRESS, reg_value);
+	csr1_write(index, SR_MII_CTRL_CHANNEL2_ADDRESS, reg_value);
+	csr1_write(index, SR_MII_CTRL_CHANNEL3_ADDRESS, reg_value);
+
+	/* enable uniphy eee transparent mode and configure eee
+	 * related timer value
+	 */
+	reg_value = csr1_read(index, VR_XS_PCS_EEE_MCTRL0_ADDRESS);
+	reg_value |= SIGN_BIT | MULT_FACT_100NS;
+	csr1_write(index, VR_XS_PCS_EEE_MCTRL0_ADDRESS, reg_value);
+
+	reg_value = csr1_read(index, VR_XS_PCS_EEE_TXTIMER_ADDRESS);
+	reg_value |= UNIPHY_XPCS_TSL_TIMER | UNIPHY_XPCS_TLU_TIMER
+			| UNIPHY_XPCS_TWL_TIMER;
+	csr1_write(index, VR_XS_PCS_EEE_TXTIMER_ADDRESS, reg_value);
+
+	reg_value = csr1_read(index, VR_XS_PCS_EEE_RXTIMER_ADDRESS);
+	reg_value |= UNIPHY_XPCS_100US_TIMER | UNIPHY_XPCS_TWR_TIMER;
+	csr1_write(index, VR_XS_PCS_EEE_RXTIMER_ADDRESS, reg_value);
+
+	/* Transparent LPI mode and LPI pattern enable */
+	reg_value = csr1_read(index, VR_XS_PCS_EEE_MCTRL1_ADDRESS);
+	reg_value |= TRN_LPI | TRN_RXLPI;
+	csr1_write(index, VR_XS_PCS_EEE_MCTRL1_ADDRESS, reg_value);
+
+	reg_value = csr1_read(index, VR_XS_PCS_EEE_MCTRL0_ADDRESS);
+	reg_value |= LRX_EN | LTX_EN;
+	csr1_write(index, VR_XS_PCS_EEE_MCTRL0_ADDRESS, reg_value);
+}
+
 void ppe_uniphy_mode_set(struct port_info *port)
 {
 	switch(port->uniphy_mode) {
@@ -322,6 +430,9 @@ void ppe_uniphy_mode_set(struct port_info *port)
 			break;
 		case PORT_WRAPPER_10GBASE_R:
 			ppe_uniphy_10g_r_mode_set(port);
+			break;
+		case PORT_WRAPPER_UQXGMII:
+			ppe_uniphy_uqxgmii_mode_set(port);
 			break;
 		default:
 			break;
@@ -603,13 +714,20 @@ void ppe_port_speed_set(phys_addr_t reg_base, struct port_info *port)
 
 	ppe_port_bridge_txmac_set(reg_base, port->id, false);
 
-	ppe_uniphy_mode_set(port);
+	if (port->cur_uniphy_mode != port->uniphy_mode) {
+		ppe_uniphy_mode_set(port);
+		port->cur_uniphy_mode = port->uniphy_mode;
+	}
 
-	ppe_port_mux_set(reg_base, port);
+	if (port->cur_gmac_type != port->gmac_type) {
+		ppe_port_mux_set(reg_base, port);
+		port->cur_gmac_type = port->gmac_type;
+	}
 
 	switch(port->uniphy_mode) {
 	case PORT_WRAPPER_10GBASE_R:
 		break;
+	case PORT_WRAPPER_UQXGMII:
 	case PORT_WRAPPER_USXGMII:
 		ppe_uniphy_usxgmii_autoneg_completed(port->uniphy_id);
 		ppe_uniphy_usxgmii_speed_set(port->id, port->uniphy_id,
@@ -2506,13 +2624,13 @@ static void ipq_eth_8x8x_pre_init(struct mii_dev *bus)
 	temp_phydev.bus = bus;
 
 	temp_phydev.addr = 0x18;
-	phy_write(&temp_phydev, MDIO_DEVAD_NONE, 0xc, 0x8001);
-	temp_phydev.addr = 0x15;
-	phy_data = phy_read(&temp_phydev, MDIO_DEVAD_NONE, 0x8);
-	phy_data |= (phy_read(&temp_phydev, MDIO_DEVAD_NONE, 0xa) << 16);
+	phy_write(&temp_phydev, MDIO_DEVAD_NONE, 0xc, 0x90f0);
+	temp_phydev.addr = 0x10;
+	phy_data = phy_read(&temp_phydev, MDIO_DEVAD_NONE, 0x18);
+	phy_data |= (phy_read(&temp_phydev, MDIO_DEVAD_NONE, 0x1a) << 16);
 	pr_debug("%s %d phy_data: 0x%x \n", __func__, __LINE__, phy_data);
 
-	if (phy_data & BIT(0)) {
+	if (phy_data == 0x20c41) {
 		pr_debug("%s %d addr fixup and clk init already done!!!\n",
 				__func__, __LINE__);
 		return;
@@ -2563,6 +2681,9 @@ static int ipq_eth_probe(struct udevice *dev)
 	struct reset_ctl_bulk resets;
 	int ret, i, reg_val, configured = 0;
 	phys_addr_t base;
+#ifdef CONFIG_PHY_QTI_8X8X
+	int phy_no = 0;
+#endif
 
 	pinctrl_select_state(dev, "phy_rst");
 
@@ -2612,6 +2733,9 @@ static int ipq_eth_probe(struct udevice *dev)
 		if (port == NULL)
 			continue;
 
+		port->uniphy_base = priv->uniphy_base +
+					(port->uniphy_id * priv->uniphy_size);
+
 		ret = uclass_get_device_by_ofnode(UCLASS_MDIO, port->pnode,
 					&mdiodev);
 		if (ret)
@@ -2639,10 +2763,32 @@ static int ipq_eth_probe(struct udevice *dev)
 		if (ofnode_valid(port->node))
 			port->phydev->node = port->node;
 
+#ifdef CONFIG_PHY_QTI_8X8X
+		/*
+		 * configure UQXGMII for pure PHY mode since MHT PHY requires
+		 * uniphy pre-init before configuring uniphy mode, which has
+		 * to be configured by default to UQXGMII mode regardless of
+		 * speed link up.
+		 */
+		if (port->phy_id == QCA8x8x_PHY_TYPE) {
+			if (phy_no == 0) {
+				port->uniphy_mode = PORT_WRAPPER_UQXGMII;
+				port->gmac_type = XGMAC;
+				ppe_port_speed_set(priv->ppe.base, port);
+			} else {
+				port->uniphy_mode = port->cur_uniphy_mode =
+						PORT_WRAPPER_UQXGMII;
+				port->gmac_type = port->cur_gmac_type = XGMAC;
+			}
+			++phy_no;
+		}
+#endif
+
 #ifdef CONFIG_PHY_AQUANTIA
-		if (port->phy_id == AQ_PHY_TYPE)
+		if (port->phy_id == AQ_PHY_TYPE) {
 			ipq_aquantia_load_fw(port->phydev);
-		mdelay(100);
+			mdelay(100);
+		}
 #endif
 		ret = phy_config(port->phydev);
 		if (ret < 0)
@@ -2652,8 +2798,6 @@ static int ipq_eth_probe(struct udevice *dev)
 
 		++configured;
 
-		port->uniphy_base = priv->uniphy_base +
-					(port->uniphy_id * priv->uniphy_size);
 	}
 fail:
 	return !configured;

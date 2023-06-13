@@ -14,7 +14,7 @@
 
 static struct ipq_eth_port_config ipq5332_port_config[] = {
 	{
-		QCA8x8x_PHY_TYPE,
+		QCA8x8x_BYPASS_TYPE,
 		{
 			CLK_2_5_MHZ,
 			CLK_25_MHZ,

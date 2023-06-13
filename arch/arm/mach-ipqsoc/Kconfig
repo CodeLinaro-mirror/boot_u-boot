@@ -130,6 +130,7 @@ config TARGET_IPQ9574
 	select TFTP_PORT
 	select CMD_DHCP
 	select PHY_QTI_8075
+	select PHY_QTI_8X8X
 	select PHY_AQUANTIA
 	help
 	  Support for IPQ95xx SoC.

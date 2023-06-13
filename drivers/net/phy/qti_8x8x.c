@@ -1044,6 +1044,23 @@ static void qti_8x8x_clk_reset(struct phy_device *phydev,
 	return;
 }
 
+static uint8_t qti_8x8x_clk_is_enabled(struct phy_device *phydev,
+		const char *clock_id)
+{
+	struct clk_lookup *clk;
+	uint32_t cbc_reg = 0, reg_val = 0;
+
+	clk = qti_8x8x_clk_find(clock_id);
+	if (!clk) {
+		pr_dbg("CLK %s is not found!\n", clock_id);
+		return 0;
+	}
+
+	cbc_reg = QTI_8X8X_CLK_BASE_REG + clk->cbc;
+	reg_val = qti_8x8x_mii_read(phydev, cbc_reg);
+	return ((reg_val & CBCR_CLK_OFF) ? 0 : 1);
+}
+
 static void qti_8x8x_clk_enable(struct phy_device *phydev,
 		const char *clock_id)
 {
@@ -3919,7 +3936,7 @@ static void qti_8x8x_phy_uqxgmii_speed_fixup(struct phy_device *phydev)
 
 	/*GMII/XGMII clock and ETHPHY GMII clock enable/disable*/
 	pr_dbg("GMII/XGMII clock and ETHPHY GMII clock enable/disable\n");
-	if (status == 0)
+	if (status)
 		port_clock_en = 1;
 	qti_8x8x_port_clk_en_set(phydev, qti_8x8x_port_id,
 			QTI_8X8X_CLK_TYPE_UNIPHY | QTI_8X8X_CLK_TYPE_EPHY,
@@ -3942,9 +3959,14 @@ static void qti_8x8x_phy_uqxgmii_speed_fixup(struct phy_device *phydev)
 	qti_8x8x_phy_ipg_config(phydev, phy_addr, new_speed);
 }
 
-int qti_8x8x_phy_interface_mode_set(struct phy_device *phydev)
+static int qti_8x8x_phy_interface_mode_set(struct phy_device *phydev)
 {
 	int ret = 0;
+
+	if (!qti_8x8x_clk_is_enabled(phydev, QTI_8X8X_SWITCH_CORE_CLK)) {
+		pr_dbg("QTI_8X8X already in PORT_UQXGMII mode \n");
+		return ret;
+	}
 
 	pr_dbg("Configure QTI_8X8X as PORT_UQXGMII..\n");
 	/*the work mode is PORT_UQXGMII in default*/
@@ -4170,8 +4192,10 @@ static int qti_8x8x_config(struct phy_device *phydev)
 	}
 
 	if ((dev->mode != DEV_8X8X_SWITCH_MODE) &&
-			(dev->mode != DEV_8X8X_BYPASS_MODE))
+			(dev->mode != DEV_8X8X_BYPASS_MODE)) {
+		qti_8x8x_phy_interface_mode_set(phydev);
 		qti_8x8x_phy_init(phydev);
+	}
 	else {
 		if (dev->mode == DEV_8X8X_BYPASS_MODE) {
 			struct phy_device local_phydev;
@@ -4311,10 +4335,6 @@ static int qti_8x8x_startup(struct phy_device *phydev)
 	int ret = 0;
 
 	if (dev->mode != DEV_8X8X_SWITCH_MODE) {
-		ret = genphy_update_link(phydev);
-		if (ret)
-			return ret;
-
 		ret = qti_8x8x_parse_status(phydev);
 		if (ret)
 			return ret;
