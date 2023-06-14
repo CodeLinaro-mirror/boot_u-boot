@@ -63,6 +63,11 @@
 #include <net.h>
 #include <spi.h>
 #include <spi_flash.h>
+#ifdef CONFIG_ARM64
+#include <asm/armv8/mmu.h>
+#endif
+#include <cpu_func.h>
+#include <asm/cache.h>
 
 #include "ipq_board.h"
 
@@ -95,6 +100,14 @@ __weak void set_flash_secondary_type(uint32_t flash_type)
 __weak void ipq_config_cmn_clock(void)
 {
 	return;
+}
+
+__weak void board_cache_init(void)
+{
+	icache_enable();
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+	dcache_enable();
+#endif
 }
 
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void)
@@ -1003,4 +1016,19 @@ void set_ethmac_addr(void)
 		}
 		snprintf(ethaddr, sizeof(ethaddr), "eth%daddr", (i + 1));
 	}
+}
+
+void enable_caches(void)
+{
+#ifdef CONFIG_ARM64
+	int i;
+
+	/* Now Update the real DDR size based on Board configuration */
+	for (i = 0; mem_map[i].size || mem_map[i].attrs; i++) {
+		if (mem_map[i].size == 0xBAD0FF5EUL) {
+			mem_map[i].size = gd->ram_top - mem_map[i].virt;
+		}
+	}
+#endif
+	board_cache_init();
 }
