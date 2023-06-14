@@ -137,7 +137,7 @@ void clk_rcg_set_rate_v2(phys_addr_t base, const struct bcr_regs_v2 *regs,
 	writel(cfg, base + regs->cfg_rcgr); /* Write new clock configuration */
 
 	/* Write the common divider clock configuration */
-	if (cdiv)
+	if (regs->div_cdivr)
 		writel(cdiv, base + regs->div_cdivr);
 
 	/* Inform h/w to start using the new config. */
