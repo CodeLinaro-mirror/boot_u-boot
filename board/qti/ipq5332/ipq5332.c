@@ -62,12 +62,6 @@ void lowlevel_init(void)
 	return;
 }
 
-void enable_caches(void)
-{
-	icache_enable();
-	dcache_enable();
-}
-
 int board_fit_config_name_match(const char *name)
 {
 	if (!strcmp(name, "ipq5332-mi1-4"))
@@ -145,7 +139,7 @@ static struct mm_region ipq5332_mem_map[] = {
 		/* DDR region upto u-boot CONFIG_TEXT_BASE */
 		.virt = CFG_SYS_SDRAM_BASE,
 		.phys = CFG_SYS_SDRAM_BASE,
-		.size = IPQ5332_DDR_LOWER_SIZE,
+		.size = CONFIG_TEXT_BASE - CFG_SYS_SDRAM_BASE,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
@@ -157,10 +151,14 @@ static struct mm_region ipq5332_mem_map[] = {
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE
 	}, {
-		/* DDR region after u-boot text base till max DDR region */
-		.virt = IPQ5332_UBOOT_END_ADDRESS,
-		.phys = IPQ5332_UBOOT_END_ADDRESS,
-		.size = IPQ5332_DDR_UPPER_SIZE_MAX,
+		/*
+		 * DDR region after u-boot text base
+		 * added dummy 0xBAD0FF5EUL,
+		 * will update the actual DDR limit
+		 */
+		.virt = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
+		.phys = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
+		.size = 0xBAD0FF5EUL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
