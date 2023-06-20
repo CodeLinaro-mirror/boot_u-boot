@@ -75,46 +75,43 @@ static int ppe_uniphy_calibration(struct port_info *port)
 	return 0;
 }
 
-static void ppe_uniphy_reset(struct port_info *port, bool issoft, bool enable)
+void ipq_port_reset(struct reset_ctl *rst, bool set)
+{
+	if (set)
+		reset_assert(rst);
+	else
+		reset_deassert(rst);
+}
+
+static void ppe_uniphy_reset(struct port_info *port, bool issoft, bool set)
 {
 	struct udevice *dev = port->phydev->dev;
 	struct reset_ctl rst;
 	int ret;
+	char name[64];
 
-	switch(port->uniphy_id) {
-		case 0:
-			if(issoft)
-				ret = reset_get_by_name(dev, "uniphy0_srst",
-						&rst);
-			else
-				ret = reset_get_by_name(dev, "uniphy0_xrst",
-						&rst);
-			break;
-		case 1:
-			if(issoft)
-				ret = reset_get_by_name(dev, "uniphy1_srst",
-						&rst);
-			else
-				ret = reset_get_by_name(dev, "uniphy1_xrst",
-						&rst);
-			break;
-		case 2:
-			if(issoft)
-				ret = reset_get_by_name(dev, "uniphy2_srst",
-						&rst);
-			else
-				ret = reset_get_by_name(dev, "uniphy2_xrst",
-						&rst);
-			break;
-		default:
-			;
-	}
+	snprintf(name, sizeof(name), "uniphy%d_%s", port->uniphy_id,
+			(issoft)? "srst" : "xrst");
 
-	if(ret == 0) {
-		if (enable)
-			reset_assert(&rst);
-		else
-			reset_deassert(&rst);
+	ret = reset_get_by_name(dev, name, &rst);
+
+	if(!ret)
+		ipq_port_reset(&rst, set);
+
+	if(issoft) {
+		snprintf(name, sizeof(name), "uniphy_port%d_tx", port->id);
+
+		ret = reset_get_by_name(dev, name, &rst);
+
+		if(!ret)
+			ipq_port_reset(&rst, set);
+
+		snprintf(name, sizeof(name), "uniphy_port%d_rx", port->id);
+
+		ret = reset_get_by_name(dev, name, &rst);
+
+		if(!ret)
+			ipq_port_reset(&rst, set);
 	}
 }
 
@@ -603,7 +600,6 @@ void ppe_xgmac_configuration(phys_addr_t reg_base, uint32_t portid,
 	/*
 	 * set up mac filter
 	 */
-	reg_value = readl(base + MAC_PACKET_FILTER_ADDRESS);
 	writel(0x80000081, base + MAC_PACKET_FILTER_ADDRESS);
 }
 /*
@@ -713,11 +709,6 @@ void ppe_port_speed_set(phys_addr_t reg_base, struct port_info *port)
 	uintptr_t base;
 
 	ppe_port_bridge_txmac_set(reg_base, port->id, false);
-
-	if (port->cur_uniphy_mode != port->uniphy_mode) {
-		ppe_uniphy_mode_set(port);
-		port->cur_uniphy_mode = port->uniphy_mode;
-	}
 
 	if (port->cur_gmac_type != port->gmac_type) {
 		ppe_port_mux_set(reg_base, port);
@@ -977,36 +968,42 @@ static void ipq_ppe_vp_port_tbl_set(phys_addr_t reg_base, uint32_t port,
 }
 
 void ipq_port_mac_clock_setclear(struct udevice *dev, struct port_info *port,
-				bool tx, bool set)
+					bool set)
 {
 	struct reset_ctl rst;
 	int ret;
 	char name[64];
 
-	snprintf(name, sizeof(name), "nss_cc_uniphy_port%d_%s", port->id,
-			(tx == true)? "tx" : "rx");
+	snprintf(name, sizeof(name), "nss_cc_port%d_mac", port->id);
 
 	ret = reset_get_by_name(dev, name, &rst);
 
-	if(!ret) {
-		if (set)
-			reset_assert(&rst);
-		else
-			reset_deassert(&rst);
-	}
+	if(!ret)
+		ipq_port_reset(&rst, set);
+
+	snprintf(name, sizeof(name), "nss_cc_port%d_tx", port->id);
+
+	ret = reset_get_by_name(dev, name, &rst);
+
+	if(!ret)
+		ipq_port_reset(&rst, set);
+
+
+	snprintf(name, sizeof(name), "nss_cc_port%d_rx", port->id);
+
+	ret = reset_get_by_name(dev, name, &rst);
+
+	if(!ret)
+		ipq_port_reset(&rst, set);
 }
 /*
  * ipq_port_mac_clock_reset()
  */
 void ipq_port_mac_clock_reset(struct udevice *dev, struct port_info *port)
 {
-	ipq_port_mac_clock_setclear(dev, port, true, true);
+	ipq_port_mac_clock_setclear(dev, port, true);
 	mdelay(10);
-	ipq_port_mac_clock_setclear(dev, port, true, false);
-	mdelay(10);
-	ipq_port_mac_clock_setclear(dev, port, false, true);
-	mdelay(10);
-	ipq_port_mac_clock_setclear(dev, port, false, false);
+	ipq_port_mac_clock_setclear(dev, port, false);
 	mdelay(10);
 }
 /*
@@ -1415,7 +1412,6 @@ next_rx_desc:
 skip:
 
 	if (cleaned_count) {
-		ipq_edma_alloc_rx_buffer(ehw, rxdesc_ring->rxfill);
 		writel(cons_idx, reg_base + EDMA_REG_RXDESC_CONS_IDX(
 						rxdesc_ring->id));
 	}
@@ -1432,7 +1428,7 @@ static int ipq_edma_rx_complete(struct ipq_eth_dev *priv, void **buff)
 	struct ipq_edma_rxdesc_ring *rxdesc_ring;
 	struct ipq_edma_rxfill_ring *rxfill_ring;
 	uint32_t misc_intr_status, reg_data;
-	int length;
+	int length = 0;
 	int i;
 	phys_addr_t reg_base = ehw->iobase;
 
@@ -2210,9 +2206,11 @@ static int ipq_eth_port_set_up(struct ipq_eth_dev *priv,
 	}
 
 	if (port_config[i].id != UNUSED_PHY_TYPE) {
-		ppe_port_speed_set(priv->ppe.base, port);
 
-		ipq_port_mac_clock_reset(priv->dev, port);
+		if (port->cur_uniphy_mode != port->uniphy_mode) {
+			ppe_uniphy_mode_set(port);
+			port->cur_uniphy_mode = port->uniphy_mode;
+		}
 
 		snprintf(clk_name, sizeof(clk_name), "uniphy%d_nss_rx_clk",
 			port->uniphy_id);
@@ -2278,6 +2276,10 @@ static int ipq_eth_port_set_up(struct ipq_eth_dev *priv,
 			goto fail;
 
 		clk_enable(&clk);
+
+		ipq_port_mac_clock_reset(priv->dev, port);
+
+		ppe_port_speed_set(priv->ppe.base, port);
 	}
 fail:
 	return ret;
@@ -2771,14 +2773,13 @@ static int ipq_eth_probe(struct udevice *dev)
 		 * speed link up.
 		 */
 		if (port->phy_id == QCA8x8x_PHY_TYPE) {
-			if (phy_no == 0) {
-				port->uniphy_mode = PORT_WRAPPER_UQXGMII;
-				port->gmac_type = XGMAC;
-				ppe_port_speed_set(priv->ppe.base, port);
-			} else {
-				port->uniphy_mode = port->cur_uniphy_mode =
+			port->uniphy_mode = port->cur_uniphy_mode =
 						PORT_WRAPPER_UQXGMII;
-				port->gmac_type = port->cur_gmac_type = XGMAC;
+			port->gmac_type = port->cur_gmac_type = XGMAC;
+
+			if (phy_no == 0) {
+				ppe_uniphy_mode_set(port);
+				ppe_port_mux_set(priv->ppe.base, port);
 			}
 			++phy_no;
 		}
