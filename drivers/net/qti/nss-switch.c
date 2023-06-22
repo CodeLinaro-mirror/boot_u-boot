@@ -2561,7 +2561,7 @@ static int ipq_eth_read_hwaddr(struct udevice *dev)
 
 	/* Getting the MAC address from ART partition */
 	ret = get_eth_mac_address(&enet_addr[0], 1);
-	if (!ret && is_valid_ethaddr(enet_addr)) {
+	if (ret && is_valid_ethaddr(enet_addr)) {
 		memcpy(&pdata->enetaddr[0], &enet_addr[0], 6);
 	} else {
 		memcpy(&pdata->enetaddr[0], &ipq_def_enetaddr[0], 6);
