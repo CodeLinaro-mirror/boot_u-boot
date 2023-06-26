@@ -625,9 +625,9 @@ void ppe_port_bridge_txmac_set(phys_addr_t reg_base, uint32_t port,
 
 uint8_t phy_status_get_from_ppe(phys_addr_t reg_base, uint32_t port_id)
 {
-	uint32_t reg_field = readl((uintptr_t)(reg_base + (port_id > 4)?
+	uint32_t reg_field = readl((reg_base + ((port_id > 4)?
 				PORT_PHY_STATUS_ADDRESS1 :
-				PORT_PHY_STATUS_ADDRESS));
+				PORT_PHY_STATUS_ADDRESS)));
 
 	switch(port_id) {
 	case 2:
@@ -2298,14 +2298,14 @@ static int ipq_eth_start(struct udevice *dev)
 	for (i = 0; i < CONFIG_ETH_MAX_MAC; ++i) {
 		port = priv->port[i];
 
-		if (!port)
+		if (!port || !port->phydev)
 			continue;
 
 		if ((port->phy_id == SFP10G_PHY_TYPE) ||
 			(port->phy_id == SFP2_5G_PHY_TYPE) ||
 			(port->phy_id == SFP1G_PHY_TYPE)) {
 				ret = phy_status_get_from_ppe(priv->ppe.base,
-								port->phy_id);
+								port->id);
 			link = ((ret & LINK_STATUS) != 0) ? 1 : 0;
 			duplex = ((ret & DUPLEX) != 0) ? 1: 0;
 			speed = mac_speed_config[ret & SPEED];
@@ -2756,8 +2756,20 @@ static int ipq_eth_probe(struct udevice *dev)
 			port->phy_id == QCA8x8x_SWITCH_TYPE)
 			ipq_eth_8x8x_pre_init(port->bus);
 #endif
-		port->phydev = phy_connect(port->bus, port->phyaddr, dev,
+		if ((port->phy_id == SFP10G_PHY_TYPE) ||
+			(port->phy_id == SFP2_5G_PHY_TYPE) ||
+			(port->phy_id == SFP1G_PHY_TYPE)) {
+				port->phydev = phy_device_create(port->bus,
+							port->phyaddr,
+							PHY_FIXED_ID,
+							true);
+				phy_connect_dev(port->phydev,
+						dev,
 						port->interface);
+		} else {
+			port->phydev = phy_connect(port->bus, port->phyaddr,
+							dev,port->interface);
+		}
 
 		if (IS_ERR_OR_NULL(port->phydev))
 			continue;
