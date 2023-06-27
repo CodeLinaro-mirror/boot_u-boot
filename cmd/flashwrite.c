@@ -41,6 +41,8 @@ extern struct sdhci_host mmc_host;
 
 #define SHA1_SIG_LEN 41
 
+int ubi_set_rootfs_part(void);
+
 struct header {
 	unsigned magic[2];
 	unsigned version;
@@ -537,11 +539,7 @@ char * const argv[])
 
 	if (flash_type == 0) {
 		/*NAND*/
-#ifdef CONFIG_QPIC_SERIAL
 		sfi->flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
-#else
-		sfi->flash_type = SMEM_BOOT_NAND_FLASH;
-#endif
 	} else {
 		/* NOR*/
 		sfi->flash_type = SMEM_BOOT_SPI_FLASH;

@@ -58,6 +58,51 @@ unsigned int get_rootfs_active_partition(void)
 	return 0; /* alt partition not available */
 }
 
+#ifdef CONFIG_MTD
+/*
+ * Set the root device and bootargs for mounting root filesystem.
+ */
+int set_fs_bootargs(void)
+{
+	char *bootargs;
+	char mtdids[256];
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
+			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
+		bootargs = "ubi.mtd=rootfs root=mtd:ubi_rootfs "
+			"rootfstype=squashfs";
+		if (env_get("fsbootargs") == NULL)
+			env_set("fsbootargs", bootargs);
+
+		snprintf(mtdids, sizeof(mtdids), "nand0=nand0");
+
+	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
+		if (get_which_flash_param("rootfs") ||
+			((sfi->flash_secondary_type == SMEM_BOOT_NAND_FLASH) ||
+			 (sfi->flash_secondary_type ==
+			  SMEM_BOOT_QSPI_NAND_FLASH))) {
+			bootargs = "ubi.mtd=rootfs root=mtd:ubi_rootfs "
+				"rootfstype=squashfs";
+
+			snprintf(mtdids, sizeof(mtdids),
+				"nand0=nand0,nor0="
+				CONFIG_IPQ_SPI_NOR_DEV_NAME);
+
+			if (env_get("fsbootargs") == NULL)
+				env_set("fsbootargs", bootargs);
+		}
+	}else {
+		printf("bootipq: unsupported boot flash type\n");
+		return -EINVAL;
+	}
+
+	return run_command("setenv bootargs ${bootargs} "
+			"${fsbootargs} rootwait", 0);
+}
+#endif
+
+#ifdef CONFIG_MMC
 int set_uuid_bootargs(char *boot_args, char *part_name, int buflen,
 			bool gpt_flag)
 {
@@ -119,6 +164,65 @@ static int boot_mmc(int active_part, bool gpt_flag)
 
 	return run_command(runcmd, 0);
 }
+#endif
+
+#ifdef CONFIG_NAND_QTI
+static int boot_nand(void)
+{
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	char runcmd[256];
+	int ret;
+
+	ret = set_fs_bootargs();
+	if (ret)
+		return ret;
+	/*
+	 * The kernel is in seperate partition
+	 */
+	if (sfi->rootfs.offset == 0xBAD0FF5E) {
+		printf(" bad offset of hlos");
+		return -1;
+	}
+
+	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
+			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
+		snprintf(runcmd, sizeof(runcmd),
+			"setenv mtdids nand0=nand0 && "
+			"setenv mtdparts "
+			"mtdparts=nand0:0x%llx@0x%llx(fs),${msmparts} && "
+			"ubi part fs && "
+			"ubi read 0x%x kernel && ",
+			sfi->rootfs.size, sfi->rootfs.offset,
+			CONFIG_SYS_LOAD_ADDR);
+	} else if ((sfi->flash_type == SMEM_BOOT_SPI_FLASH) &&
+			(sfi->rootfs.offset != 0xBAD0FF5E) &&
+			(sfi->flash_secondary_type ==
+			 SMEM_BOOT_QSPI_NAND_FLASH)) {
+		if (get_which_flash_param("rootfs")) {
+			snprintf(runcmd, sizeof(runcmd),
+				"nand device 0 && "
+				"setenv mtdids nand0=nand0,nor0=spi0.0 && "
+				"setenv mtdparts mtdparts=nand0:"
+				"0x%llx@0x%llx(fs),${msmparts} && "
+				"ubi part fs && "
+				"ubi read 0x%x kernel && ",
+				sfi->rootfs.size, sfi->rootfs.offset,
+				CONFIG_SYS_LOAD_ADDR);
+		} else {
+			/*
+			 * Kernel is in a separate partition
+			 */
+			snprintf(runcmd, sizeof(runcmd),
+				"sf probe &&"
+				"sf read 0x%x 0x%x 0x%x && ",
+				CONFIG_SYS_LOAD_ADDR, (uint)sfi->hlos.offset,
+				(uint)sfi->hlos.size);
+		}
+	}
+
+	return run_command(runcmd, 0);
+}
+#endif
 
 #ifdef CONFIG_IPQ_ELF_AUTH
 static int parse_elf_image_phdr(image_info *img_info, unsigned int addr)
@@ -208,7 +312,9 @@ int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 	image_info img_info;
 #endif
 	bool secure_board = false;
+#ifdef CONFIG_MMC
 	int active_part = get_rootfs_active_partition();
+#endif
 #ifdef CONFIG_BOARD_TYPES
 	flash_type = gd->board_type;
 #else
@@ -221,12 +327,20 @@ int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 		flash_type = sfi->flash_type;
 #endif
 	switch(flash_type) {
+#ifdef CONFIG_MMC
 	case SMEM_BOOT_MMC_FLASH:
 		ret = boot_mmc(active_part, true);
 		break;
 	case SMEM_BOOT_NORPLUSEMMC:
 		ret = boot_mmc(active_part, false);
 		break;
+#endif
+#ifdef CONFIG_NAND_QTI
+	case SMEM_BOOT_QSPI_NAND_FLASH:
+	case SMEM_BOOT_NORPLUSNAND:
+		ret = boot_nand();
+		break;
+#endif
 	default:
 		printf("Unsupported BOOT flash type\n");
 		return -1;
