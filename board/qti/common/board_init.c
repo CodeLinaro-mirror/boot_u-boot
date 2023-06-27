@@ -74,6 +74,7 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 uint32_t g_board_machid;
+char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 
 struct udevice *smem;
 
@@ -87,7 +88,7 @@ extern int part_get_info_efi(struct blk_desc *dev_desc, int part,
 
 void set_ethmac_addr(void);
 
-__weak void ipq_uboot_fdt_fixup(void)
+__weak void ipq_uboot_fdt_fixup(uint32_t machid)
 {
 	return;
 }
@@ -487,7 +488,6 @@ int board_early_init_f(void)
 			  ((SOCINFO_VERSION_MINOR(
 				platform_type->v1.platform_version)) << 8) |
 			  (platform_type->v1.hw_platform_subtype));
-	return 0;
 #else
 	struct smem_machid_info *machid_info;
 	machid_info = smem_get_item(SMEM_MACHID_INFO_LOCATION);
@@ -496,7 +496,6 @@ int board_early_init_f(void)
 		return -ENODEV;
 	}
 		g_board_machid = machid_info->machid;
-		return 0;
 #endif
 
 	return 0;
@@ -504,9 +503,34 @@ int board_early_init_f(void)
 
 int board_fix_fdt(void *rw_fdt_blob)
 {
-	ipq_uboot_fdt_fixup();
+	ipq_uboot_fdt_fixup(g_board_machid);
 	return 0;
 }
+
+#ifdef CONFIG_MULTI_DTB_FIT
+int board_fit_config_name_match(const char *name)
+{
+	if (!strcmp(name, g_board_dts))
+		return 0;
+	return -1;
+}
+#endif /* CONFIG_MULTI_DTB_FIT */
+
+#ifdef CONFIG_DTB_RESELECT
+int embedded_dtb_select(void)
+{
+	int rescan;
+	unsigned int i;
+	for (i=0; i<*machid_dts_entries; i++)
+		if (machid_dts_info[i].machid == g_board_machid)
+			strlcpy(g_board_dts, machid_dts_info[i].dts,
+					BOARD_DTS_MAX_NAMELEN);
+
+	fdtdec_resetup(&rescan);
+
+	return 0;
+}
+#endif /* CONFIG_DTB_RESELECT */
 
 int board_late_init(void)
 {

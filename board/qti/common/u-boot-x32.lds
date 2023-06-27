@@ -193,11 +193,6 @@ SECTIONS
 		*(.__rel_dyn_end)
 	}
 
-	.end :
-	{
-		*(.__end)
-	}
-
 	_image_binary_end = .;
 
 	/*
@@ -227,6 +222,15 @@ SECTIONS
 
 	.bss_end __bss_limit (OVERLAY) : {
 		KEEP(*(.__bss_end));
+	}
+
+	.end :
+	{
+		*(.__end)
+	}
+
+	.dtb : {
+		. = . + 0x1000;
 	}
 
 	.dynsym _image_binary_end : { *(.dynsym) }
