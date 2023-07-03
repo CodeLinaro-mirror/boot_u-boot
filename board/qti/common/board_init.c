@@ -1012,7 +1012,7 @@ void set_ethmac_addr(void)
 					mac_addr[0], mac_addr[1],
 					mac_addr[2], mac_addr[3],
 					mac_addr[4], mac_addr[5]);
-			eth_env_set_enetaddr(ethaddr, mac);
+			env_set(ethaddr, mac);
 		}
 		snprintf(ethaddr, sizeof(ethaddr), "eth%daddr", (i + 1));
 	}

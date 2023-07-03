@@ -256,18 +256,18 @@
 				<&reset GCC_UNIPHY1_XPCS_RESET>,
 				<&reset GCC_UNIPHY0_BCR>,
 				<&reset GCC_UNIPHY1_BCR>,
-				<&nss_reset NSS_CC_UNIPHY_PORT1_TX_RESET>,
-				<&nss_reset NSS_CC_UNIPHY_PORT1_RX_RESET>,
-				<&nss_reset NSS_CC_UNIPHY_PORT2_TX_RESET>,
-				<&nss_reset NSS_CC_UNIPHY_PORT2_RX_RESET>,
+				<&nss_reset NSS_CC_PORT1_TX_RESET>,
+				<&nss_reset NSS_CC_PORT1_RX_RESET>,
+				<&nss_reset NSS_CC_PORT2_TX_RESET>,
+				<&nss_reset NSS_CC_PORT2_RX_RESET>,
 				<&nss_reset NSS_CC_PPE_BCR>;
 			reset-names = "uniphy0_srst", "uniphy1_srst",
 					"uniphy0_xrst", "uniphy1_xrst",
 					"uniphy0_bcr", "uniphy1_bcr",
-					"nss_cc_uniphy_port1_tx",
-					"nss_cc_uniphy_port1_rx",
-					"nss_cc_uniphy_port2_tx",
-					"nss_cc_uniphy_port2_tx",
+					"nss_cc_port1_tx",
+					"nss_cc_port1_rx",
+					"nss_cc_port2_tx",
+					"nss_cc_port2_tx",
 					"nss_cc_ppe_bcr";
 			tdm_offset = <0xc000>;
 			tdm_mode = <0>;
