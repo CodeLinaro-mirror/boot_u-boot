@@ -39,6 +39,30 @@
 				};
 			};
 
+			qspi_pinmux: nand {
+				qspi_data {
+					pins = "GPIO_11", "GPIO_10", "GPIO_9",
+						"GPIO_8";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+
+				qspi_cs_n {
+					pins = "GPIO_12";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				qspi_clk {
+					pins = "GPIO_13";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+			};
+
 			serial_pinmux: uart {
 				data {
 					pins = "GPIO_18", "GPIO_19";
@@ -83,14 +107,14 @@
 				mdc {
 					pins = "GPIO_27";
 					function = "mdc_1";
-					drive-strength = <DRIVE_STRENGTH_8MA>;
+					drive-strength = <DRIVE_STRENGTH_2MA>;
 					bias-disable;
 				};
 
 				mdio {
 					pins = "GPIO_28";
 					function = "mdio_1";
-					drive-strength = <DRIVE_STRENGTH_8MA>;
+					drive-strength = <DRIVE_STRENGTH_2MA>;
 					bias-pull-up;
 				};
 			};
@@ -100,9 +124,19 @@
 					pins = "GPIO_51";
 					bias-pull-up;
 				};
+
+				qti_8081_rst {
+					pins = "GPIO_22";
+					bias-pull-up;
+				};
 			};
 		};
 
+		nand: nand-controller@79B0000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&qspi_pinmux>;
+			status = "okay";
+		};
 
 		blsp1_uart1: serial@78af000 {
 			pinctrl-names = "uart";
@@ -136,7 +170,7 @@
 
 			phy0: ethernet-switch@1 {
 				phy-reset-gpio = <&tlmm 51 0>;
-				dev-mode = <0x2>;
+				dev-mode = <0x1>;
 				reg = <1>;
 				phy_id = <10>;
 				id = <1>;
@@ -173,19 +207,23 @@
 						reg = <3>;
 						label = "lan";
 					};
+
+					port4: port@4 {
+						reg = <4>;
+						label = "lan";
+					};
 				};
 			};
 
-			phy1: phy@4 {
-				reg = <4>;
-				phy_id = <11>;
+			phy1: phy@12 {
+				phy-reset-gpio = <&tlmm 22 0>;
+				reg = <12>;
+				phy_id = <1>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
-				gmac_type = <1>;
 				max_speed = <2500>;
 				xgmac;
-
 			};
 		};
 
