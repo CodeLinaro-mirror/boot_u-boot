@@ -6,7 +6,10 @@
 #include <asm/cache.h>
 #include <asm/system.h>
 #include <common.h>
+#include <cpu_func.h>
+#include <image.h>
 #include <asm/global_data.h>
+#include <asm/sections.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -32,12 +35,40 @@ int arm_reserve_mmu(void)
 	return 0;
 }
 
+#ifdef CONFIG_OF_SEPARATE
+int calc_fdt_blob_size(void)
+{
+	int size = 0;
+	void * fdt_blob = (ulong *)&_end;
+	int noffset = 0, image_noffset = 0;
+
+	size = fdt_totalsize(fdt_blob);
+	image_noffset = fdt_path_offset(fdt_blob, FIT_IMAGES_PATH);
+	if (image_noffset < 0) {
+		printf("Can't find images parent node '%s' (%s)\n",
+		       FIT_IMAGES_PATH, fdt_strerror(image_noffset));
+		return size;
+	}
+
+	fdt_for_each_subnode(noffset, fdt_blob, image_noffset) {
+		int data_size = 0;
+		fit_image_get_data_size(fdt_blob, noffset, &data_size);
+		size += data_size;
+	}
+
+	return size;
+}
+#endif /* CONFIG_OF_SEPARATE */
+
 int mach_cpu_init(void)
 {
 	gd->flags |= GD_FLG_SKIP_RELOC;
-
+#ifdef CONFIG_OF_SEPARATE
+	gd->mon_len += calc_fdt_blob_size();
+#endif
 	return 0;
 }
+
 #ifndef CONFIG_ARM64
 int arch_cpu_init(void)
 {

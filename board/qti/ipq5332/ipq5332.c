@@ -46,6 +46,25 @@ struct node_info * fnodes = ipq_fnodes ;
 int * fnode_entires = &ipq_fnode_entires;
 #endif
 
+#ifdef CONFIG_DTB_RESELECT
+struct machid_dts_map machid_dts[] = {
+	{ MACH_TYPE_IPQ5332_RDP468, "ipq5332-rdp468"},
+	{ MACH_TYPE_IPQ5332_RDP441, "ipq5332-rdp441"},
+	{ MACH_TYPE_IPQ5332_RDP442, "ipq5332-rdp442"},
+	{ MACH_TYPE_IPQ5332_RDP446, "ipq5332-rdp446"},
+	{ MACH_TYPE_IPQ5332_RDP474, "ipq5332-rdp474"},
+	{ MACH_TYPE_IPQ5332_RDP472, "ipq5332-rdp472"},
+	{ MACH_TYPE_IPQ5332_DB_MI01_1, "ipq5332-db-mi01.1"},
+	{ MACH_TYPE_IPQ5332_DB_MI02_1, "ipq5332-db-mi02.1"},
+	{ MACH_TYPE_IPQ5332_DB_MI03_1, "ipq5332-db-mi03.1"},
+};
+
+int machid_dts_nos = ARRAY_SIZE(machid_dts);
+
+struct machid_dts_map * machid_dts_info = machid_dts;
+int * machid_dts_entries = &machid_dts_nos;
+#endif /* CONFIG_DTB_RESELECT */
+
 struct dumpinfo_t dumpinfo_n[] = {
 	/* TZ stores the DDR physical address at which it stores the
 	 * APSS regs, UTCM copy dump. We will have the TZ IMEM
@@ -85,13 +104,6 @@ int print_cpuinfo(void)
 void lowlevel_init(void)
 {
 	return;
-}
-
-int board_fit_config_name_match(const char *name)
-{
-	if (!strcmp(name, "ipq5332-mi1-4"))
-		return 0;
-	return -1;
 }
 
 #ifdef CONFIG_IPQ_FDT_FIXUP

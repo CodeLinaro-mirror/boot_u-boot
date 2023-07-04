@@ -147,8 +147,6 @@ SECTIONS
 		*(.__rel_dyn_end)
 	}
 
-	_end = .;
-
 	. = ALIGN(8);
 
 	.bss_start : {
@@ -162,6 +160,12 @@ SECTIONS
 
 	.bss_end : {
 		KEEP(*(.__bss_end));
+	}
+
+	_end = .;
+
+	.dtb : {
+		. = . + 0x1000;
 	}
 
 	/DISCARD/ : { *(.dynsym) }

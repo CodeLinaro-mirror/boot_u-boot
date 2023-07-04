@@ -24,6 +24,7 @@
 #define _str_fmt(x)		__str_fmt(x)
 #define smem_ptn_name_fmt	_str_fmt(SMEM_PTN_NAME_MAX)
 #define IPQ_ETH_FW_PART_NAME	"0:ETHPHYFW"
+#define BOARD_DTS_MAX_NAMELEN	30
 
 #ifdef CONFIG_SMEM_VERSION_C
 #define part_which_flash(p)    (((p)->attr & 0xff000000) >> 24)
@@ -277,6 +278,17 @@ typedef struct {
  */
 extern struct node_info * fnodes;
 extern int * fnode_entires;
+
+#ifdef CONFIG_DTB_RESELECT
+struct machid_dts_map
+{
+    int machid;
+    char* dts;
+};
+
+extern struct machid_dts_map * machid_dts_info;
+extern int * machid_dts_entries;
+#endif /* CONFIG_DTB_RESELECT */
 
 /* Crashdump levels */
 enum {
