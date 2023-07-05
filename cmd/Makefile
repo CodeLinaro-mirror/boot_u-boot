@@ -136,7 +136,6 @@ obj-$(CONFIG_CMD_PINMUX) += pinmux.o
 obj-$(CONFIG_CMD_PMC) += pmc.o
 obj-$(CONFIG_CMD_PSTORE) += pstore.o
 obj-$(CONFIG_CMD_PWM) += pwm.o
-obj-$(CONFIG_CMD_FLASHWRITE) += flashwrite.o
 obj-$(CONFIG_CMD_PXE) += pxe.o
 obj-$(CONFIG_CMD_WOL) += wol.o
 obj-$(CONFIG_CMD_QFW) += qfw.o

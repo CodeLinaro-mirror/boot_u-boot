@@ -109,11 +109,7 @@ int ubi_set_rootfs_part(void)
 	uint32_t part_size = 0;
 	uint32_t size_block, start_block;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	char runcmd[256];
-	int i;
-
-	if(ubi)
-		del_mtd_partitions(ubi->mtd);
+	char runcmd[128];
 
 	if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
@@ -135,31 +131,18 @@ int ubi_set_rootfs_part(void)
 	if (!part_size)
 		return -ENOENT;
 
-	if (ubi) {
-		for (i = 0; i < ubi->vtbl_slots; i++) {
-			if (ubi->volumes[i]) {
-				kfree(ubi->volumes[i]->eba_tbl);
-				kfree(ubi->volumes[i]);
-				ubi->volumes[i] = NULL;
-			}
-		}
+	if(ubi == NULL) {
+		snprintf(runcmd, sizeof(runcmd),
+			"setenv mtdids nand0=nand0 && "
+			"setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs) && "
+			"ubi part fs", part_size, offset);
+
+		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+			return CMD_RET_FAILURE;
+
+		ubi = ubi_devices[0];
 	}
 
-	snprintf(runcmd, sizeof(runcmd),
-		 "nand device 0 && "
-		 "setenv mtdids nand0=nand0 && "
-		 "setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs),${msmparts} && "
-		 "ubi part fs && ", part_size, offset);
-
-	if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-		return CMD_RET_FAILURE;
-
-	if (ubi) {
-		kfree(ubi);
-		ubi = NULL;
-	}
-
-	ubi = ubi_devices[0];
 	return 0;
 }
 
@@ -200,7 +183,6 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 #endif
 #ifdef CONFIG_CMD_UBI
-	char runcmd[256];
 	ubi_set_rootfs_part();
 #endif
 	if(sfi->flash_density != 0) {
@@ -253,19 +235,13 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 		printf("%3d: " smem_ptn_name_fmt " 0x%08x %#16llx %#16llx\n",
 		       i, p->name, p->attr, ((loff_t)p->start) * bsize, psize);
 #ifdef CONFIG_CMD_UBI
-		if (!strncmp(p->name, ROOT_FS_PART_NAME, SMEM_PTN_NAME_MAX)
-		    && ubi) {
+		if (!strncmp(p->name, ROOT_FS_PART_NAME, SMEM_PTN_NAME_MAX) &&
+			ubi) {
 			print_ubi_vol_info();
 		}
 #endif
 	}
 
-#ifdef CONFIG_CMD_UBI
-	snprintf(runcmd, sizeof(runcmd), "ubi detach && ");
-
-	if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-		return CMD_RET_FAILURE;
-#endif
 	return CMD_RET_SUCCESS;
 }
 
