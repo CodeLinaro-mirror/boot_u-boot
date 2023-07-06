@@ -19,7 +19,6 @@ DECLARE_GLOBAL_DATA_PTR;
 
 typedef void (*fdt_fixup_t)(void *blob);
 
-#ifdef CONFIG_IPQ_FDT_FIXUP
 #define FDT_EDIT "fdtedit"
 /* Buffer size to hold numbers from 0-99 + 1 NULL character */
 #define NUM_BUF_SIZE 3
@@ -66,7 +65,7 @@ typedef void (*fdt_fixup_t)(void *blob);
  *       setenv fdtedit3
  *		/reserved-memory/tzapp@49B00000/%64?2?reg%0x49A00000?0x500000
  */
-void parse_fdt_fixup(char* buf, void *blob)
+static void parse_fdt_fixup(char* buf, void *blob)
 {
 	int nodeoff, value, ret, num_values, i;
 	char *node, *property, *node_value, *sliced_string;
@@ -183,7 +182,7 @@ void parse_fdt_fixup(char* buf, void *blob)
 }
 
 /* check parse_fdt_fixup for detailed explanation */
-void ipq_fdt_fixup(void *blob)
+static void ipq_fdt_fixup(void *blob)
 {
 	int i, fdteditnum;
 	char buf[sizeof(FDT_EDIT) + NUM_BUF_SIZE], num[NUM_BUF_SIZE];
@@ -212,8 +211,47 @@ void ipq_fdt_fixup(void *blob)
 	}
 }
 
-__weak 	void fdt_fixup_flash(void *blob) { return; }
-#endif /* CONFIG_IPQ_FDT_FIXUP */
+__weak void fdt_fixup_flash(void *blob)
+{
+#ifdef CONFIG_MMC
+	uint32_t flash_type = SMEM_BOOT_NO_FLASH;
+	int nand_nodeoff = fdt_path_offset(blob, LINUX_6_1_NAND_DTS_NODE);
+	int mmc_nodeoff = fdt_path_offset(blob, LINUX_6_1_MMC_DTS_NODE);
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	if (sfi->flash_secondary_type == SMEM_BOOT_MMC_FLASH)
+		flash_type = SMEM_BOOT_NORPLUSEMMC;
+	else if (sfi->flash_secondary_type == SMEM_BOOT_QSPI_NAND_FLASH)
+		flash_type = SMEM_BOOT_NORPLUSNAND;
+	else
+		flash_type = sfi->flash_type;
+
+	if (flash_type == SMEM_BOOT_NORPLUSEMMC ||
+		flash_type == SMEM_BOOT_MMC_FLASH ) {
+		if ((nand_nodeoff > 0) && (mmc_nodeoff > 0)) {
+			parse_fdt_fixup(LINUX_6_1_MMC_DTS_NODE"%"STATUS_OK,
+					blob);
+			parse_fdt_fixup(
+				LINUX_6_1_NAND_DTS_NODE"%"STATUS_DISABLED,
+				blob);
+		} else {
+			nand_nodeoff = fdt_path_offset(blob,
+					LINUX_5_4_NAND_DTS_NODE);
+			mmc_nodeoff = fdt_path_offset(blob,
+					LINUX_5_4_MMC_DTS_NODE);
+			if ((nand_nodeoff <= 0) || (mmc_nodeoff <= 0))
+				return;
+
+			parse_fdt_fixup(LINUX_5_4_MMC_DTS_NODE"%"STATUS_OK,
+					blob);
+			parse_fdt_fixup(
+				LINUX_5_4_NAND_DTS_NODE"%"STATUS_DISABLED,
+				blob);
+		}
+	}
+#endif
+	return;
+}
 
 __weak void ipq_fdt_fixup_socinfo(void *blob)
 {
@@ -407,15 +445,120 @@ static void ipq_fdt_fixup_mtdparts(void *blob)
 }
 #endif
 
+#ifdef CONFIG_CMD_NAND
+static void ipq_fdt_fixup_qti_nand(void *blob)
+{
+	int ret;
+	char fixup_cfg[128] = { 0 };
+	loff_t training_offset;
+	u32 start_blocks, size_blocks;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	ret = smem_getpart("0:TRAINING", &start_blocks, &size_blocks);
+	if (ret < 0) {
+		printf("Serial Training part offset not found.\n");
+		return;
+	}
+
+	training_offset =  sfi->flash_block_size * start_blocks;
+	if (fdt_path_offset(blob, LINUX_6_1_NAND_DTS_NODE) > 0)
+		snprintf(fixup_cfg, sizeof(fixup_cfg), "%s%s%lld",
+				LINUX_6_1_NAND_DTS_NODE,
+				"%qcom,training_offset%", training_offset);
+	else if (fdt_path_offset(blob, LINUX_5_4_NAND_DTS_NODE) > 0)
+		snprintf(fixup_cfg, sizeof(fixup_cfg), "%s%s%lld",
+				LINUX_5_4_NAND_DTS_NODE,
+				"%qcom,training_offset%", training_offset);
+
+	if (fixup_cfg[0] != 0)
+		parse_fdt_fixup(fixup_cfg, blob);
+}
+#endif /* CONFIG_CMD_NAND */
+
+static void ipq_fdt_fixup_usb_dev_mode(void *blob)
+{
+	const char *usb_cfg = env_get("usb_mode");
+	if (!usb_cfg)
+		return;
+
+	if (!strncmp(usb_cfg, "peripheral", sizeof("peripheral"))) {
+		if (fdt_path_offset(blob, LINUX_6_1_USB_DTS_NODE) > 0) {
+			parse_fdt_fixup(LINUX_6_1_USB_DR_MODE_FIXUP, blob);
+			parse_fdt_fixup(LINUX_6_1_USB_MAX_SPEED_FIXUP, blob);
+		} else if (fdt_path_offset(blob, LINUX_5_4_USB_DTS_NODE) > 0) {
+			parse_fdt_fixup(LINUX_5_4_USB_DR_MODE_FIXUP, blob);
+			parse_fdt_fixup(LINUX_5_4_USB_MAX_SPEED_FIXUP, blob);
+		}
+	}
+}
+
+static void ipq_fdt_fixup_dload_disable(void *blob)
+{
+	int parentoff, nodeoff, ret, i;
+	const char *del_node[] = {
+		"uboot",
+		"bootloader",
+		"sbl",
+		NULL
+	};
+	u32 dload = htonl(1);	// DLOAD disable
+	char * s = env_get("dload_dis");
+	if ((s == NULL) || (s[0] == '\0'))
+		return;
+
+	/* Reserve only the TZ and SMEM memory region and free the rest */
+	parentoff = fdt_path_offset(blob, LINUX_RSVD_MEM_DTS_NODE);
+	if (parentoff >= 0) {
+		for (i = 0; del_node[i]; i++) {
+			nodeoff = fdt_subnode_offset(blob, parentoff,
+						     del_node[i]);
+			if (nodeoff < 0) {
+				debug("fdt-fixup: unable to findnode (%s)\n",
+					del_node[i]);
+				continue;
+			}
+			ret = fdt_del_node(blob, nodeoff);
+			if (ret != 0)
+				debug("fdt-fixup: unable to delete node" \
+					       " (%s)\n", del_node[i]);
+		}
+	} else {
+		debug("fdt-fixup: unable to find node \n");
+	}
+
+	/* Set the dload_status to DLOAD_DISABLE */
+	nodeoff = fdt_path_offset(blob, LINUX_6_1_DLOAD_DTS_NODE);
+	if (nodeoff < 0) {
+		nodeoff = fdt_path_offset(blob, LINUX_5_4_DLOAD_DTS_NODE);
+		if (nodeoff > 0) {
+			ret = fdt_setprop(blob, nodeoff, "dload_status",
+					&dload, sizeof(dload));
+			if (ret != 0) {
+				debug("fdt-fixup: unable to set prop value\n");
+				return;
+			}
+		}
+	} else {
+		ret = fdt_delprop(blob, nodeoff, "qcom,dload-mode");
+		if (ret != 0) {
+			debug("fdt-fixup: unable to delete prop\n");
+			return;
+		}
+	}
+}
+
 static const fdt_fixup_t fixup_functions[] = {
 	ipq_fdt_fixup_socinfo,
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 	ipq_fdt_fixup_mtdparts,
 #endif
-#ifdef CONFIG_IPQ_FDT_FIXUP
 	fdt_fixup_flash,
 	ipq_fdt_fixup,
+#ifdef CONFIG_CMD_NAND
+	ipq_fdt_fixup_qti_nand,
 #endif
+	ipq_fdt_fixup_usb_dev_mode,
+	ipq_fdt_fixup_dload_disable,
 	NULL
 };
 

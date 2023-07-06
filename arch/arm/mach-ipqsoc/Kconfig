@@ -28,9 +28,6 @@ config RAM_NUM_PART_ENTRIES
 	int "Number of RAM partition entries which are usable by APPS"
 	default 32
 
-config IPQ_FDT_FIXUP
-	bool "Enable FDT parser"
-
 config SCM
 	bool "add scm call support"
 
@@ -73,7 +70,6 @@ config TARGET_IPQ5332
 	select PINCTRL_QTI
 	select CLK_QTI
 	select SCM
-	select IPQ_FDT_FIXUP
 	select SYS_DEVICE_NULLDEV
 	select CMD_XIMG
 	select CMD_MEMTEST
@@ -111,7 +107,6 @@ config TARGET_IPQ9574
 	select PINCTRL_QTI
 	select CLK_QTI
 	select SCM
-	select IPQ_FDT_FIXUP
 	select SYS_DEVICE_NULLDEV
 	select CMD_XIMG
 	select CMD_MEMTEST

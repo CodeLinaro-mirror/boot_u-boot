@@ -50,4 +50,23 @@ typedef enum {
 #define DLOAD_DISABLE				(~BIT(4))
 #define CRASHDUMP_RESET				BIT(11)
 
+/* DT Fixup nodes */
+#define LINUX_5_4_NAND_DTS_NODE		"/soc/nand@79b0000/"
+#define LINUX_5_4_MMC_DTS_NODE		"/soc/sdhci@7804000/"
+#define LINUX_5_4_USB_DTS_NODE		"/soc/usb3@8A00000/dwc3@8A00000/"
+#define LINUX_5_4_USB_DR_MODE_FIXUP	"/soc/usb3@8A00000/dwc3@8A00000%dr_mode%?peripheral"
+#define LINUX_5_4_USB_MAX_SPEED_FIXUP	"/soc/usb3@8A00000/dwc3@8A00000%maximum-speed%?high-speed"
+#define LINUX_5_4_DLOAD_DTS_NODE	"/qti,scm_restart_reason/"
+
+#define LINUX_6_1_NAND_DTS_NODE		"/soc@0/nand@79b0000/"
+#define LINUX_6_1_MMC_DTS_NODE		"/soc@0/mmc@7804000/"
+#define LINUX_6_1_USB_DTS_NODE		"/soc@0/usb3@8a00000/dwc3@8a00000/"
+#define LINUX_6_1_USB_DR_MODE_FIXUP	"/soc@0/usb3@8a00000/dwc3@8a00000%dr_mode%?peripheral"
+#define LINUX_6_1_USB_MAX_SPEED_FIXUP	"/soc@0/usb3@8a00000/dwc3@8a00000%maximum-speed%?high-speed"
+#define LINUX_6_1_DLOAD_DTS_NODE	"/firmware/scm/"
+
+#define LINUX_RSVD_MEM_DTS_NODE		"/reserved-memory/"
+#define STATUS_OK			"status%?okay"
+#define STATUS_DISABLED			"status%?disabled"
+
 #endif /* _IPQ5332_H_ */
