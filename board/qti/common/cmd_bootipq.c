@@ -372,6 +372,22 @@ int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 		snprintf(runcmd, sizeof(runcmd),
 			 "bootm 0x%lx\n", load_address);
 	} else {
+		int noff = fit_image_get_node((void*)load_address, "kernel-1");
+		if (noff < 0) {
+			noff = fit_image_get_node((void*)load_address,
+					"kernel@1");
+			if (noff < 0)
+				return CMD_RET_FAILURE;
+		}
+
+		if (!fit_image_check_arch((void*)load_address, noff,
+					IH_ARCH_DEFAULT)) {
+			printf("Cross Arch Kernel jump is not supported!!!\n");
+			printf("Please use %d-bit kernel image.\n",
+				((IH_ARCH_DEFAULT == IH_ARCH_ARM64)?64:32));
+			return CMD_RET_FAILURE;
+		}
+
 		ret = config_select(load_address, runcmd, sizeof(runcmd));
 	}
 
