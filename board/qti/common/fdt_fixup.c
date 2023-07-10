@@ -12,6 +12,9 @@
 #include <fdt_support.h>
 #include <fdtdec.h>
 #include <stdlib.h>
+#include <mtd_node.h>
+#include <linux/mtd/mtd.h>
+#include <nand.h>
 
 #include "ipq_board.h"
 
@@ -426,6 +429,8 @@ static void ipq_fdt_fixup_mtdparts(void *blob)
 		}
 
 		env_set("mtdids", mtdids);
+	} else {
+		printf("mtdpart fixup failed\n");
 	}
 
 	mtdparts = parts_str;

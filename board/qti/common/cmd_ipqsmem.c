@@ -42,10 +42,13 @@
 #include <asm/io.h>
 #include <ubi_uboot.h>
 #include <linux/sizes.h>
+#include <fdtdec.h>
 
 #include "ipq_board.h"
 
-extern struct smem_ptable *ptable;
+#ifdef CONFIG_CMD_UBI
+static struct ubi_device *ubi;
+#endif
 
 /*
  * getpart_offset_size - retreive partition offset and size
@@ -61,6 +64,10 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 	int i;
 	uint32_t bsize;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	struct smem_ptable * ptable = get_ipq_part_table_info();
+#ifdef CONFIG_CMD_NAND
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+#endif
 
 	for (i = 0; i < ptable->len; i++) {
 		struct smem_ptn *p = &ptable->parts[i];
@@ -73,8 +80,8 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 				 * calculate appropriately
 				 */
 #ifdef CONFIG_CMD_NAND
-				psize = nand_info[get_device_id_by_part(p)].size
-					- (((loff_t)p->start) * bsize);
+				psize = mtd->size - (((loff_t)p->start) \
+								* bsize);
 #else
 				psize = 0;
 #endif
@@ -94,7 +101,7 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 	return 0;
 }
 
-#ifdef IPQ_UBI_VOL_WRITE_SUPPORT
+#ifdef CONFIG_CMD_UBI
 int ubi_set_rootfs_part(void)
 {
 	int ret;
@@ -104,6 +111,9 @@ int ubi_set_rootfs_part(void)
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	char runcmd[256];
 	int i;
+
+	if(ubi)
+		del_mtd_partitions(ubi->mtd);
 
 	if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
@@ -136,14 +146,10 @@ int ubi_set_rootfs_part(void)
 	}
 
 	snprintf(runcmd, sizeof(runcmd),
-		 "nand device %d && "
-		 "setenv mtdids nand%d=nand%d && "
-		 "setenv mtdparts mtdparts=nand%d:0x%x@0x%x(fs),${msmparts} && "
-		 "ubi part fs && ", is_spi_nand_available(),
-		 is_spi_nand_available(),
-		 is_spi_nand_available(),
-		 is_spi_nand_available(),
-		 part_size, offset);
+		 "nand device 0 && "
+		 "setenv mtdids nand0=nand0 && "
+		 "setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs),${msmparts} && "
+		 "ubi part fs && ", part_size, offset);
 
 	if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
 		return CMD_RET_FAILURE;
@@ -189,7 +195,12 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	int i;
 	uint32_t bsize;
-#ifdef IPQ_UBI_VOL_WRITE_SUPPORT
+	struct smem_ptable * ptable = get_ipq_part_table_info();
+#ifdef CONFIG_CMD_NAND
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+#endif
+#ifdef CONFIG_CMD_UBI
+	char runcmd[256];
 	ubi_set_rootfs_part();
 #endif
 	if(sfi->flash_density != 0) {
@@ -231,8 +242,7 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 			 * appropriately
 			 */
 #ifdef CONFIG_CMD_NAND
-			psize = nand_info[get_device_id_by_part(p)].size
-				- (((loff_t)p->start) * bsize);
+			psize = mtd->size - (((loff_t)p->start) * bsize);
 #else
 			psize = 0;
 #endif
@@ -242,14 +252,21 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		printf("%3d: " smem_ptn_name_fmt " 0x%08x %#16llx %#16llx\n",
 		       i, p->name, p->attr, ((loff_t)p->start) * bsize, psize);
-#ifdef IPQ_UBI_VOL_WRITE_SUPPORT
+#ifdef CONFIG_CMD_UBI
 		if (!strncmp(p->name, ROOT_FS_PART_NAME, SMEM_PTN_NAME_MAX)
 		    && ubi) {
 			print_ubi_vol_info();
 		}
 #endif
 	}
-	return 0;
+
+#ifdef CONFIG_CMD_UBI
+	snprintf(runcmd, sizeof(runcmd), "ubi detach && ");
+
+	if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+		return CMD_RET_FAILURE;
+#endif
+	return CMD_RET_SUCCESS;
 }
 
 U_BOOT_CMD(

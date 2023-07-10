@@ -274,6 +274,17 @@ typedef struct {
 } mbn_header_t;
 
 /*
+ * NAND Flash Configs
+ */
+#ifdef CONFIG_QSPI_LAYOUT_SWITCH
+#define QTI_NAND_LAYOUT_SBL			0
+#define QTI_NAND_LAYOUT_LINUX			1
+#define QTI_NAND_LAYOUT_MAX			2
+
+int qti_nand_get_curr_layout(void);
+#endif
+
+/*
  * Extern variables
  */
 extern struct node_info * fnodes;

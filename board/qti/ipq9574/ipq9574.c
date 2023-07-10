@@ -33,6 +33,7 @@ DECLARE_GLOBAL_DATA_PTR;
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
 	{ "micron,n25q128a11", MTD_DEV_TYPE_NOR},
+	{ "qcom,ipq9574-nand", MTD_DEV_TYPE_NAND},
 };
 
 int ipq_fnode_entires = ARRAY_SIZE(ipq_fnodes);

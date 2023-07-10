@@ -38,6 +38,7 @@
 #define GCC_NSSNOC_SNOC_CLK				26
 #define GCC_NSSNOC_SNOC_1_CLK				27
 #define GCC_MEM_NOC_SNOC_AXI_CLK			28
+#define GCC_QPIC_IO_MACRO_CLK				29
 
 /* NSS controlled clock IDs */
 #define NSS_CC_CFG_CLK					100

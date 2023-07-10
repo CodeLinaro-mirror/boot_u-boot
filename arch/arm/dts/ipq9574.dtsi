@@ -121,6 +121,27 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		nand: nand-controller@79B0000 {
+			compatible = "qti,spi-nand-v2.1.1";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x79B0000 0x10000>;
+			clocks = <&gcc GCC_QPIC_IO_MACRO_CLK>;
+			quad_mode = <1>;
+			quad_config_check = <1>;
+			bam_reg = <0x07984000>;
+			status_pipe = <3>;
+			status_pipe_grp = <0>;
+			read_pipe = <1>;
+			read_pipe_grp = <0>;
+			write_pipe = <0>;
+			write_pipe_grp = <0>;
+			cmd_pipe = <2>;
+			cmd_pipe_grp = <1>;
+			status = "okay";
+			u-boot,dm-pre-reloc;
+		};
+
 		mmc: sdhci@7800000 {
 			compatible = "qti,sdhci-msm-v5";
 			reg = <0x7804000 0x1000 0x7805000 0x1000>;
