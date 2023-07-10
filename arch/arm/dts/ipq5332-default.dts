@@ -39,6 +39,30 @@
 				};
 			};
 
+			qspi_pinmux: nand {
+				qspi_data {
+					pins = "GPIO_11", "GPIO_10", "GPIO_9",
+						"GPIO_8";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+
+				qspi_cs_n {
+					pins = "GPIO_12";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				qspi_clk {
+					pins = "GPIO_13";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+			};
+
 			serial_pinmux: uart {
 				data {
 					pins = "GPIO_18", "GPIO_19";
@@ -103,6 +127,11 @@
 			};
 		};
 
+		nand: nand-controller@79B0000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&qspi_pinmux>;
+			status = "okay";
+		};
 
 		blsp1_uart1: serial@78af000 {
 			pinctrl-names = "uart";

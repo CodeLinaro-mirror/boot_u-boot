@@ -530,8 +530,11 @@ int board_fix_fdt(void *rw_fdt_blob)
 #ifdef CONFIG_MULTI_DTB_FIT
 int board_fit_config_name_match(const char *name)
 {
-	if (!strcmp(name, g_board_dts))
+	if (!strcmp(name, g_board_dts)) {
+		printf("Booting %s\n", name);
 		return 0;
+	}
+
 	return -1;
 }
 #endif /* CONFIG_MULTI_DTB_FIT */

@@ -50,6 +50,30 @@
 				};
 			};
 
+			qspi_pinmux: nand {
+				qspi_data {
+					pins = "GPIO_0", "GPIO_1", "GPIO_2",
+						"GPIO_3";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				qspi_cs_n {
+					pins = "GPIO_4";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				qspi_clk {
+					pins = "GPIO_5";
+					function = "qspi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+			};
+
 			serial_pinmux: uart {
 				data {
 					pins = "GPIO_34", "GPIO_35";
@@ -109,6 +133,12 @@
 				compatible = "jedec,spi-nor";
 				reg = <0>;
 			};
+		};
+
+		nand: nand-controller@79B0000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&qspi_pinmux>;
+			status = "okay";
 		};
 
 		mmc: sdhci@7800000 {
