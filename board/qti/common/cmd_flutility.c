@@ -391,7 +391,6 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (g_flash) {
 		flash_type = g_flash;
-		g_flash = 0;
 	} else {
 		flash_type = sfi->flash_type;
 	}
@@ -636,14 +635,6 @@ char * const argv[])
 		return CMD_RET_FAILURE;
 	}
 
-	if (flash_type == 0) {
-		/*NAND*/
-		sfi->flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
-	} else {
-		/* NOR*/
-		sfi->flash_type = SMEM_BOOT_SPI_FLASH;
-	}
-
 	mibib_hdr = (struct header*)((uintptr_t) load_addr);
 	if (mibib_hdr->magic[0] == HEADER_MAGIC1 &&
 		mibib_hdr->magic[1] == HEADER_MAGIC2 &&
@@ -659,6 +650,14 @@ char * const argv[])
 	if (mibib_ptable_init((unsigned int *)((uintptr_t) load_addr))) {
 		printf("Table magic is invalid\n");
 		return CMD_RET_FAILURE;
+	}
+
+	if (flash_type == 0) {
+		/*NAND*/
+		sfi->flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
+	} else {
+		/* NOR*/
+		sfi->flash_type = SMEM_BOOT_SPI_FLASH;
 	}
 
 	get_kernel_fs_part_details();
