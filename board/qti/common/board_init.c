@@ -943,7 +943,7 @@ exit:
 int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	u32 length = (6 * no_of_macs);
+	size_t length = (6 * no_of_macs);
 	int ret = 0;
 	char *part_name = "0:ART";
 #ifdef CONFIG_IPQ_SPI_NOR
@@ -1033,7 +1033,7 @@ int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
 		nand_read(get_nand_dev_by_index(0),art.offset,
-			(size_t *)&length, enetaddr);
+			&length, enetaddr);
 	}
 #endif
 exit:
@@ -1043,7 +1043,7 @@ exit:
 void set_ethmac_addr(void)
 {
 	int i, ret;
-	uchar enetaddr[CONFIG_ETH_MAX_MAC * 6];
+	uchar enetaddr[CONFIG_ETH_MAX_MAC * 6] = { 0 };
 	uchar *mac_addr;
 	char ethaddr[16] = "ethaddr";
 	char mac[64];
@@ -1052,7 +1052,7 @@ void set_ethmac_addr(void)
 	for (i = 0; (ret >= 0) && (i < CONFIG_ETH_MAX_MAC); i++) {
 		mac_addr = &enetaddr[i * 6];
 		if (!is_valid_ethaddr(mac_addr)) {
-			printf("eth%d MAC Address from ART is not valid\n", i);
+			printf("MAC%d Address from ART is not valid\n", i);
 		} else {
 			/*
 			 * U-Boot uses these to patch the 'local-mac-address'

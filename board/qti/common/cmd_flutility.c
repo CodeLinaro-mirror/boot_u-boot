@@ -592,9 +592,11 @@ check_ubi:
 		ret = fl_read(&fl);
 		break;
 	default:
+#ifdef CONFIG_CMD_UBI
 		if (is_ubi)
 			ret = write_ubi_vol(part_name, load_addr, file_size);
 		else
+#endif
 			ret = write_to_flash(&fl);
 	}
 
