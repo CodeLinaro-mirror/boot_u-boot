@@ -187,7 +187,6 @@
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
-				gmac_type = <1>;
 				max_speed = <10000>;
 				xgmac;
 			};

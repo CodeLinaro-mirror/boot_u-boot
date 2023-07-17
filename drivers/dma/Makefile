@@ -15,5 +15,6 @@ obj-$(CONFIG_TI_EDMA3) += ti-edma3.o
 obj-$(CONFIG_DMA_LPC32XX) += lpc32xx_dma.o
 obj-$(CONFIG_XILINX_DPDMA) += xilinx_dpdma.o
 obj-$(CONFIG_BAM_DMA) += bam_dma.o
+obj-$(CONFIG_NAND_QTI) += bam.o
 
 obj-y += ti/

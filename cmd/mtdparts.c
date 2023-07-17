@@ -130,7 +130,7 @@ static const char *mtdparts_default = MTDPARTS_DEFAULT;
 
 /* copies of last seen 'mtdids', 'mtdparts' and 'partition' env variables */
 #define MTDIDS_MAXLEN		128
-#define MTDPARTS_MAXLEN		512
+#define MTDPARTS_MAXLEN		4096
 #define PARTITION_MAXLEN	16
 static char last_ids[MTDIDS_MAXLEN + 1];
 static char last_parts[MTDPARTS_MAXLEN + 1];

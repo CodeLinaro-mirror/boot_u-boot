@@ -38,8 +38,6 @@
 #include <asm/byteorder.h>
 #include <memalign.h>
 #include <fdtdec.h>
-#include <mmc.h>
-#include <sdhci.h>
 #include <command.h>
 #include <env.h>
 #include <env_internal.h>
@@ -147,12 +145,20 @@ void *smem_get_item(unsigned int item) {
 	return smem_get(reloc_flag ? smem : smem_tmp, -1, item, &size);
 }
 
+#ifdef CONFIG_CMD_NAND
+uint32_t get_nand_block_size(uint8_t dev_id)
+{
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	return mtd->erasesize;
+}
+#endif
+
 uint32_t get_part_block_size(struct smem_ptn *p,
 					   ipq_smem_flash_info_t *sfi)
 {
 #ifdef CONFIG_CMD_NAND
         return (part_which_flash(p) == 1) ?
-		get_nand_block_size(is_spi_nand_available())
+		get_nand_block_size(0)
 		: sfi->flash_block_size;
 #else
 	return sfi->flash_block_size;
@@ -174,7 +180,9 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 	struct smem_ptn *p;
 	uint32_t bsize;
-
+#ifdef CONFIG_CMD_NAND
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+#endif
 	for (i = 0; i < ptable->len; i++) {
 		if (!strncmp(ptable->parts[i].name, part_name,
 			     SMEM_PTN_NAME_MAX))
@@ -194,8 +202,7 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 		 * appropriately
 		 */
 #ifdef CONFIG_CMD_NAND
-		*size = (nand_info[get_device_id_by_part(p)].size /
-			 bsize) - p->start;
+		*size = (mtd->size / bsize) - p->start;
 #else
 		*size = 0;
 		bsize = bsize;
@@ -251,7 +258,7 @@ static inline uint32_t get_flash_block_size(char *name,
 {
 #ifdef CONFIG_CMD_NAND
 	return (get_which_flash_param(name) == 1) ?
-		get_nand_block_size(is_spi_nand_available())
+		get_nand_block_size(0)
 		: smem->flash_block_size;
 #else
 	return smem->flash_block_size;
@@ -296,6 +303,20 @@ void get_kernel_fs_part_details(void)
 
 	return;
 }
+
+#if CONFIG_IS_ENABLED(NAND_QTI)
+void board_nand_init(void)
+{
+	struct udevice *dev;
+	int ret;
+
+	ret = uclass_get_device_by_driver(UCLASS_MTD,
+					  DM_DRIVER_GET(qti_nand), &dev);
+	if (ret && ret != -ENODEV)
+		pr_err("Failed to initialize %s. (error %d)\n",
+				dev->name, ret);
+}
+#endif
 
 int board_init(void)
 {
@@ -387,7 +408,6 @@ int board_init(void)
 			ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 			return -ENOMSG;
 
-		get_kernel_fs_part_details();
 	}
 
 	board_type = (sfi->flash_type == SMEM_BOOT_SPI_FLASH) ?
@@ -510,8 +530,11 @@ int board_fix_fdt(void *rw_fdt_blob)
 #ifdef CONFIG_MULTI_DTB_FIT
 int board_fit_config_name_match(const char *name)
 {
-	if (!strcmp(name, g_board_dts))
+	if (!strcmp(name, g_board_dts)) {
+		printf("Booting %s\n", name);
 		return 0;
+	}
+
 	return -1;
 }
 #endif /* CONFIG_MULTI_DTB_FIT */
@@ -596,6 +619,7 @@ void *env_sf_get_env_addr(void)
         return NULL;
 }
 
+#ifdef CONFIG_MMC_SDHCI
 int part_get_info_efi_by_name(const char *name, struct disk_partition *info)
 {
 	struct blk_desc *mmc_dev;
@@ -622,6 +646,7 @@ int part_get_info_efi_by_name(const char *name, struct disk_partition *info)
 done:
 	return ret;
 }
+#endif
 
 enum env_location env_get_location(enum env_operation op, int prio)
 {
@@ -651,6 +676,7 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	return ret;
 }
 
+#ifdef CONFIG_MMC_SDHCI
 int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 {
 	int ret;
@@ -664,6 +690,7 @@ int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 
 	return ret;
 }
+#endif
 
 void board_lmb_reserve(struct lmb *lmb)
 {

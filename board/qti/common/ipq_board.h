@@ -274,6 +274,17 @@ typedef struct {
 } mbn_header_t;
 
 /*
+ * NAND Flash Configs
+ */
+#ifdef CONFIG_QSPI_LAYOUT_SWITCH
+#define QTI_NAND_LAYOUT_SBL			0
+#define QTI_NAND_LAYOUT_LINUX			1
+#define QTI_NAND_LAYOUT_MAX			2
+
+int qti_nand_get_curr_layout(void);
+#endif
+
+/*
  * Extern variables
  */
 extern struct node_info * fnodes;
@@ -331,10 +342,6 @@ void get_kernel_fs_part_details(void);
 #ifdef CONFIG_MMC
 int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
 #endif
-#ifdef CONFIG_IPQ_FDT_FIXUP
-void ipq_fdt_fixup(void *blob);
-void parse_fdt_fixup(char* buf, void *blob0);
 void fdt_fixup_flash(void *blob);
-#endif /* CONFIG_IPQ_FDT_FIXUP */
 void reset_crashdump(void);
 #endif

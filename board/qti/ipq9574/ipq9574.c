@@ -29,15 +29,11 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define LINUX6_1_NAND_DTS "/soc@0/nand@79b0000/"
-#define LINUX6_1_MMC_DTS "/soc@0/mmc@7804000/"
-#define STATUS_OK "status%?okay"
-#define STATUS_DISABLED "status%?disabled"
-
 #if CONFIG_FDT_FIXUP_PARTITIONS
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
 	{ "micron,n25q128a11", MTD_DEV_TYPE_NOR},
+	{ "qcom,ipq9574-nand", MTD_DEV_TYPE_NAND},
 };
 
 int ipq_fnode_entires = ARRAY_SIZE(ipq_fnodes);
@@ -189,33 +185,6 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 	}
 	return;
 }
-
-#ifdef CONFIG_IPQ_FDT_FIXUP
-void fdt_fixup_flash(void *blob)
-{
-	uint32_t flash_type = SMEM_BOOT_NO_FLASH;
-	int nand_nodeoff = fdt_path_offset(blob, LINUX6_1_NAND_DTS);
-	int mmc_nodeoff = fdt_path_offset(blob, LINUX6_1_MMC_DTS);
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-
-	if (sfi->flash_secondary_type == SMEM_BOOT_MMC_FLASH)
-		flash_type = SMEM_BOOT_NORPLUSEMMC;
-	else if (sfi->flash_secondary_type == SMEM_BOOT_QSPI_NAND_FLASH)
-		flash_type = SMEM_BOOT_NORPLUSNAND;
-	else
-		flash_type = sfi->flash_type;
-
-	if (flash_type == SMEM_BOOT_NORPLUSEMMC ||
-		flash_type == SMEM_BOOT_MMC_FLASH ) {
-		if (nand_nodeoff >= 0)
-			parse_fdt_fixup(
-				LINUX6_1_NAND_DTS"%"STATUS_DISABLED, blob);
-		if (mmc_nodeoff >= 0)
-			parse_fdt_fixup(LINUX6_1_MMC_DTS"%"STATUS_OK, blob);
-	}
-	return;
-}
-#endif /* CONFIG_IPQ_FDT_FIXUP */
 
 void ipq_config_cmn_clock(void)
 {

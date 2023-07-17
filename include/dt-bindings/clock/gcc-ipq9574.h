@@ -45,6 +45,7 @@
 #define GCC_UNIPHY1_AHB_CLK				33
 #define GCC_UNIPHY2_SYS_CLK				34
 #define GCC_UNIPHY2_AHB_CLK				35
+#define GCC_QPIC_IO_MACRO_CLK				36
 
 /* NSS controlled clock IDs */
 #define NSS_CC_CFG_CLK					100

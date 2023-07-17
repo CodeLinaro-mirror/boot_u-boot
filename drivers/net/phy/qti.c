@@ -8,7 +8,6 @@
 #include <phy.h>
 
 #include "qti.h"
-#include "qti_8x8x.h"
 
 int phy_qti_init(void)
 {
@@ -17,6 +16,9 @@ int phy_qti_init(void)
 #endif
 #ifdef CONFIG_PHY_QTI_8075
 	phy_8075_init();
+#endif
+#ifdef CONFIG_PHY_QTI_8081
+	phy_8081_init();
 #endif
 	return 0;
 }

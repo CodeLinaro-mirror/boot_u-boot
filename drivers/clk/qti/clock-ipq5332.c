@@ -109,6 +109,11 @@ static const struct bcr_regs_v2 nss_cc_ppe_regs = {
 	.cmd_rcgr = NSS_CC_PPE_CMD_RCGR,
 };
 
+static const struct bcr_regs_v2 gcc_qpic_io_macro_regs = {
+	.cfg_rcgr = GCC_QPIC_IO_MACRO_CFG_RCGR,
+	.cmd_rcgr = GCC_QPIC_IO_MACRO_CMD_RCGR,
+};
+
 static const struct bcr_regs_v2 nss_cc_port1_rx_regs = {
 	.cfg_rcgr = NSS_CC_PORT1_RX_CFG_RCGR,
 	.cmd_rcgr = NSS_CC_PORT1_RX_CMD_RCGR,
@@ -197,7 +202,7 @@ ulong msm_get_rate(struct clk *clk)
 ulong msm_set_rate(struct clk *clk, ulong rate)
 {
 	struct msm_clk_priv *priv = dev_get_priv(clk->dev);
-	int ret, div = 0, cdiv = 0;
+	int ret, src, div = 0, cdiv = 0;
 
 	switch (clk->id) {
 
@@ -248,6 +253,35 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		clk_rcg_set_rate_v2(priv->base, &gcc_system_noc_bfdcd_regs,
 				8, 0,
 				GCC_SYSTEM_NOC_BFDCD_SRC_SEL_GPLL4_OUT_MAIN);
+		break;
+	case GCC_QPIC_IO_MACRO_CLK:
+		src = GCC_QPIC_IO_MACRO_SRC_SEL_GPLL0_OUT_MAIN;
+		cdiv = 0;
+		switch (rate) {
+		case IO_MACRO_CLK_24_MHZ:
+			src = GCC_QPIC_IO_MACRO_SRC_SEL_XO_CLK;
+			div = 0;
+			break;
+		case IO_MACRO_CLK_100_MHZ:
+			div = 15;
+			break;
+		case IO_MACRO_CLK_200_MHZ:
+			div = 7;
+			break;
+		case IO_MACRO_CLK_228_MHZ:
+			div = 6;
+			break;
+		case IO_MACRO_CLK_266_MHZ:
+			div = 5;
+			break;
+		case IO_MACRO_CLK_320_MHZ:
+			div = 4;
+			break;
+		default:
+			return -EINVAL;
+		}
+		clk_rcg_set_rate_v2(priv->base, &gcc_qpic_io_macro_regs,
+				div, cdiv, src);
 		break;
 
 	/*
@@ -385,6 +419,9 @@ int msm_enable(struct clk *clk)
 		break;
 	case GCC_MEM_NOC_SNOC_AXI_CLK:
 		clk_enable_cbc(priv->base + GCC_MEM_NOC_SNOC_AXI_CBCR);
+		break;
+	case GCC_QPIC_IO_MACRO_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
 		break;
 
 	/*
