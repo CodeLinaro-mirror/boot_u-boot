@@ -342,6 +342,9 @@ void get_kernel_fs_part_details(void);
 #ifdef CONFIG_MMC
 int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
 #endif
+#ifdef CONFIG_CMD_UBI
+int init_ubi_part(void);
+#endif
 void fdt_fixup_flash(void *blob);
 void reset_crashdump(void);
 #endif

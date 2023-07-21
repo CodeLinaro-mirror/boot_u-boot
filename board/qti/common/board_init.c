@@ -58,6 +58,9 @@
 #ifdef CONFIG_CMD_NAND
 #include <nand.h>
 #endif
+#ifdef CONFIG_CMD_UBI
+#include <ubi_uboot.h>
+#endif
 #include <net.h>
 #include <spi.h>
 #include <spi_flash.h>
@@ -218,6 +221,8 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 }
 
 /*
+ * This function should only be used when sfi->flash_type is
+ * SMEM_BOOT_SPI_FLASH
  * retrieve the which_flash flag based on partition name.
  * flash_var is 1 if partition is in NAND.
  * flash_var is 0 if partition is in NOR.
@@ -306,6 +311,52 @@ void get_kernel_fs_part_details(void)
 
 	return;
 }
+
+#ifdef CONFIG_CMD_UBI
+int init_ubi_part(void)
+{
+	int ret;
+	uint32_t offset;
+	uint32_t part_size = 0;
+	uint32_t size_block, start_block;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	struct ubi_device *ubi = ubi_get_device(0);
+	char runcmd[128];
+
+	if(ubi == NULL) {
+		if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
+			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
+			ret = smem_getpart(ROOT_FS_PART_NAME,
+					&start_block, &size_block);
+			if (ret)
+				return ret;
+
+			offset = sfi->flash_block_size * start_block;
+			part_size = sfi->flash_block_size * size_block;
+		} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH &&
+					get_which_flash_param(ROOT_FS_PART_NAME)) {
+			ret = getpart_offset_size(ROOT_FS_PART_NAME, &offset,
+									&part_size);
+			if (ret)
+				return ret;
+		}
+
+		if (!part_size)
+			return -ENOENT;
+
+		snprintf(runcmd, sizeof(runcmd),
+			"setenv mtdids nand0=nand0 && "
+			"setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs) && "
+			"ubi part fs", part_size, offset);
+
+		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+			return CMD_RET_FAILURE;
+	} else
+		ubi_put_device(ubi);
+
+	return 0;
+}
+#endif
 
 #if CONFIG_IS_ENABLED(NAND_QTI)
 void board_nand_init(void)
@@ -476,12 +527,14 @@ int mibib_ptable_init(unsigned int* addr)
 		mib_ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 		return -ENOMSG;
 
-	/* In recovery mode, ptable will not be initialized.
+	/* In recovery & mmc boot, ptable will not be initialized.
 	 * So, allocate ptable memory in recovery mode.
 	 */
-	if (!sfi->flash_type)
-		ptable = malloc(sizeof(struct smem_ptable));
-	else
+	if ((sfi->flash_type == SMEM_BOOT_NO_FLASH) ||
+			(sfi->flash_type == SMEM_BOOT_MMC_FLASH)) {
+		if (!ptable)
+			ptable = malloc(sizeof(struct smem_ptable));
+	} else
 		debug("smem ptable found: ver: %d len: %d\n",
 				ptable->version, ptable->len);
 

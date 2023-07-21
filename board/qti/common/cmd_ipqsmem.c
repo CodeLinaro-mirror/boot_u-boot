@@ -46,10 +46,6 @@
 
 #include "ipq_board.h"
 
-#ifdef CONFIG_CMD_UBI
-static struct ubi_device *ubi;
-#endif
-
 /*
  * getpart_offset_size - retreive partition offset and size
  * @part_name - partition name
@@ -102,51 +98,7 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 }
 
 #ifdef CONFIG_CMD_UBI
-int ubi_set_rootfs_part(void)
-{
-	int ret;
-	uint32_t offset;
-	uint32_t part_size = 0;
-	uint32_t size_block, start_block;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	char runcmd[128];
-
-	if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
-		ret = smem_getpart(ROOT_FS_PART_NAME,
-				&start_block, &size_block);
-		if (ret)
-			return ret;
-
-		offset = sfi->flash_block_size * start_block;
-		part_size = sfi->flash_block_size * size_block;
-	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH &&
-				get_which_flash_param(ROOT_FS_PART_NAME)) {
-		ret = getpart_offset_size(ROOT_FS_PART_NAME, &offset,
-								&part_size);
-		if (ret)
-			return ret;
-	}
-
-	if (!part_size)
-		return -ENOENT;
-
-	if(ubi == NULL) {
-		snprintf(runcmd, sizeof(runcmd),
-			"setenv mtdids nand0=nand0 && "
-			"setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs) && "
-			"ubi part fs", part_size, offset);
-
-		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-			return CMD_RET_FAILURE;
-
-		ubi = ubi_devices[0];
-	}
-
-	return 0;
-}
-
-static void print_ubi_vol_info(void)
+static void print_ubi_vol_info(struct ubi_device *ubi)
 {
 	int i;
 	int j=0;
@@ -183,7 +135,9 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 #endif
 #ifdef CONFIG_CMD_UBI
-	ubi_set_rootfs_part();
+	struct ubi_device *ubi = NULL;
+	init_ubi_part();
+	ubi = ubi_get_device(0);
 #endif
 	if(sfi->flash_density != 0) {
 		printf(	"flash_type:		0x%x\n"
@@ -237,11 +191,15 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 #ifdef CONFIG_CMD_UBI
 		if (!strncmp(p->name, ROOT_FS_PART_NAME, SMEM_PTN_NAME_MAX) &&
 			ubi) {
-			print_ubi_vol_info();
+			print_ubi_vol_info(ubi);
 		}
 #endif
 	}
 
+#ifdef CONFIG_CMD_UBI
+	if (ubi)
+		ubi_put_device(ubi);
+#endif
 	return CMD_RET_SUCCESS;
 }
 
