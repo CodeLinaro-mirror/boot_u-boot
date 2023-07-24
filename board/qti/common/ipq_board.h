@@ -24,6 +24,7 @@
 #define _str_fmt(x)		__str_fmt(x)
 #define smem_ptn_name_fmt	_str_fmt(SMEM_PTN_NAME_MAX)
 #define IPQ_ETH_FW_PART_NAME	"0:ETHPHYFW"
+#define IPQ_ETH_FW_PART_SIZE	0x80000
 #define BOARD_DTS_MAX_NAMELEN	30
 
 #ifdef CONFIG_SMEM_VERSION_C
