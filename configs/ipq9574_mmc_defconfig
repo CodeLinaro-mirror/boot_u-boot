@@ -57,7 +57,7 @@ CONFIG_STACKPROTECTOR=y
 CONFIG_MSM_SMEM=y
 CONFIG_SYS_CUSTOM_LDSCRIPT=y
 CONFIG_SYS_LDSCRIPT="board/qti/common/u-boot-x64.lds"
-CONFIG_OF_LIST="ipq9574-default ipq9574-rdp433 ipq9574-rdp418 ipq9574-rdp433-mht-phy ipq9574-rdp433-mht-switch"
+CONFIG_OF_LIST="ipq9574-default ipq9574-rdp417 ipq9574-rdp418 ipq9574-rdp433 ipq9574-rdp433-mht-phy ipq9574-rdp433-mht-switch ipq9574-rdp437 ipq9574-rdp454 ipq9574-rdp458 ipq9574-rdp459 ipq9574-rdp461 ipq9574-rdp469 ipq9574-db-al01-c1 ipq9574-db-al01-c3 ipq9574-db-al02-c1 ipq9574-db-al02-c3"
 CONFIG_DTB_RESELECT=y
 CONFIG_MULTI_DTB_FIT=y
 # CONFIG_CMD_BOOTI is not set
