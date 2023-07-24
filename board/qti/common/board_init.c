@@ -920,7 +920,7 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 					sfi, &ethphyfw, start_blk, blk_cnt);
 		}
 
-		part_size = ethphyfw.size;
+		part_size = IPQ_ETH_FW_PART_SIZE;
 	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
 		blk_get_device_by_str("mmc", "0", &desc);
 		part_get_info_by_name(desc, eth_fw_part_name,
@@ -952,13 +952,13 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 		snprintf(runcmd, sizeof(runcmd),
 			 "nand read 0x%p 0x%llx 0x%llx && ",
 			 fw_load_addr, ethphyfw.offset,
-			 (long long unsigned int) ethphyfw.size);
+			 (long long unsigned int) part_size);
 
 	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
 		snprintf(runcmd, sizeof(runcmd),
 			 "sf probe && " "sf read 0x%p 0x%llx 0x%llx && ",
 			 fw_load_addr, ethphyfw.offset,
-			 (long long unsigned int) ethphyfw.size);
+			 (long long unsigned int) part_size);
 
 	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH ) {
 		snprintf(runcmd, sizeof(runcmd), "mmc read 0x%p 0x%X 0x%X",
