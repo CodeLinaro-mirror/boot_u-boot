@@ -945,4 +945,12 @@ config MDIO_MUX_MESON_G12A
 	  This driver is used for the MDIO mux found on the Amlogic G12A & compatible
 	  SoCs.
 
+config QTI_NSS_SWITCH
+	bool "Qualcomm NSS Ethernet interface support"
+	help
+	  This driver supports the NSS interface found in Qualcomm
+	  IPQ series SoC-s.
+
+source "drivers/net/qti/Kconfig"
+
 endif # NETDEVICES

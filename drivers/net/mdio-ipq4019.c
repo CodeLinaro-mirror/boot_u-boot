@@ -18,6 +18,7 @@
 #include <linux/iopoll.h>
 #include <miiphy.h>
 #include <phy.h>
+#include <dm/pinctrl.h>
 
 #define MDIO_MODE_REG               0x40
 #define MDIO_ADDR_REG               0x44
@@ -28,6 +29,9 @@
 #define MDIO_CMD_ACCESS_START       BIT(8)
 #define MDIO_CMD_ACCESS_CODE_READ   0
 #define MDIO_CMD_ACCESS_CODE_WRITE  1
+#define MDIO_CMD_ACCESS_CODE_C45_ADDR	0
+#define MDIO_CMD_ACCESS_CODE_C45_WRITE	1
+#define MDIO_CMD_ACCESS_CODE_C45_READ	2
 
 /* 0 = Clause 22, 1 = Clause 45 */
 #define MDIO_MODE_BIT               BIT(8)
@@ -51,15 +55,37 @@ static int ipq4019_mdio_wait_busy(struct ipq4019_mdio_priv *priv)
 int ipq4019_mdio_read(struct udevice *dev, int addr, int devad, int reg)
 {
 	struct ipq4019_mdio_priv *priv = dev_get_priv(dev);
-	unsigned int cmd;
+	unsigned int mode, cmd;
 
 	if (ipq4019_mdio_wait_busy(priv))
 		return -ETIMEDOUT;
 
-	/* Issue the phy address and reg */
-	writel((addr << 8) | reg, priv->mdio_base + MDIO_ADDR_REG);
+	mode = readl(priv->mdio_base + MDIO_MODE_REG);
 
-	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_READ;
+	if (devad != MDIO_DEVAD_NONE) {
+		/* Enter Clause 45 mode */
+		mode |= MDIO_MODE_BIT;
+		mode &= ~(0xF0);
+		writel(mode, priv->mdio_base + MDIO_MODE_REG);
+
+		/* Issue the phy address and reg */
+		writel((addr << 8) | devad,
+				priv->mdio_base + MDIO_ADDR_REG);
+
+		writel(reg, priv->mdio_base + MDIO_DATA_WRITE_REG);
+
+		cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_ADDR;
+	} else {
+		/* Enter Clause 22 mode */
+		mode &= ~MDIO_MODE_BIT;
+		mode &= ~(0xF0);
+		writel(mode, priv->mdio_base + MDIO_MODE_REG);
+
+		/* Issue the phy address and reg */
+		writel((addr << 8) | reg, priv->mdio_base + MDIO_ADDR_REG);
+
+		cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_READ;
+	}
 
 	/* Issue read command */
 	writel(cmd, priv->mdio_base + MDIO_CMD_REG);
@@ -67,6 +93,14 @@ int ipq4019_mdio_read(struct udevice *dev, int addr, int devad, int reg)
 	/* Wait read complete */
 	if (ipq4019_mdio_wait_busy(priv))
 		return -ETIMEDOUT;
+
+	if (devad != MDIO_DEVAD_NONE) {
+		cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_READ;
+		writel(cmd, priv->mdio_base + MDIO_CMD_REG);
+
+		if (ipq4019_mdio_wait_busy(priv))
+			return -ETIMEDOUT;
+	}
 
 	/* Read and return data */
 	return readl(priv->mdio_base + MDIO_DATA_READ_REG);
@@ -76,24 +110,51 @@ int ipq4019_mdio_write(struct udevice *dev, int addr, int devad,
 					  int reg, u16 val)
 {
 	struct ipq4019_mdio_priv *priv = dev_get_priv(dev);
-	unsigned int cmd;
+	unsigned int mode, cmd;
 
 	if (ipq4019_mdio_wait_busy(priv))
 		return -ETIMEDOUT;
 
-	/* Issue the phy addreass and reg */
-	writel((addr << 8) | reg, priv->mdio_base + MDIO_ADDR_REG);
+	mode = readl(priv->mdio_base + MDIO_MODE_REG);
+
+	if (devad != MDIO_DEVAD_NONE) {
+		/* Enter Clause 45 mode */
+		mode |= MDIO_MODE_BIT;
+		writel(mode, priv->mdio_base + MDIO_MODE_REG);
+
+		/* Issue the phy address and reg */
+		writel((addr << 8) | devad,
+				priv->mdio_base + MDIO_ADDR_REG);
+
+		writel(reg, priv->mdio_base + MDIO_DATA_WRITE_REG);
+
+		/* issue read command */
+		cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_ADDR;
+
+		writel(cmd, priv->mdio_base + MDIO_CMD_REG);
+
+		if (ipq4019_mdio_wait_busy(priv))
+			return -ETIMEDOUT;
+
+		cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_C45_WRITE;
+	} else {
+		/* Enter Clause 22 mode */
+		mode &= ~MDIO_MODE_BIT;
+		writel(mode, priv->mdio_base + MDIO_MODE_REG);
+
+		/* Issue the phy addreass and reg */
+		writel((addr << 8) | reg, priv->mdio_base + MDIO_ADDR_REG);
+
+		cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_WRITE;
+	}
 
 	/* Issue write data */
 	writel(val, priv->mdio_base + MDIO_DATA_WRITE_REG);
-
-	cmd = MDIO_CMD_ACCESS_START | MDIO_CMD_ACCESS_CODE_WRITE;
 
 	/* Issue write command */
 	writel(cmd, priv->mdio_base + MDIO_CMD_REG);
 
 	/* Wait for write complete */
-
 	if (ipq4019_mdio_wait_busy(priv))
 		return -ETIMEDOUT;
 
@@ -116,16 +177,12 @@ static int ipq4019_mdio_bind(struct udevice *dev)
 static int ipq4019_mdio_probe(struct udevice *dev)
 {
 	struct ipq4019_mdio_priv *priv = dev_get_priv(dev);
-	unsigned int data;
 
 	priv->mdio_base = dev_read_addr(dev);
 	if (priv->mdio_base == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
-	/* Enter Clause 22 mode */
-	data = readl(priv->mdio_base + MDIO_MODE_REG);
-	data &= ~MDIO_MODE_BIT;
-	writel(data, priv->mdio_base + MDIO_MODE_REG);
+	pinctrl_select_state(dev, "mdio");
 
 	return 0;
 }

@@ -2052,6 +2052,19 @@ config ARCH_GXP
 	select OF_CONTROL
 	imply CMD_DM
 
+config ARCH_IPQSOC
+	bool "QTI IPQ SoCs"
+	select DM
+	select SMEM
+	select MSM_SMEM
+	select CLK
+	select DM_GPIO
+	select DM_SERIAL
+	select DM_RESET
+	select PINCTRL
+	select CLK
+	select OF_CONTROL
+
 endchoice
 
 config SUPPORT_PASSING_ATAGS
@@ -2257,6 +2270,8 @@ source "arch/arm/mach-imx/Kconfig"
 source "arch/arm/mach-nexell/Kconfig"
 
 source "arch/arm/mach-npcm/Kconfig"
+
+source "arch/arm/mach-ipqsoc/Kconfig"
 
 source "board/armltd/total_compute/Kconfig"
 source "board/armltd/corstone1000/Kconfig"

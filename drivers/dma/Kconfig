@@ -76,6 +76,12 @@ config XILINX_DPDMA
 	  this file is used as placeholder for driver. The main reason is
 	  to record compatible string and calling power domain driver.
 
+config BAM_DMA
+	bool "Enable QTI BAM DMA driver"
+	depends on DMA && DMA_CHANNELS
+	help
+	  Enable support for QTI BAM DMA driver.
+
 if APBH_DMA
 config APBH_DMA_BURST
 	bool "Enable DMA BURST"

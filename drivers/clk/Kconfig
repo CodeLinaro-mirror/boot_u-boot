@@ -224,6 +224,13 @@ config CLK_ZYNQMP
 	  This clock driver adds support for clock realted settings for
 	  ZynqMP platform.
 
+config CLK_QTI
+	bool "Enable clock driver support for qti"
+	depends on ARCH_IPQSOC
+	help
+	  This clock driver adds support for clock realted settings for
+	  IPQ platform.
+
 source "drivers/clk/analogbits/Kconfig"
 source "drivers/clk/at91/Kconfig"
 source "drivers/clk/exynos/Kconfig"
@@ -239,5 +246,6 @@ source "drivers/clk/stm32/Kconfig"
 source "drivers/clk/tegra/Kconfig"
 source "drivers/clk/ti/Kconfig"
 source "drivers/clk/uniphier/Kconfig"
+source "drivers/clk/qti/Kconfig"
 
 endmenu

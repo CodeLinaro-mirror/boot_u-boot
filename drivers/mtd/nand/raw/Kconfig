@@ -48,6 +48,33 @@ config SYS_NAND_NO_SUBPAGE_WRITE
 	bool "Disable subpage write support"
 	depends on NAND_ARASAN || NAND_DAVINCI || NAND_KIRKWOOD
 
+config NAND_QTI
+	bool "support QTI NAND controller"
+	select SYS_NAND_SELF_INIT
+	select SYS_NAND_ONFI_DETECTION
+	help
+	  Enable this driver for NAND flash in ipq platform
+
+if NAND_QTI
+
+config QTI_SERIAL
+	bool "Enable QPIC Serial Bus"
+	default y
+
+config QSPI_SERIAL_TRAINING
+	bool "Enable serial training for NAND flash"
+	default y
+
+config PAGE_SCOPE_MULTI_PAGE_READ
+	bool "Enable Multi page on NAND flash"
+	default y
+
+config QSPI_LAYOUT_SWITCH
+	bool "Enalbe layout switch in NAND FLASH"
+	default y
+
+endif
+
 config DM_NAND_ATMEL
        bool "Support Atmel NAND controller with DM support"
        select SYS_NAND_SELF_INIT
