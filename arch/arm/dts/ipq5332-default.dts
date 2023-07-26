@@ -134,7 +134,7 @@
 		};
 
 		blsp1_uart1: serial@78af000 {
-			pinctrl-names = "uart";
+			pinctrl-names = "default";
 			pinctrl-0 = <&serial_pinmux>;
 			status = "okay";
 		};
@@ -153,7 +153,7 @@
 		};
 
 		mmc: sdhci@7800000 {
-			pinctrl-names = "mmc";
+			pinctrl-names = "default";
 			pinctrl-0 = <&sdhci_pinmux>;
 			status = "okay";
 		};

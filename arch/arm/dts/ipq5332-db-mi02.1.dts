@@ -28,7 +28,7 @@
 		};
 
 		mdio: mdio@90000 {
-			pinctrl-names = "mdio";
+			pinctrl-names = "default";
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 
