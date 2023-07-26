@@ -501,7 +501,6 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 							&size_block);
 			if (ret) {
 #ifdef CONFIG_CMD_UBI
-check_ubi:
 				is_ubi = ubi_vol_present(part_name);
 #endif
 			} else {
