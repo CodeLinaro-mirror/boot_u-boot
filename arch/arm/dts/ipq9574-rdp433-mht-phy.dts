@@ -29,7 +29,7 @@
 	phy0: phy@1 {
 		phy-reset-gpio = <&tlmm 60 0>;
 		reg = <1>;
-		phy_id = <8>;
+		phy_id = <QCA8x8x_PHY_TYPE>;
 		id = <1>;
 		uniphy_id = <0>;
 		uniphy_type = <0>;
@@ -37,7 +37,7 @@
 
 	phy1: phy@2 {
 		reg = <2>;
-		phy_id = <8>;
+		phy_id = <QCA8x8x_PHY_TYPE>;
 		id = <2>;
 		uniphy_id = <0>;
 		uniphy_type = <0>;
@@ -45,7 +45,7 @@
 
 	phy2: phy@3 {
 		reg = <3>;
-		phy_id = <8>;
+		phy_id = <QCA8x8x_PHY_TYPE>;
 		id = <3>;
 		uniphy_id = <0>;
 		uniphy_type = <0>;
@@ -53,7 +53,7 @@
 
 	phy3: phy@4 {
 		reg = <4>;
-		phy_id = <8>;
+		phy_id = <QCA8x8x_PHY_TYPE>;
 		id = <4>;
 		uniphy_id = <0>;
 		uniphy_type = <0>;

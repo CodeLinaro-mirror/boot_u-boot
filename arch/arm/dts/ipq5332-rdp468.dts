@@ -44,7 +44,7 @@
 				phy-reset-gpio = <&tlmm 51 0>;
 				dev-mode = <0x2>;
 				reg = <1>;
-				phy_id = <10>;
+				phy_id = <QCA8x8x_SWITCH_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -84,13 +84,12 @@
 
 			phy1: phy@4 {
 				reg = <4>;
-				phy_id = <11>;
+				phy_id = <QCA8x8x_BYPASS_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
 				max_speed = <2500>;
 				xgmac;
-
 			};
 		};
 

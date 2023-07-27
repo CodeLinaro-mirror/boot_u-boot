@@ -20,7 +20,7 @@
 	phy5: phy@0 {
 		reg = <0>;
 		phy-mode = "usxgmii";
-		phy_id = <2>;
+		phy_id = <AQ_PHY_TYPE>;
 		id = <6>;
 		uniphy_id = <2>;
 		uniphy_type = <0>;

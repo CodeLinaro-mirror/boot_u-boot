@@ -58,7 +58,7 @@
 			phy0: phy@16 {
 				phy-reset-gpio = <&tlmm 60 0>;
 				reg = <16>;
-				phy_id = <0>;
+				phy_id = <QCA8075_PHY_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -66,7 +66,7 @@
 
 			phy1: phy@17 {
 				reg = <17>;
-				phy_id = <0>;
+				phy_id = <QCA8075_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -74,7 +74,7 @@
 
 			phy2: phy@18 {
 				reg = <18>;
-				phy_id = <0>;
+				phy_id = <QCA8075_PHY_TYPE>;
 				id = <3>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -82,7 +82,7 @@
 
 			phy3: phy@19 {
 				reg = <19>;
-				phy_id = <0>;
+				phy_id = <QCA8075_PHY_TYPE>;
 				id = <4>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -91,7 +91,7 @@
 			phy4: phy@28 {
 				phy-reset-gpio = <&tlmm 57 0>;
 				reg = <28>;
-				phy_id = <1>;
+				phy_id = <QCA8081_PHY_TYPE>;
 				id = <5>;
 				uniphy_id = <1>;
 				uniphy_type = <1>;
@@ -101,8 +101,8 @@
 			phy5: phy@0 {
 				phy-reset-gpio = <&tlmm 36 0>;
 				reg = <0>;
+				phy_id = <AQ_PHY_TYPE>;
 				phy-mode = "usxgmii";
-				phy_id = <2>;
 				id = <6>;
 				uniphy_id = <2>;
 				uniphy_type = <0>;

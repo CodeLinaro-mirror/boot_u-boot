@@ -50,7 +50,7 @@
 				phy-reset-gpio = <&tlmm 51 0>;
 				dev-mode = <0x1>;
 				reg = <1>;
-				phy_id = <10>;
+				phy_id = <QCA8x8x_SWITCH_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -96,7 +96,7 @@
 			phy1: phy@12 {
 				phy-reset-gpio = <&tlmm 22 0>;
 				reg = <12>;
-				phy_id = <1>;
+				phy_id = <QCA8081_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
