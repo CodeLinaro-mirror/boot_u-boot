@@ -61,13 +61,13 @@ static int msm_sdc_clk_init(struct udevice *dev)
 	int node = dev_of_offset(dev);
 	uint clk_rate = fdtdec_get_uint(gd->fdt_blob, node, "clock-frequency",
 					400000);
-	uint clkd[2]; /* clk_id and clk_no */
+	uint clkd[4]; /* clk_id and clk_no */
 	int clk_offset;
 	struct udevice *clk_dev;
 	struct clk clk;
 	int ret;
 
-	ret = fdtdec_get_int_array(gd->fdt_blob, node, "clock", clkd, 2);
+	ret = fdtdec_get_int_array(gd->fdt_blob, node, "clock", clkd, 4);
 	if (ret)
 		return ret;
 
@@ -79,12 +79,22 @@ static int msm_sdc_clk_init(struct udevice *dev)
 	if (ret)
 		return ret;
 
-	clk.id = clkd[1];
+	clk.id = clkd[1]; /* GCC_SDCC1_APPS_CLK */
 	ret = clk_request(clk_dev, &clk);
 	if (ret < 0)
 		return ret;
 
 	ret = clk_set_rate(&clk, clk_rate);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_enable(&clk);
+	clk_free(&clk);
+	if (ret < 0)
+		return ret;
+
+	clk.id = clkd[3]; /* GCC_SDCC1_AHB_CLK */
+	ret = clk_request(clk_dev, &clk);
 	if (ret < 0)
 		return ret;
 

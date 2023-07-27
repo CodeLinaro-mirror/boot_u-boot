@@ -95,6 +95,19 @@ int print_cpuinfo(void)
         return 0;
 }
 
+void board_cache_init(void)
+{
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	icache_enable();
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+	/* Disable L2 as TCM in recovery mode */
+	if (!sfi->flash_type)
+		writel(0x08000000, 0xB110010);
+
+	dcache_enable();
+#endif
+}
+
 void lowlevel_init(void)
 {
 	return;

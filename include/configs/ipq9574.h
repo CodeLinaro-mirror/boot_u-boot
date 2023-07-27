@@ -19,6 +19,7 @@ extern uint32_t g_board_machid;
 
 #define CONFIG_SYS_BAUDRATE_TABLE	{ 115200, 230400, 460800, 921600 }
 
+#define CFG_SYS_HZ_CLOCK			24000000
 #define CFG_SYS_SDRAM_BASE			0x40000000
 #define KERNEL_START_ADDR			CFG_SYS_SDRAM_BASE
 #define BOOT_PARAMS_ADDR                    	(CFG_SYS_SDRAM_BASE + 0x100)

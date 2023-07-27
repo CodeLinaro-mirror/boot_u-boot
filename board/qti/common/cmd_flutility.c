@@ -42,8 +42,6 @@ extern struct sdhci_host mmc_host;
 
 #define SHA1_SIG_LEN 41
 
-int ubi_set_rootfs_part(void);
-
 enum {
 	CMD_FLASH = 1,
 	CMD_FLERASE,
@@ -83,6 +81,8 @@ int isvalid_appsbl_image(uintptr_t load_addr)
 {
 	uint64_t e_type;
 	int ret = 0;
+	unsigned long board_type = 0;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	char *flash_name[12] = { "no", "nor", "nand", "onenand", "sdc", "mmc",
 				"spi_nor", "norplusnand", "norplusemmc",
 				"dummy", "dummy", "qspi_nand" };
@@ -92,15 +92,16 @@ int isvalid_appsbl_image(uintptr_t load_addr)
 	else
 		e_type = ((Elf32_Ehdr *)load_addr)->e_type;
 
-	if (gd->board_type == 0)
-		goto skip;
+	board_type = (sfi->flash_type == SMEM_BOOT_SPI_FLASH) ?
+			get_current_board_flash_config() :
+			sfi->flash_type;
 
 	if ((e_type & ET_LOOS) != ET_LOOS) {
 		goto skip;
 	} else {
-		if ((e_type & 0xF) != gd->board_type) {
+		if ((e_type & 0xF) != board_type) {
 			printf("### Invalid Image %s != %s\n",
-					flash_name[gd->board_type],
+					flash_name[board_type],
 					flash_name[e_type & 0xF]);
 			ret = CMD_RET_USAGE;
 		}
@@ -222,19 +223,20 @@ static int fl_read(struct fl_info *fl)
 
 	return CMD_RET_SUCCESS;
 }
+
 #ifdef CONFIG_CMD_UBI
 int ubi_vol_present(char* ubi_vol_name)
 {
 	int i;
 	int j=0;
-	struct ubi_device *ubi;
+	struct ubi_device *ubi = NULL;
 	struct ubi_volume *vol;
 	char runcmd[256];
 
-	if (ubi_set_rootfs_part())
+	if (init_ubi_part())
 		goto ubi_detach;
 
-	ubi = ubi_devices[0];
+	ubi = ubi_get_device(0);
 	for (i = 0; ubi && i < (ubi->vtbl_slots + 1); i++) {
 		vol = ubi->volumes[i];
 		if (!vol)
@@ -244,6 +246,7 @@ int ubi_vol_present(char* ubi_vol_name)
 			j++;
 			if (!strncmp(ubi_vol_name, vol->name,
 						UBI_VOL_NAME_MAX)) {
+				ubi_put_device(ubi);
 				return 1;
 			}
 		}
@@ -252,13 +255,14 @@ int ubi_vol_present(char* ubi_vol_name)
 			break;
 	}
 
+
 	printf("volume or partition %s not found\n", ubi_vol_name);
 ubi_detach:
-	snprintf(runcmd, sizeof(runcmd),
-	"ubi detach && ");
+	if (ubi)
+		ubi_put_device(ubi);
 
+	snprintf(runcmd, sizeof(runcmd), "ubi detach && ");
 	run_command(runcmd, 0);
-
 	return 0;
 }
 
@@ -332,7 +336,6 @@ static int prepare_nand_flash(char *part_name, uint32_t *offset,
 {
 
 	uint32_t size_block, start_block;
-	unsigned int active_part = 0;
 	int ret;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
@@ -341,14 +344,9 @@ static int prepare_nand_flash(char *part_name, uint32_t *offset,
 		(sfi->flash_secondary_type == SMEM_BOOT_QSPI_NAND_FLASH)))
 		&& (strncmp(part_name, "rootfs", 6) == 0)) {
 
-		if (sfi->rootfs.offset == 0xBAD0FF5E) {
-			if (sfi->ipq_smem_bootconfig_info == 0)
-				active_part = get_rootfs_active_partition();
-
-			*offset = (ulong) active_part * IPQ_NAND_ROOTFS_SIZE;
-			*part_size = (ulong) IPQ_NAND_ROOTFS_SIZE;
-		}
-
+		ret = getpart_offset_size(part_name, offset, part_size);
+		if (ret)
+			goto _exit;
 	} else {
 		ret = smem_getpart(part_name, &start_block, &size_block);
 		if (ret)
@@ -391,7 +389,6 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (g_flash) {
 		flash_type = g_flash;
-		g_flash = 0;
 	} else {
 		flash_type = sfi->flash_type;
 	}
@@ -479,35 +476,18 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 			goto _exit;
 #endif
 	} else if (flash_type == SMEM_BOOT_SPI_FLASH) {
-		if (get_which_flash_param(part_name)) {
-			/* NOR + NAND*/
+		if (get_which_flash_param(part_name) == 1) {
+			/* NOR + NAND Parition */
 			flash_type = SMEM_BOOT_NAND_FLASH;
 			ret = getpart_offset_size(part_name, &offset,
 					&part_size);
 			if (ret)
-#ifdef CONFIG_CMD_UBI
-				goto check_ubi;
-#else
 				goto _exit;
-#endif
-		} else if (((sfi->flash_secondary_type ==
-				SMEM_BOOT_NAND_FLASH)||
-				(sfi->flash_secondary_type ==
-				 SMEM_BOOT_QSPI_NAND_FLASH))
-				&& (strncmp(part_name, "rootfs", 6) == 0)) {
-
-			flash_type = sfi->flash_secondary_type;
-
-			ret = prepare_nand_flash(part_name, &offset,
-					&part_size);
-			if(ret)
-				goto _exit;
-
 #ifdef CONFIG_MMC
 		} else if ((smem_getpart(part_name, &start_block, &size_block)
 				== -ENOENT) &&
 				(sfi->rootfs.offset == 0xBAD0FF5E)){
-			/* NOR + EMMC */
+			/* NOR + EMMC Partition */
 			ret = prepare_mmc_flash(part_name, &offset,
 						&part_size, &file_size);
 			if(ret)
@@ -516,12 +496,11 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 			flash_type = SMEM_BOOT_MMC_FLASH;
 #endif
 		} else {
-
+			/* NOR Partition / NAND volumes */
 			ret = smem_getpart(part_name, &start_block,
 							&size_block);
 			if (ret) {
 #ifdef CONFIG_CMD_UBI
-check_ubi:
 				is_ubi = ubi_vol_present(part_name);
 #endif
 			} else {
@@ -592,9 +571,11 @@ check_ubi:
 		ret = fl_read(&fl);
 		break;
 	default:
+#ifdef CONFIG_CMD_UBI
 		if (is_ubi)
 			ret = write_ubi_vol(part_name, load_addr, file_size);
 		else
+#endif
 			ret = write_to_flash(&fl);
 	}
 
@@ -613,6 +594,10 @@ char * const argv[])
 	uint8_t flash_type;
 	struct header* mibib_hdr;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+#ifdef CONFIG_CMD_UBI
+	char runcmd[256];
+	struct ubi_device *ubi = NULL;
+#endif
 
 	if (argc == 5) {
 		flash_type = simple_strtoul(argv[1], NULL, 16);
@@ -634,14 +619,6 @@ char * const argv[])
 		return CMD_RET_FAILURE;
 	}
 
-	if (flash_type == 0) {
-		/*NAND*/
-		sfi->flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
-	} else {
-		/* NOR*/
-		sfi->flash_type = SMEM_BOOT_SPI_FLASH;
-	}
-
 	mibib_hdr = (struct header*)((uintptr_t) load_addr);
 	if (mibib_hdr->magic[0] == HEADER_MAGIC1 &&
 		mibib_hdr->magic[1] == HEADER_MAGIC2 &&
@@ -658,6 +635,23 @@ char * const argv[])
 		printf("Table magic is invalid\n");
 		return CMD_RET_FAILURE;
 	}
+
+	if (flash_type == 0) {
+		/*NAND*/
+		sfi->flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
+	} else {
+		/* NOR*/
+		sfi->flash_type = SMEM_BOOT_SPI_FLASH;
+	}
+
+#ifdef CONFIG_CMD_UBI
+	ubi = ubi_get_device(0);
+	if (ubi) {
+		ubi_put_device(ubi);
+		snprintf(runcmd, sizeof(runcmd), "ubi detach && ");
+		run_command(runcmd, 0);
+	}
+#endif
 
 	get_kernel_fs_part_details();
 

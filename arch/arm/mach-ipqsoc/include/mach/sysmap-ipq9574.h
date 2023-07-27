@@ -45,7 +45,7 @@
 #define SDCC1_APPS_N			(0x33010)
 #define SDCC1_APPS_D			(0x33014)
 #define SDCC1_APPS_CBCR			(0x3302C)
-#define SDCC1_AHB_CBCR			(0x33034)
+#define GCC_SDCC1_AHB_CBCR		(0x33034)
 
 /* BLSP QUP SPI clock register */
 #define BLSP1_QUP1_SPI_BCR		0x02000

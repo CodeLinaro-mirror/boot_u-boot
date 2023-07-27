@@ -37,6 +37,76 @@ typedef unsigned long addr_t;
 #define MAXIMUM_ALLOCATED_TRAINING_BLOCK	4
 #define TOTAL_NUM_PHASE	7
 
+struct nand_flash_dev qti_nand_flash_ids[] = {
+	{"GD5F1GQ4RE9IG",
+		{ .id = {0xc8, 0xc1} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"GD5F1GQ5REYIG",
+		{ .id = {0xc8, 0x41} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"GD5F1GQ4RE9IH",
+		{ .id = {0xc8, 0xc9} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"GD5F4GQ6REYIHR",
+		{ .id = {0xc8, 0x25} },
+		SZ_2K, SZ_512, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"MT29F1G01ABBFDWB-IT",
+		{ .id = {0x2c, 0x15} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"W25N01JW",
+		{ .id = {0xef, 0xbc, 0x21} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"F50D1G41LB(2M)",
+		{ .id = {0xc8, 0x11} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"GD5F1GM7REYIG",
+		{ .id = {0xc8, 0x81} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"GD5F2GM7REYIG",
+		{ .id = {0xc8, 0x82} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"GD5F1GQ5REYIH",
+		{ .id = {0xc8, 0x21} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"W25N02JWZEIF",
+		{ .id = {0xef, 0xbf, 0x22} },
+		SZ_2K, SZ_256, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"W25N01GWZEIG",
+		{ .id = {0xef, 0xba, 0x21} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"W25N512GW",
+		{ .id = {0xef, 0xba, 0x20} },
+		SZ_2K, SZ_64, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"W25N02KWZEIR",
+		{ .id = {0xef, 0xba, 0x22} },
+		SZ_2K, SZ_256, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"MX35UF1GE4AC",
+		{ .id = {0xc2, 0x92} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"F50D2G41KA-83YIG2V",
+		{ .id = {0xc8, 0x51} },
+		SZ_2K, SZ_256, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"DS35M1GA",
+		{ .id = {0xe5, 0x21} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+	{"GD5F2GQ5REYIG",
+		{ .id = {0xc8, 0x42} },
+		SZ_2K, SZ_256, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"MX35UF2GE4AD",
+		{ .id = {0xc2, 0xa6} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 160, NAND_ECC_INFO(4, SZ_512), 0},
+	{"MX35UF1G24AD",
+		{ .id = {0xc2, 0x94} },
+		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"GD5F2GQ5REYIH SPI NAND 2G 4-bit",
+		{ .id = {0xc8, 0x22} },
+		SZ_2K, SZ_256, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512) },
+	{"MX35UF4GE4AD-Z4I SPI NAND 1G 1.8V",
+		{ .id = {0xc2, 0xb7} },
+		SZ_4K, SZ_512, SZ_256K, 0, 2, 256, NAND_ECC_INFO(8, SZ_512)},
+	{NULL}
+	};
+
 extern int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
 static int
 qti_read_page(struct mtd_info *mtd, uint32_t page,
@@ -3967,10 +4037,14 @@ static int qti_nand_probe(struct udevice *device)
 	qti_nand_setup(mtd);
 
 	/* first scan to find the device and get the page size */
-	ret = nand_scan_ident(mtd, CONFIG_SYS_NAND_MAX_CHIPS, NULL);
+	ret = nand_scan_ident(mtd, CONFIG_SYS_NAND_MAX_CHIPS,
+					qti_nand_flash_ids);
 	if (ret) {
-		printf("%s: nand_scan_ident failed\n", __func__);
-		return ret;
+		ret = nand_scan_ident(mtd, CONFIG_SYS_NAND_MAX_CHIPS, NULL);
+		if (ret) {
+			printf("%s: nand_scan_ident failed\n", __func__);
+			return ret;
+		}
 	}
 
 	qti_serial_update_dev_params(mtd);

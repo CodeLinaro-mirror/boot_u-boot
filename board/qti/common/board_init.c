@@ -58,6 +58,9 @@
 #ifdef CONFIG_CMD_NAND
 #include <nand.h>
 #endif
+#ifdef CONFIG_CMD_UBI
+#include <ubi_uboot.h>
+#endif
 #include <net.h>
 #include <spi.h>
 #include <spi_flash.h>
@@ -183,6 +186,9 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 #endif
+	if (!ptable)
+		return -ENODEV;
+
 	for (i = 0; i < ptable->len; i++) {
 		if (!strncmp(ptable->parts[i].name, part_name,
 			     SMEM_PTN_NAME_MAX))
@@ -215,6 +221,8 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 }
 
 /*
+ * This function should only be used when sfi->flash_type is
+ * SMEM_BOOT_SPI_FLASH
  * retrieve the which_flash flag based on partition name.
  * flash_var is 1 if partition is in NAND.
  * flash_var is 0 if partition is in NOR.
@@ -304,6 +312,52 @@ void get_kernel_fs_part_details(void)
 	return;
 }
 
+#ifdef CONFIG_CMD_UBI
+int init_ubi_part(void)
+{
+	int ret;
+	uint32_t offset;
+	uint32_t part_size = 0;
+	uint32_t size_block, start_block;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	struct ubi_device *ubi = ubi_get_device(0);
+	char runcmd[128];
+
+	if(ubi == NULL) {
+		if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
+			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
+			ret = smem_getpart(ROOT_FS_PART_NAME,
+					&start_block, &size_block);
+			if (ret)
+				return ret;
+
+			offset = sfi->flash_block_size * start_block;
+			part_size = sfi->flash_block_size * size_block;
+		} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH &&
+					get_which_flash_param(ROOT_FS_PART_NAME)) {
+			ret = getpart_offset_size(ROOT_FS_PART_NAME, &offset,
+									&part_size);
+			if (ret)
+				return ret;
+		}
+
+		if (!part_size)
+			return -ENOENT;
+
+		snprintf(runcmd, sizeof(runcmd),
+			"setenv mtdids nand0=nand0 && "
+			"setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs) && "
+			"ubi part fs", part_size, offset);
+
+		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+			return CMD_RET_FAILURE;
+	} else
+		ubi_put_device(ubi);
+
+	return 0;
+}
+#endif
+
 #if CONFIG_IS_ENABLED(NAND_QTI)
 void board_nand_init(void)
 {
@@ -333,63 +387,58 @@ int board_init(void)
 	gd->bd->bi_boot_params = BOOT_PARAMS_ADDR;
 
 	flash_type = smem_get_item(SMEM_BOOT_FLASH_TYPE);
-
-	if (!flash_type) {
-		printf("Failed to find SMEM partition.\n");
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(flash_type)) {
+		debug("Failed to get SMEM item: SMEM_BOOT_FLASH_TYPE\n");
+		flash_type = NULL;
 	}
 
 	flash_index = smem_get_item(SMEM_BOOT_FLASH_INDEX);
-
-	if (!flash_index) {
-		printf("Failed to find SMEM partition.\n");
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(flash_index)) {
+		debug("Failed to get SMEM item: SMEM_BOOT_FLASH_INDEX\n");
+		flash_index = NULL;
 	}
 
 	flash_chip_select = smem_get_item(SMEM_BOOT_FLASH_CHIP_SELECT);
-
-	if (!flash_chip_select) {
-		printf("Failed to find SMEM partition.\n");
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(flash_chip_select)) {
+		debug("Failed to get SMEM item: SMEM_BOOT_FLASH_CHIP_SELECT\n");
+		flash_chip_select = NULL;
 	}
 
 	flash_block_size = smem_get_item(SMEM_BOOT_FLASH_BLOCK_SIZE);
-
-	if (!flash_block_size) {
-		printf("Failed to find SMEM partition.\n");
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(flash_block_size)) {
+		debug("Failed to get SMEM item: SMEM_BOOT_FLASH_BLOCK_SIZE\n");
+		flash_block_size = NULL;
 	}
 
 	flash_density = smem_get_item(SMEM_BOOT_FLASH_DENSITY);
-
-	if (!flash_density) {
-		printf("Failed to find SMEM partition.\n");
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(flash_density)) {
+		debug("Failed to get SMEM item: SMEM_BOOT_FLASH_DENSITY\n");
+		flash_density = NULL;
 	}
 
 	primary_mibib = smem_get_item(SMEM_PARTITION_TABLE_OFFSET);
-
-	if (!primary_mibib) {
-		*primary_mibib = 0;
+	if (IS_ERR_OR_NULL(primary_mibib)) {
+		debug("Failed to get SMEM item: " \
+				"SMEM_PARTITION_TABLE_OFFSET\n");
+		primary_mibib = NULL;
 	}
 
 	ipq_smem_bootconfig_info = smem_get_item(SMEM_BOOT_DUALPARTINFO);
-
-	if (!ipq_smem_bootconfig_info ||
+	if (IS_ERR_OR_NULL(ipq_smem_bootconfig_info) ||
 		(ipq_smem_bootconfig_info->magic_start !=
 			_SMEM_DUAL_BOOTINFO_MAGIC_START) ||
 		(ipq_smem_bootconfig_info->magic_end !=
 			_SMEM_DUAL_BOOTINFO_MAGIC_END)) {
-		ipq_smem_bootconfig_info = 0;
-		debug("Failed to find SMEM partition.\n");
+		debug("Failed to get SMEM item: SMEM_BOOT_DUALPARTINFO\n");
+		ipq_smem_bootconfig_info = NULL;
 	}
 
-	sfi->flash_type = *flash_type;
-	sfi->flash_index = *flash_index;
-	sfi->flash_chip_select = *flash_chip_select;
-	sfi->flash_block_size = *flash_block_size;
-	sfi->flash_density = *flash_density;
-	sfi->primary_mibib = *primary_mibib;
+	sfi->flash_type = (!flash_type ? SMEM_BOOT_NO_FLASH : *flash_type);
+	sfi->flash_index = (!flash_index ? 0 : *flash_index);
+	sfi->flash_chip_select = (!flash_chip_select ? 0 : *flash_chip_select);
+	sfi->flash_block_size = (!flash_block_size ? 0: *flash_block_size);
+	sfi->flash_density = (!flash_density ? 0 : *flash_density);
+	sfi->primary_mibib = (!primary_mibib ? 0 : *primary_mibib);
 	sfi->ipq_smem_bootconfig_info = ipq_smem_bootconfig_info;
 
 	switch(sfi->flash_type) {
@@ -398,16 +447,15 @@ int board_init(void)
 		break;
 	default:
 		ptable = smem_get_item(SMEM_AARM_PARTITION_TABLE);
-
-		if (!ptable) {
-			printf("Failed to find SMEM partition.\n");
+		if (IS_ERR_OR_NULL(ptable)) {
+			debug("Failed to get SMEM item: " \
+					"SMEM_AARM_PARTITION_TABLE\n");
 			return -ENODEV;
 		}
 
 		if (ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
 			ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 			return -ENOMSG;
-
 	}
 
 	board_type = (sfi->flash_type == SMEM_BOOT_SPI_FLASH) ?
@@ -447,8 +495,8 @@ int ipq_smem_get_socinfo()
 	union ipq_platform *platform_type;
 
 	platform_type = smem_get_item(SMEM_HW_SW_BUILD_ID);
-	if(!platform_type) {
-		printf("Failed to find SMEM partition.\n");
+	if (IS_ERR_OR_NULL(platform_type)) {
+		debug("Failed to get SMEM item: SMEM_HW_SW_BUILD_ID\n");
 		return -ENODEV;
 	}
 
@@ -472,16 +520,25 @@ int ipq_smem_get_socinfo()
 int mibib_ptable_init(unsigned int* addr)
 {
 	struct smem_ptable* mib_ptable;
+	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 
 	mib_ptable = (struct smem_ptable*) addr;
 	if (mib_ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
 		mib_ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 		return -ENOMSG;
 
-	debug("smem ptable found: ver: %d len: %d\n",
-	      ptable->version, ptable->len);
+	/* In recovery & mmc boot, ptable will not be initialized.
+	 * So, allocate ptable memory in recovery mode.
+	 */
+	if ((sfi->flash_type == SMEM_BOOT_NO_FLASH) ||
+			(sfi->flash_type == SMEM_BOOT_MMC_FLASH)) {
+		if (!ptable)
+			ptable = malloc(sizeof(struct smem_ptable));
+	} else
+		debug("smem ptable found: ver: %d len: %d\n",
+				ptable->version, ptable->len);
 
-	memcpy(ptable, addr, sizeof(ptable));
+	memcpy(ptable, addr, sizeof(struct smem_ptable));
 	return 0;
 }
 
@@ -497,8 +554,8 @@ int board_early_init_f(void)
 	union ipq_platform *platform_type;
 
 	platform_type = smem_get_item(SMEM_HW_SW_BUILD_ID);
-	if(!platform_type) {
-		printf("Failed to find SMEM partition.\n");
+	if (IS_ERR_OR_NULL(platform_type)) {
+		debug("Failed to get SMEM item: SMEM_HW_SW_BUILD_ID\n");
 		return -ENODEV;
 	}
 
@@ -511,11 +568,12 @@ int board_early_init_f(void)
 #else
 	struct smem_machid_info *machid_info;
 	machid_info = smem_get_item(SMEM_MACHID_INFO_LOCATION);
-	if(!machid_info) {
-		printf("Failed to find SMEM partition.\n");
+	if (IS_ERR_OR_NULL(machid_info)) {
+		debug("Failed to get SMEM item: SMEM_MACHID_INFO_LOCATION\n");
 		return -ENODEV;
 	}
-		g_board_machid = machid_info->machid;
+
+	g_board_machid = machid_info->machid;
 #endif
 
 	return 0;
@@ -587,8 +645,9 @@ int dram_init(void)
 	struct smem_ram_ptn *p;
 
 	ram_ptable = smem_get_item(SMEM_USABLE_RAM_PARTITION_TABLE);
-	if (!ram_ptable) {
-		printf("Failed to find SMEM partition.\n");
+	if (IS_ERR_OR_NULL(ram_ptable)) {
+		debug("Failed to get SMEM item: " \
+				"SMEM_USABLE_RAM_PARTITION_TABLE\n");
 		ret = -ENODEV;
 	}
 
@@ -650,17 +709,15 @@ done:
 
 enum env_location env_get_location(enum env_operation op, int prio)
 {
-	int ret;
+	int ret = ENVL_NOWHERE;
 	uint32_t *flash_type;
 
 	if (prio)
 		return ENVL_UNKNOWN;
 
 	flash_type = smem_get_item(SMEM_BOOT_FLASH_TYPE);
-	if (!flash_type) {
-		printf("Failed to find SMEM partition.\n");
-		return -ENODEV;
-	}
+	if (IS_ERR_OR_NULL(flash_type))
+		return ret;
 
 	if (*flash_type == SMEM_BOOT_SPI_FLASH) {
 		ret = ENVL_SPI_FLASH;
@@ -669,9 +726,7 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	} else if ((*flash_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
 		(*flash_type == SMEM_BOOT_NAND_FLASH)) {
 		ret = ENVL_NAND;
-	} else {
-		ret = ENVL_NOWHERE;
-	}
+	} else { }
 
 	return ret;
 }
@@ -865,7 +920,7 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 					sfi, &ethphyfw, start_blk, blk_cnt);
 		}
 
-		part_size = ethphyfw.size;
+		part_size = IPQ_ETH_FW_PART_SIZE;
 	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
 		blk_get_device_by_str("mmc", "0", &desc);
 		part_get_info_by_name(desc, eth_fw_part_name,
@@ -897,13 +952,13 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 		snprintf(runcmd, sizeof(runcmd),
 			 "nand read 0x%p 0x%llx 0x%llx && ",
 			 fw_load_addr, ethphyfw.offset,
-			 (long long unsigned int) ethphyfw.size);
+			 (long long unsigned int) part_size);
 
 	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
 		snprintf(runcmd, sizeof(runcmd),
 			 "sf probe && " "sf read 0x%p 0x%llx 0x%llx && ",
 			 fw_load_addr, ethphyfw.offset,
-			 (long long unsigned int) ethphyfw.size);
+			 (long long unsigned int) part_size);
 
 	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH ) {
 		snprintf(runcmd, sizeof(runcmd), "mmc read 0x%p 0x%X 0x%X",
@@ -943,7 +998,7 @@ exit:
 int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	u32 length = (6 * no_of_macs);
+	size_t length = (6 * no_of_macs);
 	int ret = 0;
 	char *part_name = "0:ART";
 #ifdef CONFIG_IPQ_SPI_NOR
@@ -1033,7 +1088,7 @@ int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
 		nand_read(get_nand_dev_by_index(0),art.offset,
-			(size_t *)&length, enetaddr);
+			&length, enetaddr);
 	}
 #endif
 exit:
@@ -1043,7 +1098,7 @@ exit:
 void set_ethmac_addr(void)
 {
 	int i, ret;
-	uchar enetaddr[CONFIG_ETH_MAX_MAC * 6];
+	uchar enetaddr[CONFIG_ETH_MAX_MAC * 6] = { 0 };
 	uchar *mac_addr;
 	char ethaddr[16] = "ethaddr";
 	char mac[64];
@@ -1052,7 +1107,7 @@ void set_ethmac_addr(void)
 	for (i = 0; (ret >= 0) && (i < CONFIG_ETH_MAX_MAC); i++) {
 		mac_addr = &enetaddr[i * 6];
 		if (!is_valid_ethaddr(mac_addr)) {
-			printf("eth%d MAC Address from ART is not valid\n", i);
+			printf("MAC%d Address from ART is not valid\n", i);
 		} else {
 			/*
 			 * U-Boot uses these to patch the 'local-mac-address'

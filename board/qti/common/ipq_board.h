@@ -24,6 +24,7 @@
 #define _str_fmt(x)		__str_fmt(x)
 #define smem_ptn_name_fmt	_str_fmt(SMEM_PTN_NAME_MAX)
 #define IPQ_ETH_FW_PART_NAME	"0:ETHPHYFW"
+#define IPQ_ETH_FW_PART_SIZE	0x80000
 #define BOARD_DTS_MAX_NAMELEN	30
 
 #ifdef CONFIG_SMEM_VERSION_C
@@ -341,6 +342,9 @@ int mibib_ptable_init(unsigned int* addr);
 void get_kernel_fs_part_details(void);
 #ifdef CONFIG_MMC
 int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
+#endif
+#ifdef CONFIG_CMD_UBI
+int init_ubi_part(void);
 #endif
 void fdt_fixup_flash(void *blob);
 void reset_crashdump(void);

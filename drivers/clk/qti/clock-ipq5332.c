@@ -423,6 +423,9 @@ int msm_enable(struct clk *clk)
 	case GCC_QPIC_IO_MACRO_CLK:
 		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
 		break;
+	case GCC_SDCC1_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_SDCC1_AHB_CBCR);
+		break;
 
 	/*
 	 * NSS controlled clock
