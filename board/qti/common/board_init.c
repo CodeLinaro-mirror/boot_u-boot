@@ -634,6 +634,13 @@ int board_late_init(void)
 	 */
 	env_set_hex("machid", gd->bd->bi_arch_number);
 
+#ifdef CONFIG_PREBOOT
+	/*
+	 * forceset preboot env to avoid SDI/crashdump path system bootup
+	 */
+	env_set("preboot", CONFIG_PREBOOT);
+#endif
+
 	return 0;
 }
 
