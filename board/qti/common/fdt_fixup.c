@@ -415,17 +415,15 @@ static void ipq_fdt_fixup_mtdparts(void *blob)
 	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
 		/* NOR density & sector-size fix-up */
 		ipq_fdt_fixup_spi_nor_params(blob, fnodes, *fnode_entires);
-		snprintf(parts_str, sizeof(parts_str), "mtdparts=" \
-				CONFIG_IPQ_SPI_NOR_DEV_NAME);
+		snprintf(parts_str, sizeof(parts_str), "mtdparts=spi0.0");
 
 		if ((sfi->flash_secondary_type == SMEM_BOOT_NAND_FLASH) ||
 			(sfi->flash_secondary_type ==
 			 SMEM_BOOT_QSPI_NAND_FLASH)) {
-			snprintf(mtdids, sizeof(mtdids), "nand0=nand0,nor0="
-					CONFIG_IPQ_SPI_NOR_DEV_NAME);
+			snprintf(mtdids, sizeof(mtdids),
+					"nand0=nand0,nor0=spi0.0");
 		} else {
-			snprintf(mtdids, sizeof(mtdids), "nor0="
-					CONFIG_IPQ_SPI_NOR_DEV_NAME);
+			snprintf(mtdids, sizeof(mtdids), "nor0=spi0.0");
 		}
 
 		env_set("mtdids", mtdids);
