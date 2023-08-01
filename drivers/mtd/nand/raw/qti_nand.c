@@ -21,11 +21,10 @@
 #include <dm/pinctrl.h>
 #include <dm.h>
 #include <clk.h>
+
 #include "qti_nand.h"
 
 DECLARE_GLOBAL_DATA_PTR;
-
-typedef unsigned long addr_t;
 
 /*
  * NAND Flash Configs
@@ -34,7 +33,9 @@ typedef unsigned long addr_t;
 #define WINBOND_MFR_ID		0xef
 #define CMD3_MASK		0xfff0ffff
 #define TRAINING_PART_OFFSET	0x3c00000
+
 #define MAXIMUM_ALLOCATED_TRAINING_BLOCK	4
+
 #define TOTAL_NUM_PHASE	7
 
 struct nand_flash_dev qti_nand_flash_ids[] = {
@@ -108,14 +109,10 @@ struct nand_flash_dev qti_nand_flash_ids[] = {
 	};
 
 extern int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
-static int
-qti_read_page(struct mtd_info *mtd, uint32_t page,
-		    enum nand_cfg_value cfg_mode, struct mtd_oob_ops *ops);
 
-static const struct udevice_id qti_ver_ids[] = {
-	{ .compatible = "qti,spi-nand-v2.1.1", .data = QTI_V2_1_1},
-	{ },
-};
+static int qti_read_page(struct mtd_info *mtd, uint32_t page,
+				enum nand_cfg_value cfg_mode,
+				struct mtd_oob_ops *ops);
 
 size_t memlcpy(void *dest, size_t dst_size, const void *src, size_t copy_size)
 {
@@ -149,28 +146,27 @@ qti_nandc_wait_for_data(struct qcom_nand_controller *nandc, uint32_t pipe_num)
 	q_bam_read_offset_update(&nandc->bam, pipe_num);
 }
 
-static uint32_t
-qti_nandc_reg_read(struct mtd_info *mtd, uint32_t reg_addr,
-		   uint8_t flags)
+static uint32_t qti_nandc_reg_read(struct mtd_info *mtd, uint32_t reg_addr,
+					uint8_t flags)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct cmd_element *cmd_list_read_ptr = nandc->ce_read_array;
 	uint32_t *buffer = nandc->reg_buffer;
 
 	bam_add_cmd_element(cmd_list_read_ptr, reg_addr,
-			   (uint32_t)((addr_t)buffer), CE_READ_TYPE);
+			   (uint32_t)((uintptr_t)buffer), CE_READ_TYPE);
 
 	/* Enqueue the desc for the above command */
 	q_bam_add_one_desc(&nandc->bam,
 			 CMD_PIPE_INDEX,
-			 (unsigned char*)((addr_t)cmd_list_read_ptr),
+			 (uint8_t*)((uintptr_t)cmd_list_read_ptr),
 			 BAM_CE_SIZE,
 			 BAM_DESC_CMD_FLAG| BAM_DESC_INT_FLAG | flags);
 
 	qti_nandc_wait_for_cmd_exec(nandc, 1);
 #if !defined(CONFIG_SYS_DCACHE_OFF)
-	flush_dcache_range((unsigned long)nandc->nandc_buffer,
-			   (unsigned long)nandc->nandc_buffer +
+	flush_dcache_range((uintptr_t)nandc->reg_buffer,
+			   (uintptr_t)nandc->reg_buffer +
 					CONFIG_SYS_CACHELINE_SIZE);
 #endif
 	return *buffer;
@@ -185,7 +181,7 @@ static void multi_page_cmd_reg_reset(struct qcom_nand_controller *nandc,
 
 	/* Enqueue the desc for the above command */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr,
+			(uint8_t*)cmd_list_ptr,
 			BAM_CE_SIZE,  BAM_DESC_CMD_FLAG | BAM_DESC_INT_FLAG);
 
 	qti_nandc_wait_for_cmd_exec(nandc, 1);
@@ -199,17 +195,18 @@ static void reset_addr_reg(struct qcom_nand_controller *nandc,
 
 	/* Enqueue the desc for the above command */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr,
+			(uint8_t*)cmd_list_ptr,
 			BAM_CE_SIZE,  BAM_DESC_CMD_FLAG | BAM_DESC_INT_FLAG);
 
 	qti_nandc_wait_for_cmd_exec(nandc, 1);
 }
 
-
-/* Assume the BAM is in a locked state. */
-void
-qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
-			struct cmd_element *cmd_list_ptr, uint8_t flags)
+/*
+ * Assume the BAM is in a locked state.
+ */
+void qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
+					struct cmd_element *cmd_list_ptr,
+					uint8_t flags)
 {
 	uint32_t val = 0;
 
@@ -222,7 +219,7 @@ qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
 	/* Enqueue the desc for the above command */
 	q_bam_add_one_desc(&nandc->bam,
 			 CMD_PIPE_INDEX,
-			 (unsigned char*)cmd_list_ptr,
+			 (uint8_t*)cmd_list_ptr,
 			 BAM_CE_SIZE,
 			 BAM_DESC_CMD_FLAG | BAM_DESC_INT_FLAG | flags);
 
@@ -241,7 +238,7 @@ qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
 	/* Enqueue the desc for the above command */
 	q_bam_add_one_desc(&nandc->bam,
 			 CMD_PIPE_INDEX,
-			 (unsigned char*)cmd_list_ptr,
+			 (uint8_t*)cmd_list_ptr,
 			 BAM_CE_SIZE,
 			 BAM_DESC_CMD_FLAG | BAM_DESC_INT_FLAG |
 			 BAM_DESC_UNLOCK_FLAG);
@@ -249,8 +246,8 @@ qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
 	qti_nandc_wait_for_cmd_exec(nandc, 1);
 }
 
-static int
-qti_nandc_check_read_status(struct mtd_info *mtd, struct read_stats *stats)
+static int qti_nandc_check_read_status(struct mtd_info *mtd,
+					struct read_stats *stats)
 {
 	uint32_t status = stats->flash_sts;
 
@@ -278,12 +275,11 @@ qti_nandc_check_read_status(struct mtd_info *mtd, struct read_stats *stats)
 	return -EIO;
 }
 
-static int
-qti_nandc_check_status(struct mtd_info *mtd, uint32_t status)
+static int qti_nandc_check_status(struct mtd_info *mtd, uint32_t status)
 {
 	/* Check for errors */
 	if (status & NAND_FLASH_ERR) {
-		printf("Nand Flash error. Status = %d\n", status);
+		printf("Nand Flash error Status = 0x%x\n", status);
 
 		if (status & NAND_FLASH_MPU_ERR)
 			return -EPERM;
@@ -297,8 +293,7 @@ qti_nandc_check_status(struct mtd_info *mtd, uint32_t status)
 	return 0;
 }
 
-static uint32_t
-qti_nandc_get_id(struct mtd_info *mtd)
+static uint32_t qti_nandc_get_id(struct mtd_info *mtd)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct cmd_element *cmd_list_ptr = nandc->ce_array;
@@ -337,7 +332,7 @@ qti_nandc_get_id(struct mtd_info *mtd)
 	/* Prepare the cmd desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr - \
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_LOCK_FLAG | BAM_DESC_INT_FLAG |
@@ -362,9 +357,9 @@ qti_nandc_get_id(struct mtd_info *mtd)
 
 	nandc->id = id;
 	nandc->vendor = id & 0xff;
-	nandc->data_buffers[0] = (unsigned char)nandc->vendor;
+	nandc->data_buffers[0] = (uint8_t)nandc->vendor;
 	nandc->device = (id >> 8) & 0xff;
-	nandc->data_buffers[1] = (unsigned char)nandc->device;
+	nandc->data_buffers[1] = (uint8_t)nandc->device;
 	nandc->dev_cfg = (id >> 24) & 0xFF;
 	nandc->widebus = 0;
 	nandc->widebus &= (id >> 24) & 0xFF;
@@ -374,8 +369,8 @@ qti_nandc_get_id_err:
 	return nand_ret;
 }
 
-static int
-qti_bam_init(struct qcom_nand_controller *nandc, struct qti_nand_init_config *config)
+static int qti_bam_init(struct qcom_nand_controller *nandc,
+				struct qti_nand_init_config *config)
 {
 	uint32_t bam_ret = NANDC_RESULT_SUCCESS;
 
@@ -427,8 +422,8 @@ qti_bam_init(struct qcom_nand_controller *nandc, struct qti_nand_init_config *co
 	/* Programs the threshold for BAM transfer
 	 * When this threshold is reached, BAM signals the peripheral via the
 	 * pipe_bytes_available interface.
-	 * The peripheral is signalled with this notification in the following
-									 cases:
+	 * The peripheral is signalled with this notification
+	 * in the following cases:
 	 * a.  It has accumulated all the descriptors.
 	 * b.  It has accumulated more than threshold bytes.
 	 * c.  It has reached EOT (End Of Transfer).
@@ -520,9 +515,8 @@ return bam_ret;
  *
  * Returns the address where the next cmd element can be added.
  */
-struct cmd_element*
-qti_nand_add_addr_n_cfg_ce(struct cfg_params *cfg,
-			    struct cmd_element *start)
+struct cmd_element* qti_nand_add_addr_n_cfg_ce(struct cfg_params *cfg,
+						struct cmd_element *start)
 {
 	struct cmd_element *cmd_list_ptr = start;
 
@@ -564,11 +558,11 @@ static void qti_serial_update_dev_params(struct mtd_info *mtd)
 	printf("Device = %x\n", nandc->device);
 	printf("Serial NAND device Manufacturer:%s\n", mtd->name);
 	printf("Device Size:%d MiB, Page size:%d, Spare Size:%d, ECC:%d-bit\n",
-		(int)(nandc->density >> 20), nandc->page_size, mtd->oobsize, mtd->ecc_strength);
+		(int)(nandc->density >> 20),
+		nandc->page_size, mtd->oobsize, mtd->ecc_strength);
 }
 
-static int
-qti_nand_save_config(struct mtd_info *mtd)
+static int qti_nand_save_config(struct mtd_info *mtd)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct nand_chip *chip = mtd_to_nand(mtd);
@@ -581,7 +575,9 @@ qti_nand_save_config(struct mtd_info *mtd)
 	/* Save Configurations */
 	nandc->cws_per_page = nandc->page_size >> NAND_CW_DIV_RIGHT_SHIFT;
 
-	/* Verify that we have enough buffer to handle all the cws in a page. */
+	/*
+	 * Verify that we have enough buffer to handle all the cws in a page.
+	 */
 	if (!(nandc->cws_per_page <= QTI_NAND_MAX_CWS_IN_PAGE)) {
 		printf("Not enough buffer to handle CW\n");
 		return -EINVAL;
@@ -618,7 +614,8 @@ qti_nand_save_config(struct mtd_info *mtd)
 	}
 
 	/* spare size bytes in each CW */
-	nandc->cfg0 |= nandc->spare_bytes << NAND_DEV0_CFG0_SPARE_SZ_BYTES_SHIFT;
+	nandc->cfg0 |= nandc->spare_bytes <<
+			NAND_DEV0_CFG0_SPARE_SZ_BYTES_SHIFT;
 	/* parity bytes in each CW */
 	nandc->ecc_bch_cfg |=
 		nandc->ecc_bytes_hw << NAND_DEV0_ECC_PARITY_SZ_BYTES_SHIFT;
@@ -626,7 +623,8 @@ qti_nand_save_config(struct mtd_info *mtd)
 	qti_oob_size = nandc->cw_size * nandc->cws_per_page - mtd->writesize;
 
 	if (mtd->oobsize < qti_oob_size) {
-		printf("qti_nand: ecc data doesn't fit in available OOB area\n");
+		printf("%s: ecc data doesn't fit in available OOB area\n",
+			__func__);
 		return -EINVAL;
 	}
 
@@ -769,7 +767,7 @@ static int qti_serial_get_feature(struct mtd_info *mtd, uint32_t ftr_addr)
 
 	/* Prepare the cmd desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-			(unsigned char *)cmd_list_ptr_start,
+			(uint8_t *)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG |
@@ -848,7 +846,7 @@ static int qti_set_feature(struct mtd_info *mtd, uint32_t ftr_addr,
 
 	/* Prepare the cmd desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-			(unsigned char *)cmd_list_ptr_start,
+			(uint8_t *)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG |
@@ -1087,7 +1085,7 @@ static void qti_spi_init(struct mtd_info *mtd)
 
 		q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_CMD_FLAG);
@@ -1164,7 +1162,7 @@ static void qti_spi_init(struct mtd_info *mtd)
 
 		q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_CMD_FLAG);
@@ -1228,7 +1226,7 @@ static int reset(struct mtd_info *mtd)
 	cmd_list_ptr++;
 	/* Prepare the cmd desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-			(unsigned char *)cmd_list_ptr_start,
+			(uint8_t *)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG |
@@ -1280,7 +1278,7 @@ qti_nand_add_read_ce(struct cmd_element *start, uint32_t *flash_status_read)
 	struct cmd_element *cmd_list_ptr = start;
 
 	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_STATUS,
-			   (uint32_t)((addr_t)flash_status_read), CE_READ_TYPE);
+			   (uint32_t)((uintptr_t)flash_status_read), CE_READ_TYPE);
 	cmd_list_ptr++;
 
 	return cmd_list_ptr;
@@ -1349,7 +1347,7 @@ qti_nandc_block_isbad_exec(struct mtd_info *mtd,
 	/* Enqueue the desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			desc_flags);
@@ -1359,7 +1357,7 @@ qti_nandc_block_isbad_exec(struct mtd_info *mtd,
 	/* Add Data desc */
 	bam_add_desc(&nandc->bam,
 		     DATA_PRODUCER_PIPE_INDEX,
-		     (unsigned char *)((addr_t)bad_block),
+		     (uint8_t *)((uintptr_t)bad_block),
 		     4,
 		     BAM_DESC_INT_FLAG);
 
@@ -1449,8 +1447,8 @@ static int qti_nandc_block_isbad(struct mtd_info *mtd, loff_t offs)
 	}
 
 #if !defined(CONFIG_SYS_DCACHE_OFF)
-	flush_dcache_range((unsigned long)nandc->nandc_buffer,
-			   (unsigned long)nandc->nandc_buffer +
+	flush_dcache_range((uintptr_t)nandc->nandc_buffer,
+			   (uintptr_t)nandc->nandc_buffer +
 					CONFIG_SYS_CACHELINE_SIZE);
 #endif
 
@@ -1521,7 +1519,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 	/* Enqueue the desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_CMD_FLAG | BAM_DESC_LOCK_FLAG);
@@ -1541,7 +1539,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 		/* Enqueue the desc for the above commands */
 		q_bam_add_one_desc(&nandc->bam,
 				CMD_PIPE_INDEX,
-				(unsigned char*)cmd_list_ptr_start,
+				(uint8_t*)cmd_list_ptr_start,
 				((uintptr_t)cmd_list_ptr -
 				(uintptr_t)cmd_list_ptr_start),
 				BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG);
@@ -1555,7 +1553,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 		/* Enqueue the desc for the NAND_FLASH_STATUS read command */
 		q_bam_add_one_desc(&nandc->bam,
 				 CMD_PIPE_INDEX,
-				 (unsigned char*)cmd_list_read_ptr_start,
+				 (uint8_t*)cmd_list_read_ptr_start,
 				 ((uintptr_t)cmd_list_read_ptr -
 				 (uintptr_t)cmd_list_read_ptr_start),
 				 BAM_DESC_CMD_FLAG);
@@ -1572,7 +1570,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 		 * write commands */
 		q_bam_add_one_desc(&nandc->bam,
 				CMD_PIPE_INDEX,
-				(unsigned char*)cmd_list_ptr_start,
+				(uint8_t*)cmd_list_ptr_start,
 				((uintptr_t)cmd_list_ptr -
 				(uintptr_t)cmd_list_ptr_start),
 				int_flag | BAM_DESC_CMD_FLAG |
@@ -1582,8 +1580,8 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 		qti_nandc_wait_for_cmd_exec(nandc, num_desc);
 
 #if !defined(CONFIG_SYS_DCACHE_OFF)
-		flush_dcache_range((unsigned long)nandc->nandc_buffer,
-				   (unsigned long)nandc->nandc_buffer +
+		flush_dcache_range((uintptr_t)nandc->nandc_buffer,
+				   (uintptr_t)nandc->nandc_buffer +
 						CONFIG_SYS_CACHELINE_SIZE);
 #endif
 
@@ -1883,7 +1881,7 @@ qti_nandc_read_datcopy(struct mtd_info *mtd,
 }
 
 static int
-qti_nandc_check_erased_buf(unsigned char *buf, int len, int bitflips_threshold)
+qti_nandc_check_erased_buf(uint8_t *buf, int len, int bitflips_threshold)
 {
 	int bitflips = 0;
 
@@ -1910,14 +1908,14 @@ qti_nandc_check_erased_buf(unsigned char *buf, int len, int bitflips_threshold)
  */
 static int
 qti_nandc_check_erased_page(struct mtd_info *mtd, uint32_t page,
-			    unsigned char *datbuf,
-			    unsigned char *oobbuf,
+			    uint8_t *datbuf,
+			    uint8_t *oobbuf,
 			    unsigned int uncorrectable_err_cws,
 			    unsigned int *max_bitflips)
 {
 	struct mtd_oob_ops raw_page_ops;
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
-	unsigned char *tmp_datbuf;
+	uint8_t *tmp_datbuf;
 	unsigned int tmp_datasize, datasize, oobsize;
 	int i, start_cw, last_cw, ret, data_bitflips;
 
@@ -1971,15 +1969,14 @@ qti_nandc_check_erased_page(struct mtd_info *mtd, uint32_t page,
 	return 0;
 }
 
-static int
-qti_read_page(struct mtd_info *mtd, uint32_t page,
-		    enum nand_cfg_value cfg_mode,
-		    struct mtd_oob_ops *ops)
+static int qti_read_page(struct mtd_info *mtd, uint32_t page,
+				enum nand_cfg_value cfg_mode,
+				struct mtd_oob_ops *ops)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct cfg_params params;
 	uint32_t ecc;
-	struct read_stats *stats = nandc->stats;
+	struct read_stats *stats = NULL;
 	uint32_t addr_loc_0;
 	uint32_t addr_loc_1;
 	struct cmd_element *cmd_list_ptr = nandc->ce_array;
@@ -1993,10 +1990,13 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 	uint16_t data_bytes;
 	uint16_t ud_bytes_in_last_cw;
 	uint16_t oob_bytes;
-	unsigned char *buffer, *ops_datbuf = ops->datbuf;
-	unsigned char *spareaddr, *ops_oobbuf = ops->oobbuf;
-	unsigned char *buffer_st, *spareaddr_st;
+	uint8_t *buffer, *ops_datbuf = ops->datbuf;
+	uint8_t *spareaddr, *ops_oobbuf = ops->oobbuf;
+	uint8_t *buffer_st, *spareaddr_st;
 	unsigned int max_bitflips = 0, uncorrectable_err_cws = 0;
+
+	memset(nandc->status_buff, 0, nandc->status_buf_size);
+	stats = (struct read_stats *)nandc->status_buff;
 
 	/* Check This address for serial NAND later on if any issue
 	 * Because as per HPG Page Read	0x13 NAND_ADDR1[7:0]
@@ -2052,7 +2052,7 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 
 	/* Reset and Configure erased CW/page detection controller */
 	qti_nandc_erased_status_reset(nandc, nandc->ce_array,
-						BAM_DESC_LOCK_FLAG);
+					BAM_DESC_LOCK_FLAG);
 
 	if (ops->datbuf == NULL) {
 		buffer = nandc->pad_dat;
@@ -2107,13 +2107,13 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 			/* Add Data desc */
 			q_bam_add_one_desc(&nandc->bam,
 					DATA_PRODUCER_PIPE_INDEX,
-					(unsigned char *)((addr_t)(buffer)),
+					(uint8_t *)((uintptr_t)(buffer)),
 					ud_bytes_in_last_cw,
 					flags);
 			num_data_desc++;
 			q_bam_add_one_desc(&nandc->bam,
 					 DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)(spareaddr)),
+					 (uint8_t *)((uintptr_t)(spareaddr)),
 					 oob_bytes,
 					 BAM_DESC_INT_FLAG);
 			num_data_desc++;
@@ -2124,7 +2124,7 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 				/* Add Data desc */
 			q_bam_add_one_desc(&nandc->bam,
 					 DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)buffer),
+					 (uint8_t *)((uintptr_t)buffer),
 					 data_bytes,
 					 0);
 			num_data_desc++;
@@ -2154,14 +2154,14 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 		/* Enqueue the desc for the above commands */
 		q_bam_add_one_desc(&nandc->bam,
 				 CMD_PIPE_INDEX,
-				 (unsigned char*)cmd_list_ptr_start,
+				 (uint8_t*)cmd_list_ptr_start,
 				 ((uintptr_t)cmd_list_ptr -
 				 (uintptr_t)cmd_list_ptr_start),
 				 BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG);
 		num_cmd_desc++;
 
 		bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_STATUS,
-				   (uint32_t)((addr_t)&(stats[i].flash_sts)),
+				   (uint32_t)((uintptr_t)&(stats[i].flash_sts)),
 				   CE_READ_TYPE);
 
 		cmd_list_temp = (uint32_t *)cmd_list_ptr;
@@ -2169,12 +2169,12 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 		cmd_list_ptr++;
 
 		bam_add_cmd_element(cmd_list_ptr, NAND_BUFFER_STATUS,
-				    (uint32_t)((addr_t)&(stats[i].buffer_sts)),
+				    (uint32_t)((uintptr_t)&(stats[i].buffer_sts)),
 				   CE_READ_TYPE);
 		cmd_list_ptr++;
 
 		bam_add_cmd_element(cmd_list_ptr, NAND_ERASED_CW_DETECT_STATUS,
-			    (uint32_t)((addr_t)&(stats[i].erased_cw_sts)),
+			    (uint32_t)((uintptr_t)&(stats[i].erased_cw_sts)),
 			    CE_READ_TYPE);
 		cmd_list_ptr++;
 
@@ -2186,7 +2186,7 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 		/* Enqueue the desc for the above command */
 		q_bam_add_one_desc(&nandc->bam,
 				CMD_PIPE_INDEX,
-				(unsigned char*)((addr_t)cmd_list_temp),
+				(uint8_t*)((uintptr_t)cmd_list_temp),
 				((uintptr_t)cmd_list_ptr -
 				(uintptr_t)cmd_list_temp),
 				flags);
@@ -2224,6 +2224,11 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 
 	qti_nandc_wait_for_data(nandc, DATA_PRODUCER_PIPE_INDEX);
 
+#if !defined(CONFIG_SYS_DCACHE_OFF)
+	flush_dcache_range((uintptr_t)nandc->status_buff,
+			   (uintptr_t)nandc->status_buff +
+			   nandc->status_buf_size);
+#endif
 
 	/* Check status */
 	for (i = 0; i < (nandc->cws_per_page) ; i ++) {
@@ -2238,8 +2243,11 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 				uncorrectable_err_cws |= BIT(i);
 				continue;
 			}
-
-			goto qti_read_page_error;
+			printf("%s: check status failed mode %d "
+				" uncorrectable_err_cws %d max_bitflips %d\n",
+				__func__, cfg_mode, uncorrectable_err_cws,
+				max_bitflips);
+			goto error;
 		}
 
 		max_bitflips = max_t(unsigned int, max_bitflips, nand_ret);
@@ -2250,22 +2258,29 @@ qti_read_page(struct mtd_info *mtd, uint32_t page,
 						       ops_oobbuf,
 						       uncorrectable_err_cws,
 						       &max_bitflips);
-		if (nand_ret < 0)
-			goto qti_read_page_error;
+		if (nand_ret < 0) {
+			printf("%s: check_erased_page failed page "
+				"uncorrectable_err_cws %d max_bitflips %d\n",
+				__func__, uncorrectable_err_cws,
+				max_bitflips);
+
+			goto error;
+		}
 	}
 
 	return max_bitflips;
+error:
 
-qti_read_page_error:
-	printf("NAND page read failed. page: %x status %x\n",
-	       page, nand_ret);
+	printf("%s page read failed. page: %d status 0x%x\n",
+	       __func__, page, nand_ret);
+
 	return nand_ret;
 }
 
 
-static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
-		enum nand_cfg_value cfg_mode, struct mtd_oob_ops *ops,
-		uint32_t num_pages)
+int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
+				enum nand_cfg_value cfg_mode,
+				struct mtd_oob_ops *ops, uint32_t num_pages)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct cfg_params params;
@@ -2273,11 +2288,11 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 	struct cmd_element *cmd_list_ptr_start = nandc->ce_array;
 	struct read_stats *stats = nandc->stats;
 	uint32_t auto_status = QTI_SPI_NAND_AUTO_STATUS_VAL;
-	unsigned char *buffer, *ops_datbuf = ops->datbuf;
-	unsigned char *spareaddr, *ops_oobbuf = ops->oobbuf;
-	unsigned char *buffer_st, *spareaddr_st;
-	unsigned char *auto_status_buffer = NULL;
-	unsigned char *tmp_status_buffer = NULL;
+	uint8_t *buffer, *ops_datbuf = ops->datbuf;
+	uint8_t *spareaddr, *ops_oobbuf = ops->oobbuf;
+	uint8_t *buffer_st, *spareaddr_st;
+	uint8_t *auto_status_buffer = NULL;
+	uint8_t *tmp_status_buffer = NULL;
 	uint16_t data_bytes;
 	uint16_t ud_bytes_in_last_cw;
 	uint16_t oob_bytes;
@@ -2369,27 +2384,28 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 
 	cmd_list_ptr = qti_nand_add_addr_n_cfg_ce(&params, cmd_list_ptr);
 	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_ECC_CFG, (uint32_t)ecc,
-			CE_WRITE_TYPE);
+				CE_WRITE_TYPE);
 	cmd_list_ptr++;
 	bam_add_cmd_element(cmd_list_ptr, NAND_AUTO_STATUS_EN,
-							(uint32_t)auto_status,
-			CE_WRITE_TYPE);
+				(uint32_t)auto_status, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 	bam_add_cmd_element(cmd_list_ptr, NAND_MULTI_PAGE_CMD,
-							(uint32_t)num_pages - 1,
-			CE_WRITE_TYPE);
+				(uint32_t)num_pages - 1, CE_WRITE_TYPE);
 	cmd_list_ptr++;
+
 	/* Enqueue the desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_CMD_FLAG);
 
 	q_bam_sys_gen_event(&nandc->bam, CMD_PIPE_INDEX, 1);
 
-	/* Queue up the command and data descriptors for all the requested page
-	 * and do a single bam transfer at the end.*/
+	/* Queue up the command and data descriptors
+	 * for all the requested page
+	 * and do a single bam transfer at the end.
+	 */
 	for (j = 0; j < num_pages; j++) {
 
 		for (i = 0; i < (nandc->cws_per_page); i++) {
@@ -2406,14 +2422,14 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 				/* Add Data desc */
 				q_bam_add_one_desc(&nandc->bam,
 					DATA_PRODUCER_PIPE_INDEX,
-					(unsigned char *)((addr_t)(buffer)),
+					(uint8_t *)((uintptr_t)(buffer)),
 					ud_bytes_in_last_cw,
 					0);
 				num_data_desc++;
 
 				q_bam_add_one_desc(&nandc->bam,
 					 DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)(spareaddr)),
+					 (uint8_t *)((uintptr_t)(spareaddr)),
 					 oob_bytes,
 					 flags);
 				num_data_desc++;
@@ -2421,7 +2437,7 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 				/* add data descriptor to read status */
 				q_bam_add_one_desc(&nandc->bam,
 					 BAM_STATUS_PIPE_INDEX,
-					 (unsigned char *)(addr_t)
+					 (uint8_t *)(uintptr_t)
 					 (auto_status_buffer),
 					 QTI_AUTO_STATUS_DES_SIZE,
 					 flags);
@@ -2438,7 +2454,7 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 				/* Add Data desc */
 				q_bam_add_one_desc(&nandc->bam,
 					 DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)buffer),
+					 (uint8_t *)((uintptr_t)buffer),
 					 data_bytes,
 					 0);
 				num_data_desc++;
@@ -2446,7 +2462,7 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 				/* add data descriptor to read status */
 				q_bam_add_one_desc(&nandc->bam,
 					 BAM_STATUS_PIPE_INDEX,
-					 (unsigned char *)(addr_t)
+					 (uint8_t *)(uintptr_t)
 					 (auto_status_buffer),
 					 QTI_AUTO_STATUS_DES_SIZE,
 					 0);
@@ -2495,29 +2511,29 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 	cmd_list_ptr = cmd_list_ptr_start;
 
 	bam_add_cmd_element(cmd_list_ptr, NAND_READ_LOCATION_n(0),
-			(uint32_t)addr_loc_0,
-			CE_WRITE_TYPE);
+				(uint32_t)addr_loc_0, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	bam_add_cmd_element(cmd_list_ptr, NAND_READ_LOCATION_LAST_CW_n(0),
-		(uint32_t)addr_loc_last, CE_WRITE_TYPE);
+				(uint32_t)addr_loc_last, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/*To read only spare bytes 80 0r 16*/
 	bam_add_cmd_element(cmd_list_ptr, NAND_READ_LOCATION_LAST_CW_n(1),
-		(uint32_t)addr_loc_1, CE_WRITE_TYPE);
+				(uint32_t)addr_loc_1, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD, (uint32_t)params.cmd,
-		CE_WRITE_TYPE);
+				CE_WRITE_TYPE);
 	cmd_list_ptr++;
+
 	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD, (uint32_t)params.exec,
-		CE_WRITE_TYPE);
+				CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Enqueue the desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam, CMD_PIPE_INDEX,
-		(unsigned char*)cmd_list_ptr_start,
+		(uint8_t*)cmd_list_ptr_start,
 		((uintptr_t)cmd_list_ptr - (uintptr_t)cmd_list_ptr_start),
 		BAM_DESC_CMD_FLAG | BAM_DESC_NWD_FLAG);
 
@@ -2525,11 +2541,12 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 	q_bam_sys_gen_event(&nandc->bam, CMD_PIPE_INDEX, 1);
 
 	qti_nandc_wait_for_data(nandc, DATA_PRODUCER_PIPE_INDEX);
+
 	qti_nandc_wait_for_data(nandc, BAM_STATUS_PIPE_INDEX);
 
 #if !defined(CONFIG_SYS_DCACHE_OFF)
-	flush_dcache_range((unsigned long)nandc->status_buff,
-			   (unsigned long)nandc->status_buff +
+	flush_dcache_range((uintptr_t)nandc->status_buff,
+			   (uintptr_t)nandc->status_buff +
 			   nandc->status_buf_size);
 #endif
 	/* Update the auto status structure */
@@ -2556,8 +2573,14 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 					uncorrectable_err_cws |= BIT(i);
 						continue;
 				}
+				printf("%s: check status failed mode %d "
+					"uncorrectable_err_cws %d "
+					"max_bitflips %d\n",
+					__func__, cfg_mode,
+					uncorrectable_err_cws,
+					max_bitflips);
 
-				goto qti_read_page_error;
+				goto error;
 			}
 
 			max_bitflips = max_t(unsigned int, max_bitflips,
@@ -2571,23 +2594,30 @@ static int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 					ops_oobbuf,
 					uncorrectable_err_cws,
 					&max_bitflips);
-			if (nand_ret < 0)
-				goto qti_read_page_error;
+			if (nand_ret < 0) {
+				printf("%s: check_erased_page failed"
+					"uncorrectable_err_cws %d "
+					"max_bitflips %d\n",
+					__func__, uncorrectable_err_cws,
+					max_bitflips);
+
+				goto error;
+			}
 		}
 	}
 
 	return max_bitflips;
+error:
 
-qti_read_page_error:
-
-	printf("NAND page read failed. page: %x status %x\n",
-	       page, nand_ret);
+	printf("%s: page read failed. page: %d status 0x%x\n",
+	       __func__, page, nand_ret);
 
 	return nand_ret;
 }
 
-static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
-		enum nand_cfg_value cfg_mode, struct mtd_oob_ops *ops)
+int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
+				enum nand_cfg_value cfg_mode,
+				struct mtd_oob_ops *ops)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct cfg_params params;
@@ -2595,10 +2625,10 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 	struct cmd_element *cmd_list_ptr_start = nandc->ce_array;
 	struct read_stats *stats = nandc->stats;
 	uint32_t auto_status = QTI_SPI_NAND_AUTO_STATUS_VAL;
-	unsigned char *buffer, *ops_datbuf = ops->datbuf;
-	unsigned char *spareaddr, *ops_oobbuf = ops->oobbuf;
-	unsigned char *buffer_st, *spareaddr_st;
-	unsigned char *auto_status_buffer = NULL;
+	uint8_t *buffer, *ops_datbuf = ops->datbuf;
+	uint8_t *spareaddr, *ops_oobbuf = ops->oobbuf;
+	uint8_t *buffer_st, *spareaddr_st;
+	uint8_t *auto_status_buffer = NULL;
 	uint16_t data_bytes;
 	uint16_t ud_bytes_in_last_cw;
 	uint16_t oob_bytes;
@@ -2716,24 +2746,25 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 			cmd_list_ptr++;
 
 			/* Add Data desc */
-			q_bam_add_one_desc(&nandc->bam, DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)(buffer)),
-					 ud_bytes_in_last_cw,
-					 0);
+			q_bam_add_one_desc(&nandc->bam,
+					DATA_PRODUCER_PIPE_INDEX,
+					(uint8_t *)((uintptr_t)(buffer)),
+					ud_bytes_in_last_cw,
+					0);
 			num_data_desc++;
 
 			q_bam_add_one_desc(&nandc->bam,
-					 DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)(spareaddr)),
-					 oob_bytes,
-					 BAM_DESC_INT_FLAG);
+					DATA_PRODUCER_PIPE_INDEX,
+					(uint8_t *)((uintptr_t)(spareaddr)),
+					oob_bytes,
+					BAM_DESC_INT_FLAG);
 			num_data_desc++;
 
 			/* add data descriptor to read status */
 			q_bam_add_one_desc(&nandc->bam,
-				 BAM_STATUS_PIPE_INDEX,
-				 (unsigned char *)((addr_t)(auto_status_buffer +
-						 i * QTI_SPI_MAX_STATUS_REG)),
+				BAM_STATUS_PIPE_INDEX,
+				(uint8_t *)((uintptr_t)(auto_status_buffer +
+					i * QTI_SPI_MAX_STATUS_REG)),
 				 QTI_AUTO_STATUS_DES_SIZE,
 				 BAM_DESC_INT_FLAG);
 			num_status_desc++;
@@ -2742,24 +2773,25 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 					DATA_PRODUCER_PIPE_INDEX,
 					num_data_desc);
 
-			q_bam_sys_gen_event(&nandc->bam, BAM_STATUS_PIPE_INDEX,
-					  num_status_desc);
+			q_bam_sys_gen_event(&nandc->bam,
+						BAM_STATUS_PIPE_INDEX,
+						num_status_desc);
 		} else {
 			/* Add Data desc */
 			q_bam_add_one_desc(&nandc->bam,
 					 DATA_PRODUCER_PIPE_INDEX,
-					 (unsigned char *)((addr_t)buffer),
+					 (uint8_t *)((uintptr_t)buffer),
 					 data_bytes,
 					 0);
 			num_data_desc++;
 
 			/* add data descriptor to read status */
 			q_bam_add_one_desc(&nandc->bam,
-				 BAM_STATUS_PIPE_INDEX,
-				 (unsigned char *)((addr_t)(auto_status_buffer +
-						 i * QTI_SPI_MAX_STATUS_REG)),
-				 QTI_AUTO_STATUS_DES_SIZE,
-				 0);
+				BAM_STATUS_PIPE_INDEX,
+				(uint8_t *)((uintptr_t)(auto_status_buffer +
+					i * QTI_SPI_MAX_STATUS_REG)),
+				QTI_AUTO_STATUS_DES_SIZE,
+				0);
 			num_status_desc++;
 
 			q_bam_sys_gen_event(&nandc->bam,
@@ -2779,6 +2811,7 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 
 			bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD,
 					(uint32_t)params.exec, CE_WRITE_TYPE);
+
 			cmd_list_ptr++;
 		} else {
 			bam_add_cmd_element(cmd_list_ptr,
@@ -2796,7 +2829,7 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 		/* Enqueue the desc for the above commands */
 		q_bam_add_one_desc(&nandc->bam,
 				 CMD_PIPE_INDEX,
-				 (unsigned char*)cmd_list_ptr_start,
+				 (uint8_t*)cmd_list_ptr_start,
 				 ((uintptr_t)cmd_list_ptr -
 				 (uintptr_t)cmd_list_ptr_start),
 				 flags);
@@ -2829,17 +2862,19 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 				spareaddr += oob_bytes;
 		}
 		/* Notify BAM HW about the newly added descriptors */
-		q_bam_sys_gen_event(&nandc->bam, CMD_PIPE_INDEX, num_cmd_desc);
+		q_bam_sys_gen_event(&nandc->bam,
+					CMD_PIPE_INDEX,
+					num_cmd_desc);
 	}
 
 	qti_nandc_wait_for_data(nandc, BAM_STATUS_PIPE_INDEX);
+
 	qti_nandc_wait_for_data(nandc, DATA_PRODUCER_PIPE_INDEX);
 
 	GET_STATUS_BUFF_PARSE_SIZE_PER_PAGE(mtd->writesize, parse_size);
 #if !defined(CONFIG_SYS_DCACHE_OFF)
-
-	flush_dcache_range((unsigned long)nandc->status_buff,
-			   (unsigned long)nandc->status_buff +
+	flush_dcache_range((uintptr_t)nandc->status_buff,
+			   (uintptr_t)nandc->status_buff +
 						nandc->status_buf_size);
 #endif
 	/* Update the auto status structure */
@@ -2868,8 +2903,12 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 				uncorrectable_err_cws |= BIT(i);
 				continue;
 			}
-
-			goto qti_read_page_error;
+			printf("%s: check status failed mode %d "
+					"uncorrectable_err_cws %d "
+					"max_bitflips %d\n", __func__,
+					cfg_mode, uncorrectable_err_cws,
+					max_bitflips);
+			goto error;
 		}
 
 		max_bitflips = max_t(unsigned int, max_bitflips, nand_ret);
@@ -2880,28 +2919,37 @@ static int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 						       ops_oobbuf,
 						       uncorrectable_err_cws,
 						       &max_bitflips);
-		if (nand_ret < 0)
-			goto qti_read_page_error;
+		if (nand_ret < 0) {
+			printf("%s check_erased_page Failed "
+				"uncorrectable_err_cws %d "
+				"max_bitflips %d\n", __func__,
+				uncorrectable_err_cws, max_bitflips);
+			goto error;
+		}
 	}
 
 	return max_bitflips;
+error:
+	printf("%s: page read failed page %d status 0x%x\n",
+	       __func__,page, nand_ret);
 
-qti_read_page_error:
-	printf("NAND page read failed. page: %x status %x\n",
-	       page, nand_ret);
 	return nand_ret;
 }
 
 static int qti_alloc_status_buff(struct qcom_nand_controller *nandc,
 		struct mtd_info *mtd)
 {
-	GET_STATUS_BUFF_ALLOC_SIZE(mtd->writesize,
-			nandc->status_buf_size);
-	nandc->status_buff = (unsigned char *)malloc_cache_aligned(
-							nandc->status_buf_size);
+	uint32_t size;
+
+	GET_STATUS_BUFF_ALLOC_SIZE(mtd->writesize, size);
+
+	size = roundup(size, CONFIG_SYS_CACHELINE_SIZE);
+
+	nandc->status_buff = (uint8_t *)malloc_cache_aligned(size);
 	if (!nandc->status_buff)
 		return -ENOMEM;
 
+	nandc->status_buf_size = size;
 	memset(nandc->status_buff, 0, nandc->status_buf_size);
 
 	return 0;
@@ -3280,7 +3328,7 @@ static int qti_nandc_write(struct mtd_info *mtd, loff_t to, size_t len,
 	struct mtd_oob_ops ops;
 
 	if (!buf) {
-		printf("qti_nandc_write: buffer = null\n");
+		printf("%s: buffer = null\n", __func__);
 		return NANDC_RESULT_PARAM_INVALID;
 	}
 
@@ -3350,7 +3398,7 @@ nand_result_t qti_nandc_block_erase(struct mtd_info *mtd, uint32_t page)
 	/* Enqueue the desc for the above commands */
 	q_bam_add_one_desc(&nandc->bam,
 		CMD_PIPE_INDEX,
-		(unsigned char*)cmd_list_ptr_start,
+		(uint8_t*)cmd_list_ptr_start,
 		((uintptr_t)cmd_list_ptr - (uintptr_t)cmd_list_ptr_start),
 		BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG | BAM_DESC_INT_FLAG |
 			BAM_DESC_LOCK_FLAG);
@@ -3375,7 +3423,7 @@ nand_result_t qti_nandc_block_erase(struct mtd_info *mtd, uint32_t page)
 	/* Enqueue the desc for the NAND_FLASH_STATUS read command */
 	q_bam_add_one_desc(&nandc->bam,
 		CMD_PIPE_INDEX,
-		(unsigned char*)cmd_list_read_ptr_start,
+		(uint8_t*)cmd_list_read_ptr_start,
 		((uintptr_t)cmd_list_read_ptr -
 		(uintptr_t)cmd_list_read_ptr_start),
 		BAM_DESC_CMD_FLAG);
@@ -3386,7 +3434,7 @@ nand_result_t qti_nandc_block_erase(struct mtd_info *mtd, uint32_t page)
 	 * NAND_READ_STATUS write commands */
 	q_bam_add_one_desc(&nandc->bam,
 		CMD_PIPE_INDEX,
-		(unsigned char*)cmd_list_ptr_start,
+		(uint8_t*)cmd_list_ptr_start,
 		((uintptr_t)cmd_list_ptr - (uintptr_t)cmd_list_ptr_start),
 		BAM_DESC_INT_FLAG | BAM_DESC_CMD_FLAG);
 	num_desc = 2;
@@ -3400,8 +3448,8 @@ nand_result_t qti_nandc_block_erase(struct mtd_info *mtd, uint32_t page)
 
 	/* Check for status errors*/
 	if (status) {
-		printf("NAND Erase error: Block address belongs to "
-		       "bad block: %d\n", blk_addr);
+		printf("%s: Erase error: Block address belongs to "
+		       "bad block: %d\n", __func__, blk_addr);
 		qti_nandc_mark_badblock(mtd, (page << chip->page_shift));
 		return status;
 	}
@@ -3449,8 +3497,8 @@ qti_nandc_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 		/* Erase only if the block is not bad */
 		if (!instr->scrub && qti_nandc_block_isbad(mtd, offs)) {
-			printf("NAND Erase error: Block address belongs to "
-				"bad block: %ld\n",
+			printf("%s: Erase error: Block address belongs to "
+				"bad block: %ld\n",__func__,
 				(pageno / (nandc->num_pages_per_blk)));
 			return -EIO;
 	}
@@ -3543,7 +3591,7 @@ static void qti_reg_write_dma(struct qcom_nand_controller *nandc,
 
 	q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_CMD_FLAG);
@@ -3594,7 +3642,7 @@ static void qti_set_phase(struct qcom_nand_controller *nandc, int phase)
 
 		q_bam_add_one_desc(&nandc->bam,
 			CMD_PIPE_INDEX,
-			(unsigned char*)cmd_list_ptr_start,
+			(uint8_t*)cmd_list_ptr_start,
 			((uintptr_t)cmd_list_ptr -
 			(uintptr_t)cmd_list_ptr_start),
 			BAM_DESC_CMD_FLAG);
@@ -3668,7 +3716,7 @@ static int qti_serial_training(struct mtd_info *mtd)
 	unsigned int io_macro_freq_tbl[] = {24000000, 100000000, 200000000,
 								320000000};
 
-	unsigned char *data_buff, trained_phase[TOTAL_NUM_PHASE] = {'\0'};
+	uint8_t *data_buff, trained_phase[TOTAL_NUM_PHASE] = {'\0'};
 	int phase, phase_cnt;
 	int training_seq_cnt = 4;
 	int index = 3, ret, phase_failed=0;
@@ -3711,14 +3759,14 @@ static int qti_serial_training(struct mtd_info *mtd)
 	}
 	ret = qti_nandc_block_erase(mtd, pageno);
 	if (ret) {
-		printf("error in erasing training block @%x\n",offset);
+		printf("Error in erasing training block @%x\n",offset);
 		ret = -EIO;
 		goto err;
 	}
 
-	data_buff = (unsigned char *)malloc_cache_aligned(mtd->writesize);
+	data_buff = (uint8_t *)malloc_cache_aligned(mtd->writesize);
 	if (!data_buff) {
-		printf("Errorn in allocating memory.\n");
+		printf("%s No enough memory\n", __func__);
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -3760,7 +3808,7 @@ static int qti_serial_training(struct mtd_info *mtd)
 
 	ret = qti_read_page(mtd, pageno, NAND_CFG, &ops);
 	if (ret) {
-		printf("%s : Read training data failed before training start\n",
+		printf("%s:Read training data failed before training start\n",
 								__func__);
 		goto free;
 	}
@@ -3796,7 +3844,7 @@ rettry:
 
 		ret = qti_read_page(mtd, pageno, NAND_CFG, &ops);
 		if (ret) {
-			printf("%s : Read training data failed.\n",__func__);
+			printf("%s:Read training data failed.\n",__func__);
 			goto free;
 		}
 		/* compare original data and read data */
@@ -3810,7 +3858,6 @@ rettry:
 		}
 		if (i == mtd->writesize)
 			trained_phase[phase_cnt++] = phase;
-			/*printf("%s : Found good phase %d\n",__func__,phase);*/
 
 	} while (phase++ < TOTAL_NUM_PHASE);
 
@@ -3855,12 +3902,12 @@ static int qti_nand_probe(struct udevice *device)
 	struct qcom_nand_controller *nandc = dev_get_priv(device);
 	struct mtd_info *mtd = &nandc->mtd;
 	struct nand_chip *chip;
-	long int ret = 0;
+	int val, ret = 0;
 	size_t alloc_size;
-	unsigned char *buf;
+	uint8_t *buf;
 	struct qti_nand_init_config config;
 	fdt_addr_t nand_base;
-	unsigned char *buff;
+	uint8_t *buff;
 	unsigned buf_size;
 	uint32_t bam_base;
 	unsigned read_pipe;
@@ -3872,19 +3919,19 @@ static int qti_nand_probe(struct udevice *device)
 	uint8_t  cmd_pipe_grp;
 	uint8_t status_pipe_grp;
 
-/*
- * An array holding the fixed pattern to compare with
- * training pattern.
- */
-	unsigned int training_block_64[] = {
+	/*
+	 * An array holding the fixed pattern to compare with
+	 * training pattern.
+	 */
+	uint32_t training_block_64[] = {
 		0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F,
 		0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F,
 		0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F,
 		0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F, 0x0F0F0F0F,
 	};
 
-	uint32_t
-	qti_onfi_mode_to_xfer_steps[QTI_MAX_ONFI_MODES][QTI_NUM_XFER_STEPS] = {
+	uint32_t qti_onfi_mode_to_xfer_steps
+		[QTI_MAX_ONFI_MODES][QTI_NUM_XFER_STEPS] = {
 
 		/* Mode 0 */
 		{
@@ -3908,6 +3955,21 @@ static int qti_nand_probe(struct udevice *device)
 		},
 	};
 
+	mtd->priv = &nandc->nand_chip[0];
+
+	chip = mtd->priv;
+	chip->priv = nandc;
+
+	/*Read register base  from dts*/
+	nand_base = dev_read_addr(device);
+	if (nand_base == FDT_ADDR_T_NONE) {
+		printf("No valid NAND base address found in device tree\n");
+		return -EINVAL;
+        }
+
+	nandc->base = nand_base;
+	ebi2nd_base = nand_base;
+
 	/* Read the Hardware Version register */
 	nandc->hw_ver = readl(NAND_VERSION);
 	/* Only maintain major number */
@@ -3917,25 +3979,6 @@ static int qti_nand_probe(struct udevice *device)
 				__func__);
 		return -ENOPROTOOPT;
 	}
-
-	mtd->priv = &nandc->nand_chip[0];
-
-	chip = mtd->priv;
-	chip->priv = nandc;
-
-	if (ret < 0) {
-		printf("Could not find nand-flash in device tree\n");
-		return ret;
-	}
-
-
-	/*Read data from dts*/
-	nand_base = dev_read_u32_default(device, "reg", -1);
-
-	if (nand_base == FDT_ADDR_T_NONE) {
-		printf("No valid NAND base address found in device tree\n");
-		return -EINVAL;
-        }
 
 	nandc->quad_mode = dev_read_u32_default(device, "quad_mode", -1);
 	if(-1 == (int)nandc->quad_mode) {
@@ -3971,14 +4014,14 @@ static int qti_nand_probe(struct udevice *device)
 	if (ret)
 		return ret;
 
-	/*alligned memory allocation*/
-	buf_size = (sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE) +
-			(sizeof(struct bam_desc) * QTI_BAM_DATA_FIFO_SIZE) +
-			(sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE) +
-			(sizeof(struct cmd_element) * 32) +
-			(sizeof(uint32_t)  * QTI_NAND_MAX_CWS_IN_PAGE + 24);
-			/*added 24 to allign with cache*/
-
+	buf_size = 0;
+	buf_size += sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE;
+	buf_size += sizeof(struct bam_desc) * QTI_BAM_DATA_FIFO_SIZE;
+	buf_size += sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE;
+	buf_size += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT;
+	val = sizeof(uint32_t) * QTI_NAND_MAX_CWS_IN_PAGE;
+	buf_size += _roundup(val); /* cache allignment */
+	buf_size += _roundup(4); /* cache allignment */
 
 	buff = malloc_cache_aligned(buf_size);
 	if (buff == NULL) {
@@ -3997,10 +4040,10 @@ static int qti_nand_probe(struct udevice *device)
 	buff += sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE;
 
 	nandc->ce_array = (struct cmd_element*)buff;
-	buff += sizeof(struct cmd_element) * 32;
+	buff += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT;
 
 	nandc->nandc_buffer = (uint32_t*)buff;
-	buff += sizeof(uint32_t)  * QTI_NAND_MAX_CWS_IN_PAGE;
+	buff += _roundup(val);
 
 	nandc->reg_buffer = (uint32_t*)buff;
 
@@ -4031,7 +4074,6 @@ static int qti_nand_probe(struct udevice *device)
 
 	qti_bam_init(nandc, &config);
 
-
 	qti_spi_init(mtd);
 
 	qti_nand_setup(mtd);
@@ -4054,7 +4096,6 @@ static int qti_nand_probe(struct udevice *device)
 	if (ret < 0)
 		return ret;
 
-
 	/* Check all blocks of serial NAND device is unlocked or
 	 * not if not then unlock the all the blocks of serial NAND
 	 * device also check the internal ecc is enabled or not if internal
@@ -4066,7 +4107,6 @@ static int qti_nand_probe(struct udevice *device)
 		printf("%s : Issue with Serial Nand configuration.\n",__func__);
 		return ret;
 	}
-
 
 	/* allocate memory for status buffer. we are doing
 	 * this here because we do not know the device page
@@ -4085,7 +4125,6 @@ static int qti_nand_probe(struct udevice *device)
 		printf("Error in allocating status buffer\n");
 		return ret;
 	}
-
 
 	/*
 	 * allocate buffer for nandc->pad_dat, nandc->pad_oob, nandc->zero_page,
@@ -4168,6 +4207,11 @@ err_buf:
 	nandc->buffers ? free(nandc->buffers) : NULL;
 	return ret;
 }
+
+static const struct udevice_id qti_ver_ids[] = {
+	{ .compatible = "qti,spi-nand-v2.1.1", .data = QTI_V2_1_1},
+	{ },
+};
 
 U_BOOT_DRIVER(qti_nand) = {
 	.name = "qti_nand",

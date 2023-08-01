@@ -12,17 +12,13 @@
 #include <clk.h>
 #include <mach/bam.h>
 
-#if defined(CONFIG_TARGET_IPQ9574) || defined(CONFIG_IPQ_RUMI) \
-	|| defined(CONFIG_TARGET_IPQ5332)
+phys_addr_t ebi2nd_base;
 
-#define QTI_EBI2ND_BASE		(0x079b0000)
-#else
-#error "QTI NAND not supported"
-#endif
+#define _roundup(x)			roundup(x, CONFIG_SYS_CACHELINE_SIZE);
 
 #define QTI_BAM_CTRL_BASE		(0x07984000)
 
-#define NAND_REG(off)			(QTI_EBI2ND_BASE + (off))
+#define NAND_REG(off)			(ebi2nd_base + (off))
 
 #define NAND_FLASH_CMD			NAND_REG(0x0000)
 #define NAND_ADDR0			NAND_REG(0x0004)
@@ -477,6 +473,8 @@
 /* Number of max cw's the driver allows to flash. */
 #define QTI_NAND_MAX_CWS_IN_PAGE		10
 
+#define QTI_MAX_NO_CMD_ELEMENT                 32
+
 /* Reset Values for Status registers */
 #define NAND_FLASH_STATUS_RESET			0x00000020
 #define NAND_READ_STATUS_RESET			0x000000C0
@@ -577,23 +575,23 @@ enum nand_cfg_value
 
 /* Structure for Serial nand parameter */
 struct qti_serial_nand_params {
-	u8 id[4];
-	u16 page_size;
-	u16 pgs_per_blk;
-	u32 spare_size;
-	u32 erase_blk_size;
-	u16 no_of_blocks;
-	u32 density;
-	u32 otp_region;
-	u8 no_of_addr_cycle;
-	u8 no_of_dies;
-	u8 num_bits_ecc_correctability;
-	u8 timing_mode_support;
+	uint8_t id[4];
+	uint16_t page_size;
+	uint16_t pgs_per_blk;
+	uint32_t spare_size;
+	uint32_t erase_blk_size;
+	uint16_t no_of_blocks;
+	uint32_t density;
+	uint32_t otp_region;
+	uint8_t no_of_addr_cycle;
+	uint8_t no_of_dies;
+	uint8_t num_bits_ecc_correctability;
+	uint8_t timing_mode_support;
 	bool quad_mode;
 	bool check_quad_config;
 	int prev_die_id;
-	u8 protec_bpx;
-	u64 pages_per_die;
+	uint8_t protec_bpx;
+	uint64_t pages_per_die;
 	const char *name;
 };
 
@@ -615,23 +613,23 @@ struct cfg_params
  */
 struct flash_id
 {
-	unsigned flash_id;
-	unsigned mask;
-	unsigned density;
-	unsigned widebus;
-	unsigned pagesize;
-	unsigned blksize;
-	unsigned oobsize;
-	unsigned ecc_8_bits;
+	uint32_t flash_id;
+	uint32_t mask;
+	uint32_t density;
+	uint32_t widebus;
+	uint32_t pagesize;
+	uint32_t blksize;
+	uint32_t oobsize;
+	uint32_t ecc_8_bits;
 };
 
 /* Structure to hold the pipe numbers */
 struct qti_nand_bam_pipes
 {
-	unsigned read_pipe;
-	unsigned write_pipe;
-	unsigned cmd_pipe;
-	unsigned status_pipe;
+	uint32_t read_pipe;
+	uint32_t write_pipe;
+	uint32_t cmd_pipe;
+	uint32_t status_pipe;
 	uint8_t  read_pipe_grp;
 	uint8_t  write_pipe_grp;
 	uint8_t  cmd_pipe_grp;
@@ -656,25 +654,26 @@ struct read_stats {
 };
 
 struct qcom_nand_controller {
-	unsigned id;
-	unsigned type;
-	unsigned vendor;
-	unsigned device;
-	unsigned page_size;
-	unsigned block_size;
-	unsigned spare_size;
-	unsigned num_blocks;
-	unsigned num_pages_per_blk;
-	unsigned num_pages_per_blk_mask;
-	unsigned widebus;
-	unsigned density;
-	unsigned cw_size;
-	unsigned cws_per_page;
-	unsigned bad_blk_loc;
-	unsigned ecc_bytes_hw;
-	unsigned spare_bytes;
-	unsigned bbm_size;
-	unsigned dev_cfg;
+	phys_addr_t base;
+	uint32_t id;
+	uint32_t type;
+	uint32_t vendor;
+	uint32_t device;
+	uint32_t page_size;
+	uint32_t block_size;
+	uint32_t spare_size;
+	uint32_t num_blocks;
+	uint32_t num_pages_per_blk;
+	uint32_t num_pages_per_blk_mask;
+	uint32_t widebus;
+	uint32_t density;
+	uint32_t cw_size;
+	uint32_t cws_per_page;
+	uint32_t bad_blk_loc;
+	uint32_t ecc_bytes_hw;
+	uint32_t spare_bytes;
+	uint32_t bbm_size;
+	uint32_t dev_cfg;
 	uint32_t cfg0;
 	uint32_t cfg1;
 	uint32_t cfg0_raw;
@@ -683,23 +682,23 @@ struct qcom_nand_controller {
 	uint32_t hw_ver;
 	bool quad_mode;
 	bool check_quad_config;
-	unsigned oob_per_page;
-	unsigned buff_start;
-	unsigned buff_count;
+	uint32_t oob_per_page;
+	uint32_t buff_start;
+	uint32_t buff_count;
 	uint32_t *reg_buffer;
-	unsigned char data_buffers[2];
-	unsigned char *buffers;
-	unsigned char *pad_dat;
-	unsigned char *pad_oob;
-	unsigned char *zero_page;
-	unsigned char *zero_oob;
-	unsigned char *tmp_datbuf;
-	unsigned char *tmp_oobbuf;
+	uint8_t data_buffers[2];
+	uint8_t *buffers;
+	uint8_t *pad_dat;
+	uint8_t *pad_oob;
+	uint8_t *zero_page;
+	uint8_t *zero_oob;
+	uint8_t *tmp_datbuf;
+	uint8_t *tmp_oobbuf;
 	bool multi_page_copy;
 	uint32_t multi_page_req_len;
-	unsigned char *status_buff;
+	uint8_t *status_buff;
 	uint32_t status_buf_size;
-	unsigned int training_block_64[16];
+	uint32_t training_block_64[16];
 	uint32_t qti_onfi_mode_to_xfer_steps[QTI_MAX_ONFI_MODES][QTI_NUM_XFER_STEPS];
 	struct nand_ecclayout fake_ecc_layout;
 	struct cmd_element *ce_array;
@@ -717,6 +716,5 @@ struct qcom_nand_controller {
 	struct bam_desc *qti_data_desc_fifo;
 	struct bam_desc *qti_status_desc_fifo;
 	struct bam_instance bam;
-
 };
 #endif
