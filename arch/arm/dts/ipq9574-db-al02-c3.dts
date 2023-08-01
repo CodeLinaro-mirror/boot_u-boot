@@ -10,6 +10,24 @@
 
 };
 
+&tlmm {
+	blsp4_i2c_pinmux: blsp4_i2c_pins {
+		blsp4_scl {
+			pins = "GPIO_50";
+			function = "blsp4_i2c_scl";
+			drive-strength = <DRIVE_STRENGTH_8MA>;
+			bias-pull-up;
+		};
+
+		blsp4_sda {
+			pins = "GPIO_51";
+			function = "blsp4_i2c_sda";
+			drive-strength = <DRIVE_STRENGTH_8MA>;
+			bias-pull-up;
+		};
+	};
+};
+
 &phy_rst_pinmux {
 	/delete-node/ qti_8081_rst;
 
@@ -18,6 +36,12 @@
 		drive-strength = <DRIVE_STRENGTH_8MA>;
 		bias-pull-up;
 	};
+};
+
+&blsp4_i2c {
+	pinctrl-names = "default";
+	pinctrl-0 = <&blsp4_i2c_pinmux>;
+	status = "okay";
 };
 
 /delete-node/ &phy4;

@@ -64,6 +64,20 @@
 #define BLSP1_QUP_SPI_SRC_SEL_XO			(0 << 8)
 #define BLSP1_QUP_SPI_SRC_SEL_GPLL0_OUT_MAIN		(1 << 8)
 
+/* BLSP QUP I2C clock register */
+#define BLSP1_QUP0_I2C_BCR		0x02000
+
+#define BLSP1_QUP_I2C_BCR(id)		((id < 1) ? \
+					(BLSP1_QUP0_I2C_BCR):\
+					(BLSP1_QUP0_I2C_BCR + (0x1000 * id)))
+
+#define BLSP1_QUP_I2C_APPS_CMD_RCGR(id)	(BLSP1_QUP_I2C_BCR(id) + 0x18)
+#define BLSP1_QUP_I2C_APPS_CFG_RCGR(id)	(BLSP1_QUP_I2C_BCR(id) + 0x1C)
+#define BLSP1_QUP_I2C_APPS_CBCR(id)	(BLSP1_QUP_I2C_BCR(id) + 0x24)
+
+#define BLSP1_QUP_I2C_50M_DIV_VAL	(0x1F << 0)
+#define BLSP1_QUP_I2C_SRC_SEL_GPLL0_OUT_MAIN		(1 << 8)
+
 /* GCC clock control registers */
 #define GCC_NSSNOC_ATB_CBCR				(0x17014)
 #define GCC_NSSNOC_QOSGEN_REF_CBCR			(0x1701C)
