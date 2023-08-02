@@ -1145,3 +1145,19 @@ void enable_caches(void)
 #endif
 	board_cache_init();
 }
+
+static int do_aqloadfw(struct cmd_tbl *cmdtp, int flag, int argc,
+			char *const argv[])
+{
+	/*
+	 * Firmware load by default
+	 * so return success
+	 */
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(
+	aq_load_fw, 2, 0, do_aqloadfw,
+	"Load firmware to AQ port",
+	"phy_addr --> phy address of AQ port\n"
+	);
