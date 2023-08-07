@@ -26,7 +26,7 @@
 	phy4: phy@ff {
 		phy-reset-gpio = <&tlmm 61 0>;
 		reg = <0xFF>;
-		phy_id = <5>;
+		phy_id = <SFP10G_PHY_TYPE>;
 		id = <5>;
 		uniphy_id = <1>;
 		uniphy_type = <1>;

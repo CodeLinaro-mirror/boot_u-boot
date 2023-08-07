@@ -9,6 +9,7 @@
 #include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
 #include <dt-bindings/clock/gcc-ipq5332.h>
 #include <dt-bindings/reset/ipq5332-reset.h>
+#include <dt-bindings/net/qti-ipqsoc.h>
 
 / {
 

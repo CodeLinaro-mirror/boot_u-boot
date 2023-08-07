@@ -44,7 +44,7 @@
 				phy-reset-gpio = <&tlmm 51 0>;
 				dev-mode = <0x1>;
 				reg = <1>;
-				phy_id = <10>;
+				phy_id = <QCA8x8x_SWITCH_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -89,7 +89,7 @@
 
 			phy1: phy@ff {
 				reg = <0xFF>;
-				phy_id = <5>;
+				phy_id = <SFP10G_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;

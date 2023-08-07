@@ -49,7 +49,7 @@
 			phy0: phy@8 {
 				phy-reset-gpio = <&tlmm 22 0>;
 				reg = <8>;
-				phy_id = <2>;
+				phy_id = <AQ_PHY_TYPE>;
 				phy-mode = "usxgmii";
 				id = <1>;
 				uniphy_id = <0>;
@@ -60,7 +60,7 @@
 			phy1: phy@0 {
 				phy-reset-gpio = <&tlmm 24 0>;
 				reg = <0>;
-				phy_id = <2>;
+				phy_id = <AQ_PHY_TYPE>;
 				phy-mode = "usxgmii";
 				id = <2>;
 				uniphy_id = <1>;

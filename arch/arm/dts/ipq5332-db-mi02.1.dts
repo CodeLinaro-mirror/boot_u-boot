@@ -34,7 +34,7 @@
 
 			phy0: phy@ff {
 				reg = <0xFF>;
-				phy_id = <5>;
+				phy_id = <SFP10G_PHY_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
@@ -44,7 +44,7 @@
 
 			phy1: phy@ff {
 				reg = <0xFF>;
-				phy_id = <5>;
+				phy_id = <SFP10G_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
