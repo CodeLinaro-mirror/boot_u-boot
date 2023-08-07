@@ -18,7 +18,6 @@
 #include <linux/iopoll.h>
 #include <miiphy.h>
 #include <phy.h>
-#include <dm/pinctrl.h>
 
 #define MDIO_MODE_REG               0x40
 #define MDIO_ADDR_REG               0x44
@@ -181,8 +180,6 @@ static int ipq4019_mdio_probe(struct udevice *dev)
 	priv->mdio_base = dev_read_addr(dev);
 	if (priv->mdio_base == FDT_ADDR_T_NONE)
 		return -EINVAL;
-
-	pinctrl_select_state(dev, "mdio");
 
 	return 0;
 }
