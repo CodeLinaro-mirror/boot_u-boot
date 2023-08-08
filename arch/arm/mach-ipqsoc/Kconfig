@@ -37,7 +37,7 @@ config RAM_PART_NAME_LENGTH
 
 config TEXT_SIZE
 	hex "Define Size of u-boot text size in DDR region"
-	default 0x100000
+	default 0x200000
 
 config IPQ_SPI_NOR
 	bool "Enable SPI NOR flash support in IPQ SOC"
