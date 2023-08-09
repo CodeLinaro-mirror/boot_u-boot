@@ -3,6 +3,7 @@ if ARCH_IPQSOC
 config ARCH_32BIT_SUPPORT
 	bool "IPQSOC 32-bit support"
 	select CPU_V7A
+	select SYS_ARCH_TIMER
 	default n
 
 config ARCH_64BIT_SUPPORT
@@ -39,21 +40,74 @@ config TEXT_SIZE
 	hex "Define Size of u-boot text size in DDR region"
 	default 0x200000
 
-config IPQ_SPI_NOR
-	bool "Enable SPI NOR flash support in IPQ SOC"
+config IPQ_DEFAULTS
+	bool "Enable default configs & tool support for IPQ SOC"
+	select OF_BOARD_SETUP
+	select PINCTRL_QTI
+	select CLK_QTI
+	select BOARD_LATE_INIT
+	select SYS_DEVICE_NULLDEV
+	select ENV_IS_NOWHERE
+	select CMD_XIMG
+	select CMD_MEMTEST
+	select CMD_CACHE
 	select DMA
 	select DMA_CHANNELS
 	select BAM_DMA
+
+config IPQ_MMC
+	bool "Enable eMMC support in IPQ SOC"
+	select MMC_SDHCI
+	select MMC_SDHCI_MSM
+	select MMC_SDHCI_ADMA
+	imply MMC_HS200_SUPPORT
+	select EFI_PARTITION
+	select CMD_GPT
+	select CMD_MMC
+
+config IPQ_NAND
+	bool "Enable NAND flash support in IPQ SOC"
+	select QTI_BAM
+	select NAND_QTI
+	select DM_MTD
+	select MTD_RAW_NAND
+	select MTD_UBI
+	select UBI_WRITE
+	select CMD_MTD
+	select CMD_NAND
+	select CMD_UBI
+
+config IPQ_SPI_NOR
+	bool "Enable SPI NOR flash support in IPQ SOC"
 	select SPI
+	select SPI_QUP
 	select DM_SPI
 	select DM_SPI_FLASH
-	select SPI_QUP
 	select SPI_FLASH_STMICRO
 	select SPI_FLASH_GIGADEVICE
 	select SPI_FLASH_MACRONIX
+	select SPI_FLASH_MTD if ENV_IS_IN_SPI_FLASH
 
-config IPQ_SPI_NOR_DEV_NAME
-	string "IPQ SPI NOR boot device name"
+config IPQ_FLASH_PART_FIXUP
+	bool "Enable Flash partition fixup support in IPQ SOC"
+	select MTD
+	select CMD_MTDPARTS
+	select FDT_FIXUP_PARTITIONS
+
+config IPQ_NET
+	bool "Enable default Network Configurations for IPQ SOC"
+	select ETH
+	select DM_MDIO
+	select MDIO_IPQ4019
+	select PHYLIB
+	select PHY_QTI
+	select CMD_NET
+	select CMD_MDIO
+	select CMD_MII
+	select CMD_PING
+	select CMD_TFTPPUT
+	select CMD_DHCP
+	select TFTP_PORT
 
 config ETH_MAX_MAC
 	hex "Define Maximum MAC support in SoC"
@@ -64,31 +118,11 @@ choice
 
 config TARGET_IPQ5332
 	bool "QTI IPQ5332 SOC"
-	select BOARD_LATE_INIT
 	select SMEM_VERSION_C
-	select OF_BOARD_SETUP
-	select PINCTRL_QTI
-	select CLK_QTI
 	select SCM
-	select SYS_DEVICE_NULLDEV
-	select CMD_XIMG
-	select CMD_MEMTEST
-	select CMD_CACHE
-	select ENV_IS_NOWHERE
-	select SYS_ARCH_TIMER if CPU_V7A
-	select PHYLIB
-	select DM_MDIO
-	select MDIO_IPQ4019
-	select CMD_MDIO
-	select CMD_MII
-	select CMD_NET
-	select PHY_QTI
-	select CMD_TFTPPUT
-	select ETH
-	select CMD_PING
+	select IPQ_DEFAULTS
+	select IPQ_NET
 	select QTI_NSS_SWITCH
-	select TFTP_PORT
-	select CMD_DHCP
 	select PHY_QTI_8X8X
 	select PHY_QTI_8081
 	help
@@ -102,31 +136,11 @@ config TARGET_IPQ5332
 
 config TARGET_IPQ9574
 	bool "QTI IPQ9574 SOC"
-	select BOARD_LATE_INIT
 	select SMEM_VERSION_C
-	select OF_BOARD_SETUP
-	select PINCTRL_QTI
-	select CLK_QTI
 	select SCM
-	select SYS_DEVICE_NULLDEV
-	select CMD_XIMG
-	select CMD_MEMTEST
-	select CMD_CACHE
-	select ENV_IS_NOWHERE
-	select SYS_ARCH_TIMER if CPU_V7A
-	select PHYLIB
-	select DM_MDIO
-	select MDIO_IPQ4019
-	select CMD_MDIO
-	select CMD_MII
-	select CMD_NET
-	select PHY_QTI
-	select CMD_TFTPPUT
-	select ETH
-	select CMD_PING
+	select IPQ_DEFAULTS
+	select IPQ_NET
 	select QTI_NSS_SWITCH
-	select TFTP_PORT
-	select CMD_DHCP
 	select PHY_QTI_8075
 	select PHY_QTI_8X8X
 	select PHY_QTI_8081

@@ -45,7 +45,7 @@ extern uint32_t g_board_machid;
 						CONFIG_ENV_SIZE -	\
 						GENERATED_GBL_DATA_SIZE)
 
-#define CONFIG_SYS_BAUDRATE_TABLE		{ 115200, 230400, 	\
+#define CFG_SYS_BAUDRATE_TABLE			{ 115200, 230400, 	\
 							460800, 921600 }
 
 #define CFG_SYS_HZ_CLOCK			24000000
