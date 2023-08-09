@@ -11,6 +11,34 @@
 extern uint32_t g_board_machid;
 #endif
 
+/*
+ * Memory layout
+	         _____________________
+	        |		      |
+	        |	STACK	      |
+	        |_____________________|
+	        |		      |
+	        |         GD          |
+	        |_____________________|
+	        |		      |
+	        |         BD          |
+	        |_____________________|
+	        |		      |
+	        |      NONCACHED      |
+	        |      32bit - 2MB    |
+	        |      64bit - 3MB    |
+	        |_____________________|
+	        |		      |
+	        |  HEAP + ENV - 2MB   |
+	        |_____________________|
+	        |		      |
+                |     TEXT - 2MB      |
+   4A30_0000--> |_____________________|
+	        |                     |
+	        |                     |
+   4000_0000--> |_____________________| DRAM BASE
+*/
+
 #define CONFIG_HAS_CUSTOM_SYS_INIT_SP_ADDR
 #define CONFIG_CUSTOM_SYS_INIT_SP_ADDR         	(CONFIG_TEXT_BASE -	\
 						CONFIG_SYS_MALLOC_LEN - \
