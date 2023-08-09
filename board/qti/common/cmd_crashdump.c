@@ -118,7 +118,7 @@ static void ipq_dump_func(unsigned int dump_level)
 	/* reset the system, some images might not be loaded
 	 * when crashmagic is found
 	 */
-	reset_cpu();
+	run_command("reset", 0);
 }
 
 void reset_crashdump(void)
@@ -149,7 +149,7 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (ipq_iscrashed_crashdump_disabled()) {
 		printf("Crashdump disabled, resetting the board..\n");
-		reset_cpu();
+		run_command("reset", 0);
 	}
 
 	return 0;
