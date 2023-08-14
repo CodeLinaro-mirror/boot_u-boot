@@ -131,7 +131,7 @@ void reset_crashdump(void)
 		cookie |= CRASHDUMP_RESET;
 
 	cookie &= DLOAD_DISABLE;
-	ret = qca_scm_dload(TCSR_BOOT_MISC_REG, cookie);
+	ret = qca_scm_dload((u32)TCSR_BOOT_MISC_REG, cookie);
 	if (ret)
 		printf ("Error in reseting the Magic cookie\n");
 	return;
