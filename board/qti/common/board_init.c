@@ -1099,6 +1099,7 @@ int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 	}
 #endif
 exit:
+	(void)length; // warning fixup for no flash build
 	return ret;
 }
 

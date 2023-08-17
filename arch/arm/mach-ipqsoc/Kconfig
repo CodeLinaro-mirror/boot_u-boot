@@ -48,6 +48,9 @@ config IPQ_DEFAULTS
 	select BOARD_LATE_INIT
 	select SYS_DEVICE_NULLDEV
 	select ENV_IS_NOWHERE
+	select IPQ_CRASHDUMP
+	select IPQ_FLUTILS
+	select IPQ_FDT_FIXUP
 	select CMD_XIMG
 	select CMD_MEMTEST
 	select CMD_CACHE
@@ -165,6 +168,7 @@ config TARGET_IPQ9574
 
 endchoice
 
+source "board/qti/common/Kconfig"
 source "board/qti/ipq5332/Kconfig"
 source "board/qti/ipq9574/Kconfig"
 

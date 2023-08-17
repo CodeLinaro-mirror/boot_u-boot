@@ -224,6 +224,7 @@ SECTIONS
 		KEEP(*(.__bss_end));
 	}
 
+	. = ALIGN(4096);
 	.end :
 	{
 		*(.__end)

@@ -1,0 +1,12 @@
+config IPQ_CRASHDUMP
+	bool "IPQ Crashdump collection support"
+	depends on USE_PREBOOT
+	default n
+
+config IPQ_FLUTILS
+	bool "IPQ Flash Utility support"
+	default n
+
+config IPQ_FDT_FIXUP
+	bool "IPQ FDT Fixup support"
+	default n
