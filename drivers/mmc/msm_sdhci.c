@@ -21,7 +21,6 @@
 #include <dm/device_compat.h>
 #include <reset.h>
 #include <linux/delay.h>
-#include <dm/pinctrl.h>
 
 /* Non-standard registers needed for SDHCI startup */
 #define SDCC_MCI_POWER   0x0
@@ -144,8 +143,6 @@ static int msm_sdc_probe(struct udevice *dev)
 	u32 core_version, core_minor, core_major;
 	u32 caps;
 	int ret;
-
-	pinctrl_select_state(dev, "mmc");
 
 	ret = reset_get_by_name(dev, "bcr_rst", &bcr_rst);
 	if (!ret) {

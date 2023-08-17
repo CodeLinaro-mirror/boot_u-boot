@@ -9,6 +9,7 @@
 #include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
 #include <dt-bindings/clock/gcc-ipq9574.h>
 #include <dt-bindings/reset/ipq9574-reset.h>
+#include <dt-bindings/net/qti-ipqsoc.h>
 
 / {
 

@@ -556,6 +556,9 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (ret && !is_ubi)
 		goto _exit;
 
+	if (is_ubi)
+		flash_type  = SMEM_BOOT_QSPI_NAND_FLASH;
+
 	UPDATE_FL_INFO(&fl, flash_type, offset, load_addr, part_size,
 			file_size, part_name, is_ubi);
 

@@ -3,10 +3,10 @@
 * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
 */
 
-#include "ipq9574-rdp433.dts"
+#include "ipq9574-rdp417.dts"
 
 / {
-	config_name = "config@al02-c7", "config@rdp433-mht-phy", "config-rdp433-mht-phy";
+	config_name = "config@al03-c2","config@rdp458", "config-rdp458";
 
 };
 
@@ -24,6 +24,7 @@
 /delete-node/ &phy1;
 /delete-node/ &phy2;
 /delete-node/ &phy3;
+/delete-node/ &phy4;
 
 &mdio {
 	phy0: phy@1 {
@@ -58,4 +59,8 @@
 		uniphy_id = <0>;
 		uniphy_type = <0>;
 	};
+};
+
+&ethernet {
+	/delete-property/ phy-handle4;
 };

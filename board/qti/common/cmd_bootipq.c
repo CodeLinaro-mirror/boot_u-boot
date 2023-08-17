@@ -86,8 +86,7 @@ int set_fs_bootargs(void)
 				"rootfstype=squashfs";
 
 			snprintf(mtdids, sizeof(mtdids),
-				"nand0=nand0,nor0="
-				CONFIG_IPQ_SPI_NOR_DEV_NAME);
+				"nand0=nand0,nor0=spi0.0");
 
 			if (env_get("fsbootargs") == NULL)
 				env_set("fsbootargs", bootargs);

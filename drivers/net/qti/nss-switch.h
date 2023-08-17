@@ -42,6 +42,7 @@
 #include <linux/iopoll.h>
 #include <dm/pinctrl.h>
 #include <memalign.h>
+#include <dt-bindings/net/qti-ipqsoc.h>
 
 #define UPDATE_EDMA_CONFIG(_src, _dest)					\
 	do {								\
@@ -662,22 +663,6 @@ enum port_wrapper_cfg {
         PORT_WRAPPER_10GBASE_R = 7,
         PORT_WRAPPER_SGMII_FIBER = 8,
 	PORT_WRAPPER_UQXGMII = 9,
-};
-
-enum phy_mode {
-        QCA8075_PHY_TYPE = 0,
-        QCA8081_PHY_TYPE = 1,
-        AQ_PHY_TYPE = 2,
-        QCA8033_PHY_TYPE = 3,
-        SFP_PHY_TYPE = 4,
-        SFP10G_PHY_TYPE= 5,
-	SFP2_5G_PHY_TYPE = 6,
-        SFP1G_PHY_TYPE = 7,
-        QCA8x8x_PHY_TYPE = 8,
-        QCA8337_SWITCH_TYPE = 9,
-        QCA8x8x_SWITCH_TYPE = 10,
-        QCA8x8x_BYPASS_TYPE = 11,
-        UNUSED_PHY_TYPE = 0xFF,
 };
 
 enum {
