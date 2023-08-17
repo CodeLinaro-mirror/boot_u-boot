@@ -3,6 +3,7 @@
  * Copyright (c) 2009-2013, 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (c) 2014, Sony Mobile Communications AB.
  * Copyright (c) 2022-2023, Sumit Garg <sumit.garg@linaro.org>
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Inspired by corresponding driver in Linux: drivers/i2c/busses/i2c-qup.c
  */
@@ -53,7 +54,7 @@
 #define QUP_IN_FIFO_CNT				0x214 /* NOT USED */
 #define QUP_IN_FIFO_BASE			0x218
 #define QUP_I2C_CLK_CTL				0x400
-#define QUP_I2C_STATUS				0x404 /* NOT USED */
+#define QUP_I2C_STATUS				0x404
 #define QUP_I2C_MASTER_GEN			0x408
 #define QUP_I2C_MASTER_BUS_CLR			0x40C /* NOT USED */
 
@@ -119,6 +120,8 @@
 #define QUP_TAG_V2_DATARD_STOP			0x87
 
 #define QUP_I2C_MX_CONFIG_DURING_RUN		BIT(31)
+#define QUP_I2C_INVALID_SLAVE_ADDR		BIT(24)
+#define QUP_I2C_NACK_BIT_STAT			BIT(3)
 
 /* Minimum transfer timeout for i2c transfers in micro seconds */
 #define TOUT_CNT				(2 * 1000 * 1000)
@@ -546,9 +549,67 @@ static int qup_i2c_probe_chip(struct udevice *dev, uint chip_addr,
 			      uint chip_flags)
 {
 	struct qup_i2c_priv *qup = dev_get_priv(dev);
-	u32 hw_ver = readl(qup->base + QUP_HW_VERSION);
+	unsigned int count = 100;
+	int ret = 0;
+	u32 val, hw_ver = readl(qup->base + QUP_HW_VERSION);
+	if (!hw_ver)
+		return -ENOENT;
 
-	return hw_ver ? 0 : -1;
+	writel(1, qup->base + QUP_SW_RESET);
+	ret = qup_i2c_poll_state_valid(qup);
+	if (ret)
+		return ret;
+
+	writel(QUP_V2_TAGS_EN, qup->base + QUP_I2C_MASTER_GEN);
+
+	qup_i2c_conf_mode_v2(qup);
+
+	ret = qup_i2c_change_state(qup, QUP_RESET_STATE);
+	if (ret)
+		goto out;
+
+	qup->config_run = 0;
+	qup_i2c_enable_io_config(qup, QUP_MAX_TAGS_LEN, 0);
+
+	ret = qup_i2c_change_state(qup, QUP_RUN_STATE);
+	if (ret)
+		goto out;
+
+	/** clock configuration */
+	writel(qup->clk_ctl, qup->base + QUP_I2C_CLK_CTL);
+
+	ret = qup_i2c_change_state(qup, QUP_PAUSE_STATE);
+	if (ret)
+		goto out;
+
+	qup_i2c_write_word(qup, QUP_TAG_V2_START | ((chip_addr << 1) << 8) |
+			(QUP_TAG_V2_DATAWR_STOP << 16) | (0 << 24));
+
+	ret = qup_i2c_change_state(qup, QUP_RUN_STATE);
+	if (ret)
+		goto out;
+
+	do {
+		if (!count) {
+			ret = -ETIMEDOUT;
+			break;
+		}
+
+		count--;
+		udelay(10);
+	} while (!(readl(qup->base + QUP_OPERATIONAL) & QUP_OUT_SVC_FLAG));
+	if (ret)
+		goto out;
+        writel(QUP_OUT_SVC_FLAG, qup->base + QUP_OPERATIONAL);
+
+out:
+	val = readl(qup->base + QUP_I2C_STATUS);
+	if ((val & QUP_I2C_INVALID_SLAVE_ADDR) ||
+			(val & QUP_I2C_NACK_BIT_STAT))
+		ret = -EREMOTEIO;
+
+	qup_i2c_change_state(qup, QUP_RESET_STATE);
+	return ret;
 }
 
 static const struct dm_i2c_ops qup_i2c_ops = {
