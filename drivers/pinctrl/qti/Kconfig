@@ -22,3 +22,15 @@ config PINCTRL_IPQ9574
 	  the GPIO definitions and pin control functions for each available
 	  multiplex function.
 
+config PINCTRL_DEVSOC
+	depends on DM && PINCTRL_QTI && TARGET_DEVSOC
+	default y
+	select PINCONF
+	bool "QTI DEVSOC pin control driver"
+	help
+	  Supports pin multiplexing control on DEVSoCs.
+
+	  The driver is controlled by a device tree node which contains both
+	  the GPIO definitions and pin control functions for each available
+	  multiplex function.
+

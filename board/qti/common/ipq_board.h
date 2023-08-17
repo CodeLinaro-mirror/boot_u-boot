@@ -19,6 +19,9 @@
 #ifdef CONFIG_TARGET_IPQ5332
 #include "../ipq5332/ipq5332.h"
 #endif
+#ifdef CONFIG_TARGET_DEVSOC
+#include "../devsoc/devsoc.h"
+#endif
 
 #define __str_fmt(x)		"%-" #x "s"
 #define _str_fmt(x)		__str_fmt(x)

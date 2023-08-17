@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ */
+
+#include <common.h>
+#include <cpu_func.h>
+#include <asm/cache.h>
+#include <asm/global_data.h>
+#include <jffs2/load_kernel.h>
+#include <mtd_node.h>
+#include <sysreset.h>
+#include <linux/psci.h>
+#ifdef CONFIG_ARM64
+#include <asm/armv8/mmu.h>
+#endif
+
+#include "../common/ipq_board.h"
+
+#include <asm/io.h>
+#include <linux/delay.h>
+
+DECLARE_GLOBAL_DATA_PTR;
+
+#if CONFIG_FDT_FIXUP_PARTITIONS
+struct node_info ipq_fnodes[] = {
+	{ "n25q128a11", MTD_DEV_TYPE_NOR},
+	{ "micron,n25q128a11", MTD_DEV_TYPE_NOR},
+	{ "qcom,devsoc-nand", MTD_DEV_TYPE_NAND},
+};
+
+int ipq_fnode_entires = ARRAY_SIZE(ipq_fnodes);
+
+struct node_info * fnodes = ipq_fnodes ;
+int * fnode_entires = &ipq_fnode_entires;
+#endif
+
+#ifdef CONFIG_DTB_RESELECT
+struct machid_dts_map machid_dts[] = {
+	{ MACH_TYPE_DEVSOC_EMU, "devsoc-emulation"},
+};
+
+int machid_dts_nos = ARRAY_SIZE(machid_dts);
+
+struct machid_dts_map * machid_dts_info = machid_dts;
+int * machid_dts_entries = &machid_dts_nos;
+#endif /* CONFIG_DTB_RESELECT */
+
+struct dumpinfo_t dumpinfo_n[] = {
+	/* TZ stores the DDR physical address at which it stores the
+	 * APSS regs, UTCM copy dump. We will have the TZ IMEM
+	 * IMEM Addr at which the DDR physical address is stored as
+	 * the start
+	 *     --------------------
+         *     |  DDR phy (start) | ----> ------------------------
+         *     --------------------       | APSS regsave (8k)    |
+         *                                ------------------------
+         *                                |                      |
+	 *                                | 	 UTCM copy	 |
+         *                                |        (192k)        |
+	 *                                |                      |
+         *                                ------------------------
+	 */
+
+	{ "EBICS0.BIN", 0x40000000, 0x40000000, 0 },
+	{ "IMEM.BIN", 0x08600000, 0x00001000, 0 },
+};
+int dump_entries_n = ARRAY_SIZE(dumpinfo_n);
+
+struct dumpinfo_t * dumpinfo = dumpinfo_n;
+int * dump_entries = &dump_entries_n;
+
+void reset_cpu(void)
+{
+	psci_sys_reset(SYSRESET_COLD);
+	return;
+}
+
+int print_cpuinfo(void)
+{
+        return 0;
+}
+
+void lowlevel_init(void)
+{
+	return;
+}
+
+int ft_board_setup(void *blob, struct bd_info *bd)
+{
+	return 0;
+}
+
+#ifdef CONFIG_ARM64
+/*
+ * Set XN (PTE_BLOCK_PXN | PTE_BLOCK_UXN)bit for all dram regions
+ * and Peripheral block except uboot code region
+ */
+static struct mm_region devsoc_mem_map[] = {
+	{
+		/* Peripheral block */
+		.virt = 0x0UL,
+		.phys = 0x0UL,
+		.size = CFG_SYS_SDRAM_BASE,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+			 PTE_BLOCK_NON_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+
+	}, {
+		/* DDR region upto u-boot CONFIG_TEXT_BASE */
+		.virt = CFG_SYS_SDRAM_BASE,
+		.phys = CFG_SYS_SDRAM_BASE,
+		.size = CONFIG_TEXT_BASE - CFG_SYS_SDRAM_BASE,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+			 PTE_BLOCK_INNER_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+	}, {
+		/* DDR region U-boot text base */
+		.virt = CONFIG_TEXT_BASE,
+		.phys = CONFIG_TEXT_BASE,
+		.size = CONFIG_TEXT_SIZE,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+			 PTE_BLOCK_INNER_SHARE
+	}, {
+		/*
+		 * DDR region after u-boot text base
+		 * added dummy 0xBAD0FF5EUL,
+		 * will update the actual DDR limit
+		 */
+		.virt = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
+		.phys = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
+		.size = 0xBAD0FF5EUL,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+			 PTE_BLOCK_INNER_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+	}, {
+		/* List terminator */
+		0,
+	}
+};
+
+struct mm_region *mem_map = devsoc_mem_map;
+#endif

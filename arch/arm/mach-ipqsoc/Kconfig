@@ -187,10 +187,23 @@ config TARGET_IPQ9574
 	  - USB 3.0/I2C/UART/PCIe Gen3 2Lane
 	  - 1G/2.5G/10G Ethernet Ports
 
+config TARGET_DEVSOC
+	bool "QTI DEVSOC"
+	select SMEM_VERSION_C
+	select OF_BOARD_SETUP
+	select PINCTRL_QTI
+	select CLK_QTI
+	select BOARD_LATE_INIT
+	select SYS_DEVICE_NULLDEV
+	select ENV_IS_NOWHERE
+	help
+	  Support for IPQ DEVSoC.
+
 endchoice
 
 source "board/qti/common/Kconfig"
 source "board/qti/ipq5332/Kconfig"
 source "board/qti/ipq9574/Kconfig"
+source "board/qti/devsoc/Kconfig"
 
 endif

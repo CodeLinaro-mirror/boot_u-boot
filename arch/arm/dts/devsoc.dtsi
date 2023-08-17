@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
+#include <dt-bindings/clock/gcc-devsoc.h>
+#include <dt-bindings/reset/devsoc-reset.h>
+
+/ {
+
+	model = "Qualcomm Technologies, Inc. DEVSOC";
+	compatible = "qti,devsoc";
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		smem_mem: smem_region@8A800000 {
+			reg = <0x8A800000 0x100000>;
+			no-map;
+		};
+	};
+
+	smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		u-boot,dm-pre-reloc;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	soc: soc@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+
+		gcc: clock-controller@1800000 {
+			compatible = "qti,gcc-devsoc";
+			reg = <0x1800000 0x40000>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			#clock-cells = <1>;
+			u-boot,dm-pre-reloc;
+		};
+
+	};
+};

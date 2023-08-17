@@ -170,6 +170,12 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 };
 #endif
 
+#ifdef CONFIG_TARGET_DEVSOC
+#include <dt-bindings/reset/devsoc-reset.h>
+static const struct qcom_reset_map gcc_qcom_resets[] = {
+};
+#endif
+
 #ifdef CONFIG_TARGET_QCS404EVB
 #include <dt-bindings/clock/qcom,gcc-qcs404.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {

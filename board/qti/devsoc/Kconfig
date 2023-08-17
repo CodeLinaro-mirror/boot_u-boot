@@ -1,0 +1,15 @@
+if TARGET_DEVSOC
+
+config SYS_BOARD
+	default "devsoc"
+
+config SYS_VENDOR
+	default "qti"
+
+config SYS_SOC
+	default "devsoc"
+
+config SYS_CONFIG_NAME
+	default "devsoc"
+
+endif
