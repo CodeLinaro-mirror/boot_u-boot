@@ -61,4 +61,8 @@
 #define NSS_CC_PORT4_MAC_RESET				40
 #define NSS_CC_PORT5_MAC_RESET				41
 #define NSS_CC_PORT6_MAC_RESET				42
+#define GCC_USB_BCR					43
+#define GCC_QUSB2_0_PHY_BCR				44
+#define GCC_USB0_PHY_BCR				45
+#define GCC_USB3PHY_0_PHY_BCR				46
 #endif

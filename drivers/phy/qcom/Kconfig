@@ -33,3 +33,31 @@ config PHY_QTI_QMP_PCIE
 	depends on PHY
 	help
 	  Enable this to support the PCIE QMP PHY in IPQSOC chipsets.
+
+config PHY_QTI_USB_HS_M31
+	tristate "Qualcomm USB High-Speed M31 PHY driver"
+	depends on PHY && ARCH_IPQSOC
+	help
+	  Enable this to support the High-Speed USB transceiver on various
+	  Qualcomm IPQ chipsets.
+
+config PHY_QTI_UNI_SSPHY
+	tristate "Qualcomm USB Super-Speed UNIPHY driver"
+	depends on PHY && ARCH_IPQSOC
+	help
+	  Enable this to support the Super-Speed USB transceiver on various
+	  Qualcomm IPQ chipsets.
+
+config PHY_QTI_QUSB2
+	tristate "Qualcomm QUSB2 High-Speed PHY driver"
+	depends on PHY && ARCH_IPQSOC
+	help
+	  Enable this to support the High-Speed USB transceiver on various
+	  Qualcomm IPQ chipsets.
+
+config PHY_QTI_QMP_USB3
+	tristate "Qualcomm QMP USB3 Super-Speed driver"
+	depends on PHY && ARCH_IPQSOC
+	help
+	  Enable this to support the Super-Speed USB transceiver on various
+	  Qualcomm IPQ chipsets.

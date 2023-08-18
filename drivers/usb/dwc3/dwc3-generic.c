@@ -116,6 +116,19 @@ static int dwc3_generic_probe(struct udevice *dev,
 	priv->base = map_physmem(plat->base, DWC3_OTG_REGS_END, MAP_NOCACHE);
 	dwc3->regs = priv->base + DWC3_GLOBALS_REGS_START;
 
+	if (device_is_compatible(dev->parent, "qti,dwc3-ipq")) {
+		uint32_t cfg_val;
+
+		rc = dev_read_u32u(dev->parent, "qti,quirk-ref-clk-per",
+				&cfg_val);
+		if (!rc)
+			dwc3_writel(dwc3->regs, DWC3_GUCTL, cfg_val);
+
+		rc = dev_read_u32u(dev->parent, "qti,quirk-ref-clk-adj",
+				&cfg_val);
+		if (!rc)
+			dwc3_writel(dwc3->regs, DWC3_GFLADJ, cfg_val);
+	}
 
 	rc =  dwc3_init(dwc3);
 	if (rc) {
@@ -398,6 +411,45 @@ struct dwc3_glue_ops ti_ops = {
 	.glue_configure = dwc3_ti_glue_configure,
 };
 
+void dwc3_ipq_glue_configure(struct udevice *dev, int index,
+			    enum usb_dr_mode mode)
+{
+#define TCSR_USB_PCIE_SEL_USB			0x1
+#define QSCRATCH_GENERAL_CFG                    0x08
+#define PIPE_UTMI_CLK_SEL                       BIT(0)
+#define PIPE3_PHYSTATUS_SW                      BIT(3)
+#define PIPE_UTMI_CLK_DIS                       BIT(8)
+	struct dwc3_glue_data *glue = dev_get_plat(dev);
+	u32 phy_mux_reg;
+
+	if (dev_read_bool(dev, "qti,multiplexed-phy"))
+	{
+		if (!dev_read_u32u(dev, "qti,phy-mux-regs", &phy_mux_reg)) {
+			writel(TCSR_USB_PCIE_SEL_USB, (uintptr_t)phy_mux_reg);
+			udelay(100);
+		}
+	}
+
+	if (dev_read_bool(dev, "qti,select-utmi-as-pipe-clk"))
+	{
+		/*Enable utmi instead of pipe*/
+		setbits_le32(glue->regs + QSCRATCH_GENERAL_CFG,
+				PIPE_UTMI_CLK_DIS);
+		udelay(100);
+
+		setbits_le32(glue->regs + QSCRATCH_GENERAL_CFG,
+				PIPE_UTMI_CLK_SEL | PIPE3_PHYSTATUS_SW);
+		udelay(100);
+
+		clrbits_le32(glue->regs + QSCRATCH_GENERAL_CFG,
+				PIPE_UTMI_CLK_DIS);
+	}
+}
+
+struct dwc3_glue_ops ipq_ops = {
+	.glue_configure = dwc3_ipq_glue_configure,
+};
+
 static int dwc3_glue_bind(struct udevice *parent)
 {
 	ofnode node;
@@ -577,6 +629,7 @@ static const struct udevice_id dwc3_glue_ids[] = {
 	{ .compatible = "fsl,imx8mp-dwc3", .data = (ulong)&imx8mp_ops },
 	{ .compatible = "fsl,imx8mq-dwc3" },
 	{ .compatible = "intel,tangier-dwc3" },
+	{ .compatible = "qti,dwc3-ipq", .data = (ulong)&ipq_ops },
 	{ }
 };
 

@@ -36,4 +36,8 @@
 #define GCC_PCIE3X2_PHY_BCR_RESET			14
 #define GCC_PCIE3X1_0_PHY_BCR_RESET			15
 #define GCC_PCIE3X1_1_PHY_BCR_RESET			16
+#define GCC_USB_BCR					17
+#define GCC_QUSB2_0_PHY_BCR				18
+#define GCC_USB0_PHY_BCR				19
+
 #endif

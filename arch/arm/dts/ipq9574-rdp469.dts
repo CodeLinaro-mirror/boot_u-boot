@@ -66,6 +66,24 @@
 			status = "okay";
 		};
 
+		qmp_ssphy_0: ssphy@7D000 {
+			status = "okay";
+		};
+
+		qusb2_phy_0: qusb2@7B000 {
+			status = "okay";
+		};
+
+		usb0: usb@8af8800 {
+			status = "okay";
+
+			dwc3@8a00000 {
+				phys = <&qusb2_phy_0>, <&qmp_ssphy_0>;
+				phy-names = "usb2-phy", "usb3-phy";
+				maximum-speed = "super-speed";
+			};
+		};
+
 		mdio: mdio@90000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&mdio_pinmux>;
