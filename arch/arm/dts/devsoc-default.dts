@@ -7,4 +7,54 @@
 
 / {
 	config_name = "config-default";
+
+	aliases {
+		console = &se0_uart0;
+	};
+
+	soc: soc@0 {
+		tlmm: pinctrl@1000000 {
+			uart0_pinmux: uart0 {
+				uart0_tx {
+					pins = "GPIO_13";
+					function = "uart0_tx";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				uart0_rx {
+					pins = "GPIO_12";
+					function = "uart0_rx";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+
+			uart1_pinmux: uart1 {
+				uart1_tx {
+					pins = "GPIO_44";
+					function = "uart1_tx";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				uart1_rx {
+					pins = "GPIO_43";
+					function = "uart1_rx";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3: geniqup@1ac0000 {
+			status = "okay";
+
+			se0_uart0: serial@1a80000 {
+				pinctrl-0 = <&uart0_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+		};
+	};
 };

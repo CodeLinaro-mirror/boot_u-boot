@@ -14,6 +14,12 @@
 static char pin_name[MAX_PIN_NAME_LEN];
 
 static const struct pinctrl_function msm_pinctrl_functions[] = {
+	{"uart0_rfr", 1},
+	{"uart0_cts", 1},
+	{"uart0_rx", 1},
+	{"uart0_tx", 1},
+	{"uart1_rx", 1},
+	{"uart1_tx", 1},
 };
 
 static const char *devsoc_get_function_name(struct udevice *dev,

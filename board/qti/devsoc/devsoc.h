@@ -31,6 +31,6 @@ typedef enum {
 } smem_mem_type_t;
 
 /* MACH IDs for various RDPs */
-#define MACH_TYPE_DEVSOC_EMU			0x8060000
+#define MACH_TYPE_DEVSOC_EMU			0x8050001
 
 #endif /* _DEVSOC_H_ */

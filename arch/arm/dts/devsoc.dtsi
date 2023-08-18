@@ -41,6 +41,16 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 
+		tlmm: pinctrl@1000000 {
+			compatible = "qti,ipqsoc-pinctrl";
+			reg = <0x1000000 0x400000>;
+			gpio-controller;
+			gpio-count = <49>;
+			gpio-bank-name="soc";
+			#gpio-cells = <2>;
+			u-boot,dm-pre-reloc;
+		};
+
 		gcc: clock-controller@1800000 {
 			compatible = "qti,gcc-devsoc";
 			reg = <0x1800000 0x40000>;
@@ -50,5 +60,32 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		qupv3: geniqup@1ac0000 {
+			compatible = "qcom,geni-se-qup";
+			reg = <0x1ac0000 0x2000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "disabled";
+
+			se0_uart0: serial@1a80000 {
+				compatible = "qcom,msm-geni-uart";
+				reg = <0x1a80000 0x4000>;
+				reg-names = "se_phys";
+				clocks = <&gcc GCC_QUPV3_UART0_CLK>;
+				clock-names = "se-clk";
+				status = "disabled";
+				u-boot,dm-pre-reloc;
+			};
+
+			se1_uart1: serial@1a84000 {
+				compatible = "qcom,msm-geni-uart";
+				reg = <0x1a84000 0x4000>;
+				reg-names = "se_phys";
+				clocks = <&gcc GCC_QUPV3_UART1_CLK>;
+				clock-names = "se-clk";
+				status = "disabled";
+			};
+		};
 	};
 };
