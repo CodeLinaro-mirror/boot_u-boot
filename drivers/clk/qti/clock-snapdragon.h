@@ -53,5 +53,7 @@ void clk_rcg_set_rate_mnd(phys_addr_t base, const struct bcr_regs *regs,
 			  int div, int m, int n, int source);
 void clk_rcg_set_rate_v2(phys_addr_t base, const struct bcr_regs_v2 *regs,
 			  int div, int cdiv, int source);
+void clk_rcg_set_rate(phys_addr_t base, const struct bcr_regs *regs, int div,
+		      int source);
 
 #endif

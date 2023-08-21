@@ -55,6 +55,13 @@ config IPQ_DEFAULTS
 	select DMA_CHANNELS
 	select BAM_DMA
 
+config IPQ_I2C
+	bool "Enable I2C support in IPQ SOC"
+	select I2C
+	select DM_I2C
+	select SYS_I2C_QUP
+	select CMD_I2C
+
 config IPQ_MMC
 	bool "Enable eMMC support in IPQ SOC"
 	select MMC_SDHCI
@@ -121,6 +128,7 @@ config TARGET_IPQ5332
 	select SMEM_VERSION_C
 	select SCM
 	select IPQ_DEFAULTS
+	imply IPQ_I2C
 	select IPQ_NET
 	select QTI_NSS_SWITCH
 	select PHY_QTI_8X8X
@@ -139,6 +147,7 @@ config TARGET_IPQ9574
 	select SMEM_VERSION_C
 	select SCM
 	select IPQ_DEFAULTS
+	imply IPQ_I2C
 	select IPQ_NET
 	select QTI_NSS_SWITCH
 	select PHY_QTI_8075

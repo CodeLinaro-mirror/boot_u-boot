@@ -84,6 +84,21 @@ static const struct bcr_regs qup3_spi_regs = {
 	.D = BLSP1_QUP_SPI_APPS_D(2),
 };
 
+static const struct bcr_regs qup0_i2c_regs = {
+	.cfg_rcgr = BLSP1_QUP_I2C_APPS_CFG_RCGR(0),
+	.cmd_rcgr = BLSP1_QUP_I2C_APPS_CMD_RCGR(0),
+};
+
+static const struct bcr_regs qup1_i2c_regs = {
+	.cfg_rcgr = BLSP1_QUP_I2C_APPS_CFG_RCGR(1),
+	.cmd_rcgr = BLSP1_QUP_I2C_APPS_CMD_RCGR(1),
+};
+
+static const struct bcr_regs qup2_i2c_regs = {
+	.cfg_rcgr = BLSP1_QUP_I2C_APPS_CFG_RCGR(2),
+	.cmd_rcgr = BLSP1_QUP_I2C_APPS_CMD_RCGR(2),
+};
+
 static const struct bcr_regs_v2 gcc_qdss_at_regs = {
 	.cfg_rcgr = GCC_QDSS_AT_CFG_RCGR,
 	.cmd_rcgr = GCC_QDSS_AT_CMD_RCGR,
@@ -283,6 +298,24 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		clk_rcg_set_rate_v2(priv->base, &gcc_qpic_io_macro_regs,
 				div, cdiv, src);
 		break;
+	case GCC_BLSP1_QUP0_I2C_APPS_CLK:
+		/* QUP0 I2C APPS CLK: 50MHz */
+		clk_rcg_set_rate(priv->base, &qup0_i2c_regs,
+				BLSP1_QUP_I2C_50M_DIV_VAL,
+				BLSP1_QUP_I2C_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_BLSP1_QUP1_I2C_APPS_CLK:
+		/* QUP1 I2C APPS CLK: 50MHz */
+		clk_rcg_set_rate(priv->base, &qup1_i2c_regs,
+				BLSP1_QUP_I2C_50M_DIV_VAL,
+				BLSP1_QUP_I2C_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_BLSP1_QUP2_I2C_APPS_CLK:
+		/* QUP2 I2C APPS CLK: 50MHz */
+		clk_rcg_set_rate(priv->base, &qup2_i2c_regs,
+				BLSP1_QUP_I2C_50M_DIV_VAL,
+				BLSP1_QUP_I2C_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
 
 	/*
 	 * NSS controlled clock
@@ -425,6 +458,15 @@ int msm_enable(struct clk *clk)
 		break;
 	case GCC_SDCC1_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_SDCC1_AHB_CBCR);
+		break;
+	case GCC_BLSP1_QUP0_I2C_APPS_CLK:
+		clk_enable_cbc(priv->base + BLSP1_QUP_I2C_APPS_CBCR(0));
+		break;
+	case GCC_BLSP1_QUP1_I2C_APPS_CLK:
+		clk_enable_cbc(priv->base + BLSP1_QUP_I2C_APPS_CBCR(1));
+		break;
+	case GCC_BLSP1_QUP2_I2C_APPS_CLK:
+		clk_enable_cbc(priv->base + BLSP1_QUP_I2C_APPS_CBCR(2));
 		break;
 
 	/*

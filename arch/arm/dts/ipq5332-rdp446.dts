@@ -39,6 +39,28 @@
 					bias-pull-up;
 				};
 			};
+
+			blsp1_i2c_pinmux: blsp1_i2c_pins {
+				blsp1_scl {
+					pins = "GPIO_29";
+					function = "blsp1_i2c_scl0";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+
+				blsp1_sda {
+					pins = "GPIO_30";
+					function = "blsp1_i2c_sda0";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		blsp1_i2c: i2c@78B6000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&blsp1_i2c_pinmux>;
+			status = "okay";
 		};
 
 		mdio: mdio@90000 {

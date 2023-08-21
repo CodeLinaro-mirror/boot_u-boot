@@ -122,6 +122,78 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		blsp0_i2c: i2c@78B5000 {
+			compatible = "qcom,i2c-qup-v2.2.1";
+			reg = <0x078B5000 0x600>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
+				 <&gcc GCC_BLSP1_QUP0_I2C_APPS_CLK>;
+			clock-names = "iface", "core";
+			clock-frequency  = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		blsp1_i2c: i2c@78B6000 {
+			compatible = "qcom,i2c-qup-v2.2.1";
+			reg = <0x078B6000 0x600>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
+				 <&gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
+			clock-names = "iface", "core";
+			clock-frequency  = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		blsp2_i2c: i2c@78B7000 {
+			compatible = "qcom,i2c-qup-v2.2.1";
+			reg = <0x078B7000 0x600>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
+				 <&gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
+			clock-names = "iface", "core";
+			clock-frequency  = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		blsp3_i2c: i2c@78B8000 {
+			compatible = "qcom,i2c-qup-v2.2.1";
+			reg = <0x078B8000 0x600>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
+				 <&gcc GCC_BLSP1_QUP3_I2C_APPS_CLK>;
+			clock-names = "iface", "core";
+			clock-frequency  = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		blsp4_i2c: i2c@78B9000 {
+			compatible = "qcom,i2c-qup-v2.2.1";
+			reg = <0x078B9000 0x600>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
+				 <&gcc GCC_BLSP1_QUP4_I2C_APPS_CLK>;
+			clock-names = "iface", "core";
+			clock-frequency  = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		blsp5_i2c: i2c@78BA000 {
+			compatible = "qcom,i2c-qup-v2.2.1";
+			reg = <0x078BA000 0x600>;
+			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
+				 <&gcc GCC_BLSP1_QUP5_I2C_APPS_CLK>;
+			clock-names = "iface", "core";
+			clock-frequency  = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		nand: nand-controller@79B0000 {
 			compatible = "qti,spi-nand-v2.1.1";
 			#address-cells = <1>;

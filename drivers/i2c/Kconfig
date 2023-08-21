@@ -592,7 +592,7 @@ config SYS_I2C_OCTEON
 
 config SYS_I2C_QUP
 	bool "Qualcomm QUP I2C controller"
-	depends on ARCH_SNAPDRAGON
+	depends on ARCH_SNAPDRAGON || ARCH_IPQSOC
 	help
 	  Support for Qualcomm QUP I2C controller based on Qualcomm Universal
 	  Peripherals (QUP) engine. The QUP engine is an advanced high
