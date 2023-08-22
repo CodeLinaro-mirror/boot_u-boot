@@ -69,6 +69,7 @@
 #endif
 #include <cpu_func.h>
 #include <asm/cache.h>
+#include <asm/io.h>
 
 #include "ipq_board.h"
 
@@ -372,6 +373,11 @@ void board_nand_init(void)
 }
 #endif
 
+__weak int get_soc_hw_version(void)
+{
+        return readl(CONFIG_SOC_HW_VERSION_REG);
+}
+
 int board_init(void)
 {
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
@@ -613,6 +619,32 @@ int embedded_dtb_select(void)
 }
 #endif /* CONFIG_DTB_RESELECT */
 
+void setup_board_default_env(void)
+{
+	ulong soc_hw_version;
+
+	/*
+	 * setup machid
+	 */
+	env_set_hex("machid", gd->bd->bi_arch_number);
+
+#ifdef CONFIG_PREBOOT
+	/*
+	 * forceset preboot env to avoid SDI/crashdump path system bootup
+	 */
+	env_set("preboot", CONFIG_PREBOOT);
+#endif
+	/*
+	 * set soc hw version in env
+	 */
+	soc_hw_version = get_soc_hw_version();
+	if (soc_hw_version)
+		env_set_hex("soc_hw_version", soc_hw_version);
+
+	env_set_ulong("soc_version_major", ipq_socinfo.soc_version_major);
+	env_set_ulong("soc_version_minor", ipq_socinfo.soc_version_minor);
+}
+
 int board_late_init(void)
 {
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
@@ -629,17 +661,11 @@ int board_late_init(void)
 	 * setup mac address
 	 */
 	set_ethmac_addr();
-	/*
-	 * setup machid
-	 */
-	env_set_hex("machid", gd->bd->bi_arch_number);
 
-#ifdef CONFIG_PREBOOT
 	/*
-	 * forceset preboot env to avoid SDI/crashdump path system bootup
+	 * setup default env
 	 */
-	env_set("preboot", CONFIG_PREBOOT);
-#endif
+	setup_board_default_env();
 
 	return 0;
 }
