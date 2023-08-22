@@ -222,6 +222,11 @@ void ipq_config_cmn_clock(void)
 	mdelay(1);
 }
 
+int get_soc_hw_version(void)
+{
+        return 0;
+}
+
 #ifdef CONFIG_ARM64
 /*
  * Set XN (PTE_BLOCK_PXN | PTE_BLOCK_UXN)bit for all dram regions

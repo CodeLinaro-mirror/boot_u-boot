@@ -40,6 +40,10 @@ config TEXT_SIZE
 	hex "Define Size of u-boot text size in DDR region"
 	default 0x200000
 
+config SOC_HW_VERSION_REG
+	hex "Define SoC HW version register"
+	default 0x194D000
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
