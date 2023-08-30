@@ -48,6 +48,8 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5332_RDP446, "ipq5332-rdp446"},
 	{ MACH_TYPE_IPQ5332_RDP474, "ipq5332-rdp474"},
 	{ MACH_TYPE_IPQ5332_RDP472, "ipq5332-rdp472"},
+	{ MACH_TYPE_IPQ5332_RDP479, "ipq5332-rdp479"},
+	{ MACH_TYPE_IPQ5332_RDP481, "ipq5332-rdp481"},
 	{ MACH_TYPE_IPQ5332_DB_MI01_1, "ipq5332-db-mi01.1"},
 	{ MACH_TYPE_IPQ5332_DB_MI02_1, "ipq5332-db-mi02.1"},
 	{ MACH_TYPE_IPQ5332_DB_MI03_1, "ipq5332-db-mi03.1"},
