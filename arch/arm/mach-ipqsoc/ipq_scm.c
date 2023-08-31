@@ -166,6 +166,99 @@ static int qcom_scm_call(const struct qcom_scm_desc *desc,
 	}
 }
 
+#ifndef CONFIG_IPQ_SECURE
+__weak int ipq_scm_call(scm_param *param)
+{
+	return 0;
+}
+#else
+int ipq_scm_call(scm_param *param)
+{
+
+	struct qcom_scm_desc desc = {0};
+	struct qcom_scm_res res;
+	int ret;
+
+	desc.owner = ARM_SMCCC_OWNER_SIP;
+
+	for(int i = 0; i < param->len; i++)
+		desc.args[i] = param->buff[i];
+
+	for(int i = 0; i < MAX_QCOM_SCM_ARGS; i++) {
+		/* Every 2 bits from 4th bit of the arginfo
+		 * represents the type if argument
+		 */
+		desc.arginfo |= (param->arg_type[i] & 0x3) << ((i*2)+4);
+	}
+
+	/* Least significant Nibble represents the number of arguments */
+	desc.arginfo |= param->len & 0xf;
+
+	switch(param->type) {
+	case SCM_IO_WRITE:
+		desc.svc = QCOM_SCM_SVC_IO;
+		desc.cmd = QCOM_SCM_IO_WRITE;
+		break;
+	case SCM_IO_READ:
+		desc.svc = QCOM_SCM_SVC_IO;
+		desc.cmd = QCOM_SCM_IO_READ;
+		break;
+	case SCM_SDI_CLEAR:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_SCM_CMD_TZ_CONFIG_HW_FOR_RAM_DUMP_ID;
+		break;
+	case SCM_CHECK_AUTHENTICATE_SUPPORT:
+		desc.svc = QCOM_SCM_SVC_INFO;
+		desc.cmd = QCOM_SCM_INFO_IS_CALL_AVAIL;
+		break;
+	case SCM_KERNEL_AUTH:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_KERNEL_AUTH_CMD;
+		break;
+	case SCM_SECURE_AUTH:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_SCM_SEC_AUTH_CMD;
+		break;
+	case SCM_CHECK_SECURE_FUSE:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_QFPROM_IS_AUTHENTICATE_CMD;
+		break;
+	case SCM_SET_ACTIVE_PART:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_PART_INFO_CMD;
+		break;
+	case SCM_CHECK_ATF_SUPPORT:
+		desc.svc = QCOM_SCM_SVC_INFO;
+		desc.cmd = QCOM_GET_SECURE_STATE_CMD;
+		break;
+	case SCM_FUSE_IPQ:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_TZ_BLOW_FUSE_SECDAT_CMD;
+		break;
+	case SCM_LIST_FUSE:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_TZ_READ_FUSE_VALUE_CMD;
+		break;
+	default:
+		printf("Invalid call ID: %d\n", param->type);
+		ret = -EINVAL;
+		break;
+	}
+
+	ret = qcom_scm_call(&desc, param->get_ret ? &res : NULL);
+
+	if(param->get_ret)
+	{
+		param->res.result[0] =  res.result[0];
+		param->res.result[1] =  res.result[1];
+		param->res.result[2] =  res.result[2];
+	}
+
+	return ret;
+
+}
+#endif
+
 int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 {
 	struct qcom_scm_desc desc = {
@@ -200,7 +293,7 @@ int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 	return qcom_scm_call(&desc, NULL);
 }
 
-int qca_scm_dload(uint32_t tcsr_addr, u32 magic_cookie)
+int qca_scm_dload(uintptr_t tcsr_addr, u32 magic_cookie)
 {
 	return qcom_scm_io_writel(tcsr_addr, magic_cookie);
 }

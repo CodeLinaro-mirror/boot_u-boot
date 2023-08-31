@@ -69,6 +69,32 @@ struct qcom_scm_res {
 #define QCOM_SCM_ERROR		-1
 #define QCOM_SCM_INTERRUPTED	 1
 
+/* SVC & CMD IDs */
+#define QCOM_SCM_SVC_BOOT		0x01
+#define QCOM_SCM_CMD_TZ_CONFIG_HW_FOR_RAM_DUMP_ID	0x9
+#define QCOM_SCM_EL1SWITCH_ARCH64	0xf
+#define QCOM_KERNEL_AUTH_CMD		0x1E
+#define QCOM_SCM_SEC_AUTH_CMD		0x1F
+#define QCOM_PART_INFO_CMD		0x22
+
+#define QCOM_SCM_SVC_INFO               0x06
+#define QCOM_SCM_INFO_IS_CALL_AVAIL     0x01
+#define QCOM_GET_SECURE_STATE_CMD	0x04
+
+#define QCOM_SCM_SVC_IO			0x05
+#define QCOM_SCM_IO_READ		0x01
+#define QCOM_SCM_IO_WRITE		0x02
+
+#define QCOM_SCM_SVC_FUSE		0x08
+#define QCOM_QFPROM_IS_AUTHENTICATE_CMD	0x07
+#define QCOM_TZ_BLOW_FUSE_SECDAT_CMD	0x20
+#define QCOM_TZ_READ_FUSE_VALUE_CMD	0x22
+
+/* scm_arg*/
+#define SCM_VAL				0x00
+#define SCM_READ_OP			0x01
+#define SCM_WRITE_OP			0x02
+
 static inline int qcom_scm_remap_error(int err)
 {
 switch (err) {
@@ -87,49 +113,34 @@ switch (err) {
 	return -EINVAL;
 }
 
-/* SVC & CMD IDs */
-#define QCOM_SCM_SVC_BOOT		0x01
-#define QCOM_SCM_CMD_TZ_CONFIG_HW_FOR_RAM_DUMP_ID	0x9
-#define QCOM_SCM_EL1SWITCH_ARCH64	0xf
-
-#define QCOM_SCM_SVC_INFO               0x06
-#define QCOM_SCM_INFO_IS_CALL_AVAIL     0x01
-
-#define QCOM_SCM_SVC_IO			0x05
-#define QCOM_SCM_IO_READ		0x01
-#define QCOM_SCM_IO_WRITE		0x02
+enum scm_type {
+	SCM_IO_WRITE = 0,
+	SCM_IO_READ,
+	SCM_SDI_CLEAR,
+	SCM_DLODE,
+	SCM_CHECK_AUTHENTICATE_SUPPORT,
+	SCM_SECURE_AUTH,
+	SCM_KERNEL_AUTH,
+	SCM_CHECK_SECURE_FUSE,
+	SCM_SET_ACTIVE_PART,
+	SCM_CHECK_ATF_SUPPORT,
+	SCM_FUSE_IPQ,
+	SCM_LIST_FUSE
+};
 
 typedef struct {
-#ifdef CONFIG_CPU_V7A
-	uint64_t reg_x0;
-	uint64_t reg_x1;
-	uint64_t reg_x2;
-	uint64_t reg_x3;
-	uint64_t reg_x4;
-	uint64_t reg_x5;
-	uint64_t reg_x6;
-	uint64_t reg_x7;
-	uint64_t reg_x8;
-	uint64_t kernel_start;
-#endif
-#ifdef CONFIG_ARM64
-	uintptr_t reg_x0;
-	uintptr_t reg_x1;
-	uintptr_t reg_x2;
-	uintptr_t reg_x3;
-	uintptr_t reg_x4;
-	uintptr_t reg_x5;
-	uintptr_t reg_x6;
-	uintptr_t reg_x7;
-	uintptr_t reg_x8;
-	uintptr_t kernel_start;
-#endif
-} kernel_params;
+	struct qcom_scm_res res;
+	uint64_t buff[MAX_QCOM_SCM_ARGS];
+	uint32_t svc_id;
+	uint32_t cmd_id;
+	uint32_t len;
+	uint8_t arg_type[MAX_QCOM_SCM_ARGS];
+	int get_ret;
+	enum scm_type type;
+}scm_param;
 
-
-void __attribute__ ((noreturn)) jump_kernel(void *kernel_entry,
-		void *fdt_addr);
 int qca_scm_sdi(void);
-int qca_scm_dload(uint32_t tcsr_addr, uint32_t magic_cookie);
+int qca_scm_dload(uintptr_t tcsr_addr, u32 magic_cookie);
+int ipq_scm_call(scm_param *param);
 
 #endif
