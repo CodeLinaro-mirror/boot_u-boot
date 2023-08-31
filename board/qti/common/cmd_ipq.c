@@ -18,7 +18,12 @@
 #define PRI_PARTITION	1
 #define ALT_PARTITION	2
 
-int do_secure(struct cmd_tbl *cmdtp, int flag,
+#define FUSEPROV_SUCCESS		0x0
+#define FUSEPROV_INVALID_HASH		0x09
+#define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
+#define MAX_FUSE_ADDR_SIZE		0x8
+
+static int do_secure(struct cmd_tbl *cmdtp, int flag,
 				int argc, char *const argv[])
 {
 	int ret = CMD_RET_FAILURE;
@@ -169,3 +174,125 @@ U_BOOT_CMD(secure_authenticate, 4, 0, do_secure,
 		"authenticate the signed image\n",
 		"secure_authenticate <sw_id> <img_addr> <img_size>\n"
 		"	- authenticate the signed image\n");
+
+static int do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	int ret;
+	scm_param param;
+	uint32_t fuse_status = 0;
+	uint32_t fuse_address;
+
+	if (argc != 2) {
+		printf("No Arguments provided\n");
+		printf("Command format: fuseipq <address>\n");
+		return 1;
+	}
+
+	fuse_address = simple_strtoul(argv[1], NULL, 16);
+
+	memset(&param, 0, sizeof(scm_param));
+
+	param.type = SCM_FUSE_IPQ;
+
+	param.buff[0] = (uint64_t) fuse_address;
+	param.arg_type[0] = SCM_READ_OP;
+	param.len = 1;
+	param.get_ret = 1;
+
+	ret = ipq_scm_call(&param);
+
+	fuse_status = param.res.result[0];
+
+	if (ret || fuse_status)
+		printf("%s: Error in QFPROM write (%d, %d)\n",
+			__func__, ret, fuse_status);
+
+	if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
+		printf("Fuse already blown\n");
+	else if (fuse_status == FUSEPROV_INVALID_HASH)
+		printf("Invalid sec.dat\n");
+	else if (fuse_status  != FUSEPROV_SUCCESS)
+		printf("Failed to Blow fuses");
+	else
+		printf("Blow Success\n");
+
+	return 0;
+}
+
+U_BOOT_CMD(fuseipq, 2, 0, do_fuseipq,
+		"fuse QFPROM registers from memory\n",
+		"fuseipq [address]  - Load fuse(s) and blows in the qfprom\n");
+
+#ifdef CONFIG_TARGET_IPQ5332
+static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
+					char *const argv[])
+{
+	int ret;
+	int index, next = 0;
+	unsigned long addr = 0xA00E8;
+	struct fuse_payload {
+		u32 fuse_addr;
+		u32 lsb_val;
+		u32 msb_val;
+	};
+	struct fuse_payload *fuse = NULL;
+	scm_param param;
+
+	fuse = malloc(sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE);
+	if (fuse == NULL) {
+		return 1;
+	}
+
+	memset(fuse, 0, MAX_FUSE_ADDR_SIZE * sizeof(struct fuse_payload));
+
+	fuse[0].fuse_addr = 0xA00D0;
+	for (index = 1; index < MAX_FUSE_ADDR_SIZE; index++) {
+		fuse[index].fuse_addr = addr + next;
+		next += 0x8;
+	}
+
+	memset(&param, 0, sizeof(scm_param));
+
+	param.type = SCM_LIST_FUSE;
+
+	param.buff[0] = (unsigned long)fuse;
+	param.arg_type[0] = SCM_WRITE_OP;
+
+	param.buff[1] = sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE;
+	param.arg_type[1] = SCM_VAL;
+
+	param.len = 2;
+
+	ret = ipq_scm_call(&param);
+
+/*	ret = qca_scm_list_ipq5332_fuse(SCM_SVC_FUSE, TZ_READ_FUSE_VALUE, fuse,
+			sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE);
+*/
+	printf("Fuse Name\tAddress\t\tValue\n");
+	printf("------------------------------------------------\n");
+
+	printf("TME_AUTH_EN\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
+			fuse[0].lsb_val & 0x41);
+	printf("TME_OEM_ID\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
+			fuse[0].lsb_val & 0xFFFF0000);
+	printf("TME_PRODUCT_ID\t0x%08X\t0x%08X\n", fuse[0].fuse_addr + 0x4,
+			fuse[0].msb_val & 0xFFFF);
+
+	for (index = 1; index < MAX_FUSE_ADDR_SIZE; index++) {
+		printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
+				fuse[index].fuse_addr, fuse[index].lsb_val);
+		printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
+				fuse[index].fuse_addr + 0x4, fuse[index].msb_val);
+	}
+
+	if (ret) {
+		printf("Failed to read OEM parameters at Address 0x%X\n", ret);
+	}
+	free(fuse);
+	return 0;
+}
+
+U_BOOT_CMD(list_ipq5332_fuse, 1, 0, do_list_ipq5332_fuse,
+		"fuse set of QFPROM registers from memory\n",
+		"");
+#endif
