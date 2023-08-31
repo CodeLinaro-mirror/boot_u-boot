@@ -130,6 +130,23 @@ int smem_ram_ptable_init_v2(
 #define SMEM_PTABLE_PARTS_MAX 		32
 #define SMEM_PTABLE_PARTS_DEFAULT 	16
 
+/*
+ * Board type	- 0xFFFFFFFF
+ * BIT(0 - 7)	- Flash type
+ * BIT(8)	- Secure board
+ * BIT(9)	- ATF_SUPPORT
+ * BIT(10)	- Kernel Authentication Status
+ * BIT(11)	- Rootfs Authentication Status
+ * BIT(12 - 31)	- Reserved
+ */
+
+
+#define SECURE_BOARD			BIT(8)
+#define ATF_ENABLED			BIT(9)
+#define KERNEL_AUTH_SUCCESS		BIT(10)
+#define ROOTFS_AUTH_SUCCESS		BIT(11)
+#define FLASH_TYPE_MASK			0xFF
+
 enum {
 	SMEM_BOOT_NO_FLASH        = 0,
 	SMEM_BOOT_NOR_FLASH       = 1,
@@ -274,6 +291,12 @@ typedef struct {
         unsigned int cert_chain_size;
 } mbn_header_t;
 
+typedef struct auth_cmd_buf {
+	unsigned long type;
+	unsigned long size;
+	unsigned long addr;
+} auth_cmd_buf;
+
 /*
  * NAND Flash Configs
  */
@@ -348,4 +371,11 @@ int init_ubi_part(void);
 #endif
 void fdt_fixup_flash(void *blob);
 void reset_crashdump(void);
+long long ubi_get_volume_size(char *volume);
+int is_atf_enbled(void);
+int is_secure_boot(void);
+uint8_t * get_boot_mode(void);
+#if CONFIG_IS_ENABLED(NAND_QTI)
+void board_nand_init(void);
+#endif
 #endif

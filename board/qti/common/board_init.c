@@ -378,6 +378,26 @@ __weak int get_soc_hw_version(void)
         return readl(CONFIG_SOC_HW_VERSION_REG);
 }
 
+#ifdef CONFIG_BOARD_TYPES
+void update_board_type(void)
+{
+	uint32_t board_type;
+
+	board_type = gd->board_type;
+
+	if(SMEM_BOOT_NO_FLASH == board_type)
+		return;
+
+	if(is_secure_boot())
+		board_type |= SECURE_BOARD;
+
+	if(is_atf_enbled())
+		board_type |= ATF_ENABLED;
+
+	gd->board_type = board_type;
+}
+#endif
+
 int board_init(void)
 {
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
@@ -492,6 +512,7 @@ int board_init(void)
 
 #ifdef CONFIG_BOARD_TYPES
 	gd->board_type = board_type;
+	update_board_type();
 #endif
 	return 0;
 }

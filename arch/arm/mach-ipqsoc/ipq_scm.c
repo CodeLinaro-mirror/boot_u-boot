@@ -32,12 +32,14 @@ enum qcom_scm_convention {
 
 enum qcom_scm_convention qcom_scm_convention = SMC_CONVENTION_UNKNOWN;
 
+#ifdef DEBUG
 static const char * const qcom_scm_convention_names[] = {
         [SMC_CONVENTION_UNKNOWN] = "unknown",
         [SMC_CONVENTION_ARM_32] = "smc arm 32",
         [SMC_CONVENTION_ARM_64] = "smc arm 64",
         [SMC_CONVENTION_LEGACY] = "smc legacy",
 };
+#endif
 
 static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 				struct arm_smccc_res *res)
@@ -105,8 +107,9 @@ static enum qcom_scm_convention __get_convention(void)
 	struct qcom_scm_res res;
 	enum qcom_scm_convention probed_convention;
 	int ret;
+#ifdef DEBUG
 	bool forced = false;
-
+#endif
 	if (likely(qcom_scm_convention != SMC_CONVENTION_UNKNOWN))
 		return qcom_scm_convention;
 
