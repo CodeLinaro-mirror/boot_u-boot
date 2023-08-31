@@ -62,6 +62,8 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ9574_RDP458, "ipq9574-rdp458" },
 	{ MACH_TYPE_IPQ9574_RDP469, "ipq9574-rdp469"},
 	{ MACH_TYPE_IPQ9574_RDP461, "ipq9574-rdp461"},
+	{ MACH_TYPE_IPQ9574_RDP475, "ipq9574-rdp475"},
+	{ MACH_TYPE_IPQ9574_RDP476, "ipq9574-rdp476"},
 	{ MACH_TYPE_IPQ9574_DB_AL01_C1, "ipq9574-db-al01-c1"},
 	{ MACH_TYPE_IPQ9574_DB_AL01_C2, "ipq9574-db-al01-c1"},
 	{ MACH_TYPE_IPQ9574_DB_AL01_C3, "ipq9574-db-al01-c3"},
