@@ -70,3 +70,5 @@ extern uint32_t g_board_machid;
 #define IPQ9574_DDR_LOWER_SIZE			(CONFIG_TEXT_BASE - \
 							CFG_SYS_SDRAM_BASE)
 #define ROOT_FS_PART_NAME			"rootfs"
+
+#define CONFIG_ROOTFS_LOAD_ADDR		CFG_SYS_SDRAM_BASE + (32 << 20)

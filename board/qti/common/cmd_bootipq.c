@@ -73,6 +73,7 @@ static image_info img_info;
 int set_bootargs(void);
 int config_select(void);
 int boot_kernel(void);
+int image_authentication(void);
 
 typedef struct boot_info_t{
 #ifdef CONFIG_IPQ_SPI_NOR
@@ -698,6 +699,313 @@ exit:
 	return 0;
 }
 
+static int copy_rootfs(uint32_t request, uint32_t size)
+{
+	char runcmd[MAX_BOOT_ARGS_SIZE] = {0};
+
+#ifdef CONFIG_QCA_MMC
+	int ret;
+	int curr_device = -1;
+	struct mmc *mmc;
+	uint32_t blk, cnt, n;
+	void *addr;
+	block_dev_desc_t *blk_dev;
+	disk_partition_t disk_info;
+	unsigned int active_part = get_rootfs_active_partition();
+#endif
+	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	if (SMEM_BOOT_NORPLUSNAND == flash_type ||
+		SMEM_BOOT_QSPI_NAND_FLASH == flash_type) {
+		snprintf(runcmd, sizeof(runcmd),
+			"ubi read 0x%x ubi_rootfs &&", request);
+#ifdef CONFIG_QCA_MMC
+	} else if (flash_type == SMEM_BOOT_MMC_FLASH ||
+			((flash_type == SMEM_BOOT_SPI_FLASH) &&
+			(rootfs.offset == 0xBAD0FF5E))) {
+		blk_dev = mmc_get_dev(host->dev_num);
+
+		if (curr_device < 0) {
+			if (get_mmc_num() > 0) {
+				curr_device = 0;
+			} else {
+				puts("No MMC device available\n");
+				return CMD_RET_FAILURE;
+			}
+		}
+
+		mmc = __init_mmc_dev(curr_device, false, MMC_MODES_END);
+
+		if (!mmc)
+			return CMD_RET_FAILURE;
+
+		if (active_part) {
+			ret = get_partition_info_efi_by_name(blk_dev,
+					"rootfs_1", &disk_info);
+		} else {
+			ret = get_partition_info_efi_by_name(blk_dev,
+					"rootfs", &disk_info);
+		}
+
+		if(ret == 0) {
+			addr = request;
+			blk = (uint32_t) disk_info.start;
+			cnt = (uintptr_t) (size / disk_info.blksz) + 1;
+
+			printf("\nMMC read: dev # %d, block # %d, count %d ... ",
+				curr_device, blk, cnt);
+
+			n = blk_dread(mmc_get_blk_desc(mmc), blk, cnt, addr);
+			printf("%d blocks read: %s\n",
+					n,
+					(n == cnt) ? "OK" : "ERROR");
+
+			if (n != cnt)
+				return CMD_RET_FAILURE;
+		} else {
+			return CMD_RET_FAILURE;
+		}
+#endif
+	} else {
+
+		spi_flash_read(boot_info.flash, sfi->rootfs.offset,
+					sfi->rootfs.size,
+					(void *) (uintptr_t)request);
+	}
+
+	if(runcmd[0])
+	{
+		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+			return CMD_RET_FAILURE;
+	}
+
+	return 0;
+}
+
+#ifndef CONFIG_IPQ_ELF_AUTH
+static int authenticate_rootfs(unsigned int kernel_addr,
+					kernel_img_info_t kernel_img_info)
+{
+	unsigned int kernel_imgsize;
+	unsigned int request;
+	int ret;
+	mbn_header_t *mbn_ptr;
+	auth_cmd_buf rootfs_img_info;
+	scm_param param;
+
+	request = CONFIG_ROOTFS_LOAD_ADDR;
+	rootfs_img_info.addr = CONFIG_ROOTFS_LOAD_ADDR;
+	rootfs_img_info.type = SEC_AUTH_SW_ID;
+	request += sizeof(mbn_header_t);/* space for mbn header */
+
+	/* get , kernel size = header + kernel + certificate */
+	mbn_ptr = (mbn_header_t *) kernel_addr;
+	kernel_imgsize = mbn_ptr->image_size + sizeof(mbn_header_t);
+
+	/* get rootfs MBN header and validate it */
+	mbn_ptr = (mbn_header_t *)((uint32_t)mbn_ptr + kernel_imgsize);
+	if (mbn_ptr->image_type != ROOTFS_IMAGE_TYPE &&
+			(mbn_ptr->code_size + mbn_ptr->signature_size +
+			 mbn_ptr->cert_chain_size != mbn_ptr->image_size))
+		return CMD_RET_FAILURE;
+
+	/* pack, MBN header + rootfs + certificate */
+	/* copy rootfs from the boot device */
+	copy_rootfs(request, mbn_ptr->code_size);
+
+	/* copy rootfs MBN header */
+	memcpy((void *)CONFIG_ROOTFS_LOAD_ADDR,
+			(void *)kernel_addr + kernel_imgsize,
+			sizeof(mbn_header_t));
+
+	/* copy rootfs certificate */
+	memcpy((void *)request + mbn_ptr->code_size,
+		(void *)kernel_addr + kernel_imgsize + sizeof(mbn_header_t),
+		mbn_ptr->signature_size + mbn_ptr->cert_chain_size);
+
+	/* copy rootfs size */
+	rootfs_img_info.size = sizeof(mbn_header_t) + mbn_ptr->image_size;
+
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_SECURE_AUTH;
+
+	/* args[0] has the image SW ID*/
+	param.buff[0] = rootfs_img_info.type;
+	param.arg_type[0] = SCM_VAL;
+
+	/* args[1] has the image size */
+	param.buff[1] = rootfs_img_info.size;
+	param.arg_type[1] = SCM_VAL;
+
+	/* args[2] has the load address*/
+	param.buff[2] = rootfs_img_info.addr;
+	param.arg_type[2] = SCM_WRITE_OP;
+
+	param.len = 3;
+	param.get_ret = 1;
+
+	ret = ipq_scm_call(&param);
+
+	memset((void *)kernel_img_info.kernel_load_addr,  0,
+						sizeof(mbn_header_t));
+
+	memset(mbn_ptr,  0,
+		(sizeof(mbn_header_t) + mbn_ptr->signature_size + mbn_ptr->cert_chain_size));
+
+	if (ret)
+		return CMD_RET_FAILURE;
+
+	return CMD_RET_SUCCESS;
+}
+#else
+
+static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
+{
+	int ret;
+	uint32_t request;
+	image_info img_info;
+	auth_cmd_buf rootfs_img_info;
+	scm_param param;
+
+	request = CONFIG_ROOTFS_LOAD_ADDR;
+	rootfs_img_info.addr = request;
+	rootfs_img_info.type = SEC_AUTH_SW_ID;
+
+	if (parse_elf_image_phdr(&img_info, rootfs_hdr))
+		return CMD_RET_FAILURE;
+
+	memcpy((void *) (uintptr_t)request, (void *) (uintptr_t)rootfs_hdr, img_info.img_offset);
+
+	request += img_info.img_offset;
+
+	/* copy rootfs from the boot device */
+	copy_rootfs(request, img_info.img_size);
+
+	rootfs_img_info.size = img_info.img_offset + img_info.img_size;
+
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_SECURE_AUTH;
+
+	/* args[0] has the image SW ID*/
+	param.buff[0] = rootfs_img_info.type;
+	param.arg_type[0] = SCM_VAL;
+
+	/* args[1] has the image size */
+	param.buff[1] = rootfs_img_info.size;
+	param.arg_type[1] = SCM_VAL;
+
+	/* args[2] has the load address*/
+	param.buff[2] = rootfs_img_info.addr;
+	param.arg_type[2] = SCM_WRITE_OP;
+
+	param.len = 3;
+	param.get_ret = 1;
+
+	ret = ipq_scm_call(&param);
+
+	memset((void *) (uintptr_t)rootfs_hdr, 0, img_info.img_offset);
+	if (ret)
+		return CMD_RET_FAILURE;
+
+	return CMD_RET_SUCCESS;
+}
+#endif
+
+int image_authentication(void)
+{
+	int ret;
+	scm_param param;
+	kernel_img_info_t kernel_img_info;
+#ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
+	int active_part = get_rootfs_active_partition();
+	active_part = active_part ? SECONDARY_PARTITION : PRIMARY_PARTITION;
+#endif
+	int secure_boot = (gd->board_type & SECURE_BOARD) &&
+				!(gd->board_type & ATF_ENABLED);
+	if(!secure_boot)
+		return CMD_RET_SUCCESS;
+
+	if(boot_info.debug)
+		printf("[debug]Authenticating Image\n");
+
+#ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
+	memset(&param, 0, sizeof(scm_param));
+
+	param.type = SCM_SET_ACTIVE_PART;
+	param.buff[0] = active_part;
+	param.len = 1;
+
+	ret = ipq_scm_call(&param);
+
+	if (ret) {
+		printf(" Partition info authentication failed \n");
+		BUG();
+	}
+#endif
+	kernel_img_info.kernel_load_addr = boot_info.load_address;
+	kernel_img_info.kernel_load_size = boot_info.size;
+
+#ifndef CONFIG_IPQ_ELF_AUTH
+	mbn_header_t * mbn_ptr = (mbn_header_t *) boot_info.load_address;
+	boot_info.load_address += sizeof(mbn_header_t);
+#else
+	boot_info.load_address = img_info.img_load_addr;
+#endif
+
+	memset(&param, 0, sizeof(scm_param));
+
+	param.type = SCM_KERNEL_AUTH;
+	param.buff[0] =  kernel_img_info.kernel_load_addr;
+	param.len = 1;
+
+	ret = ipq_scm_call(&param);
+
+	if (ret) {
+		printf("Kernel image authentication failed \n");
+		BUG();
+	}
+
+	gd->board_type |= KERNEL_AUTH_SUCCESS;
+
+	if(boot_info.debug)
+		printf("[debug]Kernel authenticated successfully\n");
+
+
+#ifndef CONFIG_IPQ_ELF_AUTH
+	memset((void *)mbn_ptr->signature_ptr, 0,
+		(mbn_ptr->signature_size + mbn_ptr->cert_chain_size));
+#else
+	memset((void *) (uintptr_t)kernel_img_info.kernel_load_addr,  0,
+		img_info.img_offset);
+#endif
+	if (env_get("rootfs_auth")) {
+#ifdef CONFIG_IPQ_ELF_AUTH
+		if (authenticate_rootfs_elf(img_info.img_load_addr +
+			img_info.img_size) != CMD_RET_SUCCESS) {
+			printf("Rootfs elf image authentication failed\n");
+			BUG();
+		}
+#else
+		/* Rootfs's header and certificate at end of kernel image,
+		 * copy from there and pack with rootfs image and
+		 * authenticate rootfs */
+		if (authenticate_rootfs(CONFIG_SYS_LOAD_ADDR, kernel_img_info)
+			!= CMD_RET_SUCCESS) {
+			printf("Rootfs image authentication failed\n");
+			BUG();
+		}
+
+#endif
+		gd->board_type |= ROOTFS_AUTH_SUCCESS;
+
+		if(boot_info.debug)
+			printf("[debug]Rootfs authenticated successfully\n");
+	}
+
+	return 0;
+}
+
 int read_kernel(void)
 {
 	int ret;
@@ -758,6 +1066,9 @@ typedef int (*state_fuc_t)(void);
 static const state_fuc_t state_sequence[] = {
 	read_kernel,
 	config_select,
+#ifdef CONFIG_IPQ_SECURE
+	image_authentication,
+#endif
 	set_bootargs,
 	boot_kernel,
 	NULL
