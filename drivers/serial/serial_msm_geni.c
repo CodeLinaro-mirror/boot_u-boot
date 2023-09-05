@@ -108,12 +108,14 @@
 /* SE_HW_PARAM_0 fields */
 #define TX_FIFO_WIDTH_MSK	(GENMASK(29, 24))
 #define TX_FIFO_WIDTH_SHFT	24
+#define TX_FIFO_DEPTH_MSK_256B	(GENMASK(23, 16))
 #define TX_FIFO_DEPTH_MSK	(GENMASK(21, 16))
 #define TX_FIFO_DEPTH_SHFT	16
 
 /* GENI SE QUP Registers */
 #define QUP_HW_VER_REG		0x4
 #define  QUP_SE_VERSION_2_5	0x20050000
+#define  QUP_SE_VERSION_3_10	0x300A0000
 
 /*
  * Predefined packing configuration of the serial engine (CFG0, CFG1 regs)
@@ -133,6 +135,7 @@ struct msm_serial_data {
 	phys_addr_t base;
 	u32 baud;
 	u32 oversampling;
+	u32 geni_se_version;
 };
 
 unsigned long root_freq[] = {1843200, 7372800,  14745600, 19200000, 29491200,
@@ -206,12 +209,17 @@ static int geni_serial_set_clock_rate(struct udevice *dev, u64 rate)
  *
  * Return: TX fifo depth in units of FIFO words.
  */
-static inline u32 geni_se_get_tx_fifo_depth(long base)
+static inline u32 geni_se_get_tx_fifo_depth(const struct udevice *dev)
 {
+	struct msm_serial_data *priv = dev_get_priv(dev);
 	u32 tx_fifo_depth;
+	u32 tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK;
 
-	tx_fifo_depth = ((readl(base + SE_HW_PARAM_0) & TX_FIFO_DEPTH_MSK) >>
-			 TX_FIFO_DEPTH_SHFT);
+	if (priv->geni_se_version >= QUP_SE_VERSION_3_10)
+		tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK_256B;
+
+	tx_fifo_depth = ((readl(priv->base + SE_HW_PARAM_0) &
+				tx_fifo_depth_msk) >> TX_FIFO_DEPTH_SHFT);
 	return tx_fifo_depth;
 }
 
@@ -290,7 +298,7 @@ static bool qcom_geni_serial_poll_bit(const struct udevice *dev, int offset,
 		baud = priv->baud;
 		if (!baud)
 			baud = 115200;
-		tx_fifo_depth = geni_se_get_tx_fifo_depth(priv->base);
+		tx_fifo_depth = geni_se_get_tx_fifo_depth(dev);
 		tx_fifo_width = geni_se_get_tx_fifo_width(priv->base);
 		fifo_bits = tx_fifo_depth * tx_fifo_width;
 		/*
@@ -491,7 +499,6 @@ static void geni_set_oversampling(struct udevice *dev)
 {
 	struct msm_serial_data *priv = dev_get_priv(dev);
 	struct udevice *parent_dev = dev_get_parent(dev);
-	u32 geni_se_version;
 	int ret;
 
 	priv->oversampling = UART_OVERSAMPLING;
@@ -504,11 +511,11 @@ static void geni_set_oversampling(struct udevice *dev)
 		return;
 
 	ret = misc_read(parent_dev, QUP_HW_VER_REG,
-			&geni_se_version, sizeof(geni_se_version));
-	if (ret != sizeof(geni_se_version))
+			&priv->geni_se_version, sizeof(priv->geni_se_version));
+	if (ret != sizeof(priv->geni_se_version))
 		return;
 
-	if (geni_se_version >= QUP_SE_VERSION_2_5)
+	if (priv->geni_se_version >= QUP_SE_VERSION_2_5)
 		priv->oversampling /= 2;
 }
 
