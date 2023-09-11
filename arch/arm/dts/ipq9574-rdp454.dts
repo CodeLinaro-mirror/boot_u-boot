@@ -9,3 +9,12 @@
 	config_name = "config@al02-c9","config@rdp454", "config-rdp454";
 
 };
+
+&pcie2_x2 {
+	status = "okay";
+	perst_gpio = <&tlmm 29 0>;
+};
+
+&pcie1_x1 {
+	status = "disabled";
+};

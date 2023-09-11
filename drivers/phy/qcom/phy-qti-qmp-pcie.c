@@ -25,7 +25,7 @@
 #include <clk.h>
 #include <reset.h>
 
-#include "phy-qti-qmp.h"
+#include "phy-qti-qmp-pcie.h"
 
 /* QPHY_SW_RESET bit */
 #define SW_RESET				BIT(0)

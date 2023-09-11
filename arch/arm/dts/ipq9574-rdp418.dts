@@ -9,3 +9,7 @@
 	config_name = "config@al02-c1","config@rdp418", "config-rdp418";
 
 };
+
+&pcie1_x1 {
+	status = "disabled";
+};

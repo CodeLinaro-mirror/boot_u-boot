@@ -118,6 +118,12 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 	[NSS_CC_PORT1_TX_RESET] = {0x004B8, 2},
 	[NSS_CC_PORT2_RX_RESET] = {0x004BC, 2},
 	[NSS_CC_PORT2_TX_RESET] = {0x004C0, 2},
+	[GCC_PCIE3X1_0_BCR_RESET] = {0x29000, 1},
+	[GCC_PCIE3X1_1_BCR_RESET] = {0x2A000, 1},
+	[GCC_PCIE3X2_BCR_RESET] = {0x28000, 1},
+	[GCC_PCIE3X2_PHY_BCR_RESET] = {0x28060, 1},
+	[GCC_PCIE3X1_0_PHY_BCR_RESET] = {0x29060, 1},
+	[GCC_PCIE3X1_1_PHY_BCR_RESET] = {0x2A030, 1},
 };
 #endif
 

@@ -65,6 +65,7 @@ void clk_enable_vote_clk(phys_addr_t base, const struct vote_clk *vclk)
 }
 
 #define APPS_CMD_RCGR_UPDATE BIT(0)
+#define APPS_CMD_RCGR_ROOT_EN BIT(1)
 
 /* Update clock command via CMD_RCGR */
 void clk_bcr_update(phys_addr_t apps_cmd_rcgr)
@@ -74,6 +75,8 @@ void clk_bcr_update(phys_addr_t apps_cmd_rcgr)
 	/* Wait for frequency to be updated. */
 	while (readl(apps_cmd_rcgr) & APPS_CMD_RCGR_UPDATE)
 		;
+
+	setbits_le32(apps_cmd_rcgr, APPS_CMD_RCGR_ROOT_EN);
 }
 
 #define CFG_MODE_DUAL_EDGE (0x2 << 12) /* Counter mode */

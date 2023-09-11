@@ -27,3 +27,9 @@ config PHY_QCOM_USB_SS
 	help
 	  Enable this to support the Super-Speed USB transceiver on various
 	  Qualcomm chipsets.
+
+config PHY_QTI_QMP_PCIE
+	tristate "Qualcomm PCIE QMP PHY driver"
+	depends on PHY
+	help
+	  Enable this to support the PCIE QMP PHY in IPQSOC chipsets.
