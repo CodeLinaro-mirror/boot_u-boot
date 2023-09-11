@@ -450,9 +450,6 @@ int msm_enable(struct clk *clk)
 	case GCC_NSSNOC_SNOC_1_CLK:
 		clk_enable_cbc(priv->base + GCC_NSSNOC_SNOC_1_CBCR);
 		break;
-	case GCC_MEM_NOC_SNOC_AXI_CLK:
-		clk_enable_cbc(priv->base + GCC_MEM_NOC_SNOC_AXI_CBCR);
-		break;
 	case GCC_QPIC_IO_MACRO_CLK:
 		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
 		break;
