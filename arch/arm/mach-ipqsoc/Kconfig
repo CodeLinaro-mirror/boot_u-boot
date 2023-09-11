@@ -196,6 +196,8 @@ config TARGET_DEVSOC
 	select BOARD_LATE_INIT
 	select SYS_DEVICE_NULLDEV
 	select ENV_IS_NOWHERE
+	select CMD_MEMTEST
+	select CMD_CACHE
 	help
 	  Support for IPQ DEVSoC.
 
