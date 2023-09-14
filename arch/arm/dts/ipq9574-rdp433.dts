@@ -135,5 +135,20 @@
 			phy-handle5 = <&phy5>;
 			status = "okay";
 		};
+
+		pcie1_x1: pci@10000000 {
+			status = "okay";
+			perst_gpio = <&tlmm 26 0>;
+		};
+
+		pcie2_x2: pci@20000000 {
+			status = "okay";
+			perst_gpio = <&tlmm 29 0>;
+		};
+
+		pcie3_x2: pci@18000000 {
+			status = "okay";
+			perst_gpio = <&tlmm 32 0>;
+		};
 	};
 };

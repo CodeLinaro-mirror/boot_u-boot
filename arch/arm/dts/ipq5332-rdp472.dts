@@ -9,3 +9,7 @@
 	config_name = "config@mi01.2-qcn9160-c1", "config@rdp472", "config-rdp472";
 
 };
+
+&pcie0_x1 {
+	status = "disabled";
+};

@@ -142,6 +142,12 @@ config ETH_MAX_MAC
 	hex "Define Maximum MAC support in SoC"
 	default 2
 
+config IPQ_PCIE
+	bool "Enable PCIE support in IPQ SOC"
+	select PCI
+	select PCIE_DW_QTI
+	select CMD_PCI
+
 choice
 	prompt "IPQ board select"
 
@@ -156,6 +162,7 @@ config TARGET_IPQ5332
 	select PHY_QTI_8X8X
 	select PHY_QTI_8081
 	select IPQ_ELF_AUTH
+	imply IPQ_PCIE
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -178,6 +185,9 @@ config TARGET_IPQ9574
 	select PHY_QTI_8081
 	select PHY_AQUANTIA
 	select IPQ_ELF_AUTH
+	imply IPQ_PCIE
+	select PHY if IPQ_PCIE
+	select PHY_QTI_QMP_PCIE
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

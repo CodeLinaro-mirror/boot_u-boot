@@ -74,5 +74,23 @@
 			phy-handle1 = <&phy1>;
 			status = "okay";
 		};
+
+		pcie0_x1: pci@20000000{
+			num-lanes = <1>;
+			perst_gpio = <&tlmm 38 0>;
+			status = "okay";
+		};
+
+		pcie1_x2: pci@18000000 {
+			num-lanes = <1>;
+			perst_gpio = <&tlmm 47 0>;
+			status = "okay";
+		};
+
+		pcie2_x1: pci@10000000 {
+			num-lanes = <1>;
+			perst_gpio = <&tlmm 44 0>;
+			status = "okay";
+		};
 	};
 };

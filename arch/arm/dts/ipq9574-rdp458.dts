@@ -64,3 +64,17 @@
 &ethernet {
 	/delete-property/ phy-handle4;
 };
+
+&pcie0_x1 {
+	status = "okay";
+	perst_gpio = <&tlmm 23 0>;
+};
+
+&pcie1_x1 {
+	status = "disabled";
+};
+
+&pcie2_x2 {
+	status = "okay";
+	perst_gpio = <&tlmm 29 0>;
+};

@@ -84,6 +84,14 @@ static const struct bcr_regs qup3_spi_regs = {
 	.D = BLSP1_QUP_SPI_APPS_D(2),
 };
 
+static const struct bcr_regs pcie_aux_regs = {
+	.cfg_rcgr = GCC_PCIE_AUX_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE_AUX_CMD_RCGR,
+	.M = GCC_PCIE_AUX_M,
+	.N = GCC_PCIE_AUX_N,
+	.D = GCC_PCIE_AUX_D,
+};
+
 static const struct bcr_regs qup0_i2c_regs = {
 	.cfg_rcgr = BLSP1_QUP_I2C_APPS_CFG_RCGR(0),
 	.cmd_rcgr = BLSP1_QUP_I2C_APPS_CMD_RCGR(0),
@@ -127,6 +135,41 @@ static const struct bcr_regs_v2 nss_cc_ppe_regs = {
 static const struct bcr_regs_v2 gcc_qpic_io_macro_regs = {
 	.cfg_rcgr = GCC_QPIC_IO_MACRO_CFG_RCGR,
 	.cmd_rcgr = GCC_QPIC_IO_MACRO_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x2_axi_m_regs = {
+	.cfg_rcgr = GCC_PCIE3X2_AXI_M_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X2_AXI_M_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x2_rchg_regs = {
+	.cfg_rcgr = GCC_PCIE3X2_RCHG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X2_RCHG_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x2_axi_s_regs = {
+	.cfg_rcgr = GCC_PCIE3X2_AXI_S_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X2_AXI_S_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x1_0_axi_regs = {
+	.cfg_rcgr = GCC_PCIE3X1_0_AXI_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X1_0_AXI_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x1_0_rchg_regs = {
+	.cfg_rcgr = GCC_PCIE3X1_0_RCHG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X1_0_RCHG_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x1_1_axi_regs = {
+	.cfg_rcgr = GCC_PCIE3X1_1_AXI_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X1_1_AXI_CMD_RCGR,
+};
+
+static const struct bcr_regs gcc_pcie3x1_1_rchg_regs = {
+	.cfg_rcgr = GCC_PCIE3X1_1_RCHG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3X1_1_RCHG_CMD_RCGR,
 };
 
 static const struct bcr_regs_v2 nss_cc_port1_rx_regs = {
@@ -316,6 +359,46 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 				BLSP1_QUP_I2C_50M_DIV_VAL,
 				BLSP1_QUP_I2C_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
+	case GCC_PCIE_AUX_CLK:
+		/* GCC_PCIE_AUX_CLK: 2MHz */
+		clk_rcg_set_rate_mnd(priv->base, &pcie_aux_regs, 12, 0, 0,
+				     PCIE_SRC_SEL_XO);
+		break;
+	case GCC_PCIE3X2_AXI_M_CLK:
+		/* GCC_PCIE3X2_AXI_M_CLK: 266.67MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x2_axi_m_regs,
+				8, PCIE_SRC_SEL_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE3X2_AXI_S_CLK:
+		/* GCC_PCIE3X2_AXI_S_CLK: 240MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x2_axi_s_regs,
+				9, PCIE_SRC_SEL_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE3X2_RCHG_CLK:
+		/* GCC_PCIE3X2_RCHG_CLK: 100MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x2_rchg_regs,
+				0xF, PCIE_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_PCIE3X1_0_AXI_CLK:
+		/* GCC_PCIE3X1_0_AXI_CLK: 240MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x1_0_axi_regs,
+				9, PCIE_SRC_SEL_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE3X1_0_RCHG_CLK:
+		/* GCC_PCIE3X1_0_RCHG_CLK: 100MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x1_0_rchg_regs,
+				0xF, PCIE_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_PCIE3X1_1_AXI_CLK:
+		/* GCC_PCIE3X1_1_AXI_CLK: 240MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x1_1_axi_regs,
+				9, PCIE_SRC_SEL_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE3X1_1_RCHG_CLK:
+		/* GCC_PCIE3X1_1_RCHG_CLK: 100MHz */
+		clk_rcg_set_rate(priv->base, &gcc_pcie3x1_1_rchg_regs,
+				0xF, PCIE_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
 
 	/*
 	 * NSS controlled clock
@@ -465,7 +548,84 @@ int msm_enable(struct clk *clk)
 	case GCC_BLSP1_QUP2_I2C_APPS_CLK:
 		clk_enable_cbc(priv->base + BLSP1_QUP_I2C_APPS_CBCR(2));
 		break;
-
+	case GCC_PCIE3X1_0_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_0_AHB_CBCR);
+		break;
+	case GCC_PCIE3X1_0_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_0_AXI_M_CBCR);
+		break;
+	case GCC_PCIE3X1_0_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_0_AXI_S_CBCR);
+		break;
+	case GCC_PCIE3X1_0_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_0_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE3X1_0_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_0_PIPE_CBCR);
+		break;
+	case GCC_PCIE3X1_0_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_0_AUX_CBCR);
+		break;
+	case GCC_PCIE3X1_PHY_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_PHY_AHB_CBCR);
+		break;
+	case GCC_PCIE3X2_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_AHB_CBCR);
+		break;
+	case GCC_PCIE3X2_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_AXI_M_CBCR);
+		break;
+	case GCC_PCIE3X2_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_AXI_S_CBCR);
+		break;
+	case GCC_PCIE3X2_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE3X2_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_PIPE_CBCR);
+		break;
+	case GCC_PCIE3X2_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_AUX_CBCR);
+		break;
+	case GCC_PCIE3X2_PHY_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X2_PHY_AHB_CBCR);
+		break;
+	case GCC_PCIE3X1_1_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_1_AHB_CBCR);
+		break;
+	case GCC_PCIE3X1_1_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_1_AXI_M_CBCR);
+		break;
+	case GCC_PCIE3X1_1_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_1_AXI_S_CBCR);
+		break;
+	case GCC_PCIE3X1_1_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_1_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE3X1_1_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_1_PIPE_CBCR);
+		break;
+	case GCC_PCIE3X1_1_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3X1_1_AUX_CBCR);
+		break;
+	case GCC_SNOC_PCIE3_2LANE_M_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_PCIE3_2LANE_M_CBCR);
+		break;
+	case GCC_SNOC_PCIE3_2LANE_S_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_PCIE3_2LANE_S_CBCR);
+		break;
+	case GCC_SNOC_PCIE3_1LANE_M_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_PCIE3_1LANE_M_CBCR);
+		break;
+	case GCC_SNOC_PCIE3_1LANE_S_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_PCIE3_1LANE_S_CBCR);
+		break;
+	case GCC_SNOC_PCIE3_1LANE_1_M_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_PCIE3_1LANE_1_M_CBCR);
+		break;
+	case GCC_SNOC_PCIE3_1LANE_1_S_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_PCIE3_1LANE_1_S_CBCR);
+		break;
 	/*
 	 * NSS controlled clock
 	 */
