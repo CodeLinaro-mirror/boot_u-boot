@@ -148,7 +148,8 @@ static uintptr_t set_cfg_address(struct pcie_dw *pcie,
 	d = PCI_MASK_BUS(d);
 	d = PCI_ADD_BUS(bus, d);
 	ret = pcie_dw_prog_outbound_atu_unroll(pcie, PCIE_ATU_REGION_INDEX1,
-					       atu_type, (u64)pcie->cfg_base,
+					       atu_type,
+						(uintptr_t)pcie->cfg_base,
 						d << 8, pcie->cfg_size);
 	if (ret)
 		return (uintptr_t)ret;
@@ -336,7 +337,8 @@ void pcie_dw_setup_host(struct pcie_dw *pci)
 	}
 
 	dev_dbg(pci->dev, "Config space: [0x%llx - 0x%llx, size 0x%llx]\n",
-		(u64)pci->cfg_base, (u64)pci->cfg_base + pci->cfg_size,
+		(u64)(uintptr_t)pci->cfg_base,
+		(u64)(uintptr_t)pci->cfg_base + pci->cfg_size,
 		(u64)pci->cfg_size);
 
 	dev_dbg(pci->dev, "IO space: [0x%llx - 0x%llx, size 0x%llx]\n",
