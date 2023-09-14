@@ -317,7 +317,6 @@ static int parse_elf_image_phdr(image_info *img_info, unsigned int addr)
 static int boot_mmc(void)
 {
 	struct disk_partition disk_info;
-	char runcmd[MAX_BOOT_ARGS_SIZE];
 	int ret;
 	int curr_device = -1;
 	struct mmc *mmc;
@@ -366,7 +365,7 @@ static int boot_mmc(void)
 	if (ret == 0) {
 		if(secure_boot) {
 #ifdef CONFIG_IPQ_ELF_AUTH
-			addr = boot_info.load_address;
+			addr = (void *)boot_info.load_address;
 			blk = (uint32_t) disk_info.start;
 			cnt = (uintptr_t)ELF_HDR_PLUS_PHDR_SIZE;
 
@@ -392,7 +391,7 @@ static int boot_mmc(void)
 		boot_info.size = disk_info.size;
 		boot_info.size *= disk_info.blksz;
 
-		addr = boot_info.load_address;
+		addr = (void *)boot_info.load_address;
 		blk = (uint32_t) disk_info.start;
 		cnt = (uint32_t) disk_info.size;
 
