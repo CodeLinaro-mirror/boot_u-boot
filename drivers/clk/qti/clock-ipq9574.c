@@ -319,6 +319,27 @@ static const struct bcr_regs_v2 nss_cc_port6_tx_regs = {
 	.div_cdivr = NSS_CC_PORT_TX_DIV_CDIVR(6),
 };
 
+static const struct bcr_regs usb0_mock_utmi_regs = {
+	.cfg_rcgr = GCC_USB0_MOCK_UTMI_CFG_RCGR,
+	.cmd_rcgr = GCC_USB0_MOCK_UTMI_CMD_RCGR,
+	.M = GCC_USB0_MOCK_UTMI_M,
+	.N = GCC_USB0_MOCK_UTMI_N,
+	.D = GCC_USB0_MOCK_UTMI_D,
+};
+
+static const struct bcr_regs usb0_aux_regs = {
+	.cfg_rcgr = GCC_USB0_AUX_CFG_RCGR,
+	.cmd_rcgr = GCC_USB0_AUX_CMD_RCGR,
+	.M = GCC_USB0_AUX_M,
+	.N = GCC_USB0_AUX_N,
+	.D = GCC_USB0_AUX_D,
+};
+
+static const struct bcr_regs usb0_master_regs = {
+	.cfg_rcgr = GCC_USB0_MASTER_CFG_RCGR,
+	.cmd_rcgr = GCC_USB0_MASTER_CMD_RCGR,
+};
+
 static int calc_div_for_nss_port_clk(struct clk *clk, ulong rate,
 		int *div, int *cdiv)
 {
@@ -592,6 +613,19 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		clk_rcg_set_rate(priv->base, &gcc_pcie3_rchng_regs,
 			15, PCIE_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
+	case GCC_USB0_MASTER_CLK:
+		clk_rcg_set_rate(priv->base, &usb0_master_regs,
+				4, USB0_MASTER_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_USB0_MOCK_UTMI_CLK:
+		clk_rcg_set_rate_mnd(priv->base, &usb0_mock_utmi_regs, 0, 0, 0,
+				USB0_MOCK_UTMI_SRC_SEL_XO);
+		break;
+	case GCC_USB0_AUX_CLK:
+		clk_rcg_set_rate_mnd(priv->base, &usb0_aux_regs, 0, 0, 0,
+				USB0_AUX_SRC_SEL_XO);
+		break;
+
 	/*
 	 * NSS controlled clock
 	 */
@@ -944,6 +978,31 @@ int msm_enable(struct clk *clk)
 	case GCC_ANOC_PCIE3_2LANE_M_CLK:
 		clk_enable_cbc(priv->base + GCC_ANOC_PCIE3_2LANE_M_CBCR);
 		break;
+	case GCC_USB0_MASTER_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_MASTER_CBCR);
+		break;
+	case GCC_USB0_MOCK_UTMI_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_MOCK_UTMI_CBCR);
+		break;
+	case GCC_USB0_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_AUX_CBCR);
+		break;
+	case GCC_USB0_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_PIPE_CBCR);
+		break;
+	case GCC_USB0_SLEEP_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_SLEEP_CBCR);
+		break;
+	case GCC_SNOC_USB_CLK:
+		clk_enable_cbc(priv->base + GCC_SNOC_USB_CBCR);
+		break;
+	case GCC_ANOC_USB_AXI_CLK:
+		clk_enable_cbc(priv->base + GCC_ANOC_USB_AXI_CBCR);
+		break;
+	case GCC_USB0_PHY_CFG_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_PHY_CFG_AHB_CBCR);
+		break;
+
 	/*
 	 * NSS controlled clock
 	 */

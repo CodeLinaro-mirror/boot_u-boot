@@ -73,6 +73,13 @@
 #define GCC_SNOC_PCIE3_2LANE_S_CLK			61
 #define GCC_SNOC_PCIE3_1LANE_M_CLK			62
 #define GCC_SNOC_PCIE3_1LANE_S_CLK			63
+#define GCC_USB0_MASTER_CLK				64
+#define GCC_USB0_MOCK_UTMI_CLK				65
+#define GCC_USB0_AUX_CLK				66
+#define GCC_USB0_LFPS_CLK				67
+#define GCC_USB0_SLEEP_CLK				68
+#define GCC_USB0_PHY_CFG_AHB_CLK			69
+#define GCC_USB0_PIPE_CLK				70
 
 /* NSS controlled clock IDs */
 #define NSS_CC_CFG_CLK					100

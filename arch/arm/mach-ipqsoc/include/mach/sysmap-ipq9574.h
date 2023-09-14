@@ -81,6 +81,33 @@
 #define BLSP1_QUP_I2C_50M_DIV_VAL	(0x1F << 0)
 #define BLSP1_QUP_I2C_SRC_SEL_GPLL0_OUT_MAIN		(1 << 8)
 
+/* USB clock control registers */
+#define GCC_USB0_MASTER_CMD_RCGR			(0x2C004)
+#define GCC_USB0_MASTER_CFG_RCGR			(0x2C008)
+#define GCC_USB0_MOCK_UTMI_CMD_RCGR			(0x2C02C)
+#define GCC_USB0_MOCK_UTMI_CFG_RCGR			(0x2C030)
+#define GCC_USB0_MOCK_UTMI_M				(0x2C034)
+#define GCC_USB0_MOCK_UTMI_N				(0x2C038)
+#define GCC_USB0_MOCK_UTMI_D				(0x2C03C)
+#define GCC_USB0_AUX_CMD_RCGR				(0x2C018)
+#define GCC_USB0_AUX_CFG_RCGR				(0x2C01C)
+#define GCC_USB0_AUX_M					(0x2C020)
+#define GCC_USB0_AUX_N					(0x2C024)
+#define GCC_USB0_AUX_D					(0x2C028)
+
+#define USB0_MASTER_SRC_SEL_GPLL0_OUT_MAIN		(1 << 8)
+#define USB0_MOCK_UTMI_SRC_SEL_XO			(0 << 8)
+#define USB0_AUX_SRC_SEL_XO				(0 << 8)
+
+#define GCC_USB0_MASTER_CBCR				(0x2C044)
+#define GCC_USB0_AUX_CBCR				(0x2C048)
+#define GCC_USB0_MOCK_UTMI_CBCR				(0x2C04C)
+#define GCC_USB0_PIPE_CBCR				(0x2C054)
+#define GCC_USB0_SLEEP_CBCR				(0x2C058)
+#define GCC_USB0_PHY_CFG_AHB_CBCR			(0x2C05C)
+#define GCC_SNOC_USB_CBCR				(0x2E058)
+#define GCC_ANOC_USB_AXI_CBCR				(0x2E084)
+
 /* GCC clock control registers */
 #define GCC_NSSNOC_ATB_CBCR				(0x17014)
 #define GCC_NSSNOC_QOSGEN_REF_CBCR			(0x1701C)

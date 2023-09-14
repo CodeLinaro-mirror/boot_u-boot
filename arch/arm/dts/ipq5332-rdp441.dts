@@ -58,6 +58,21 @@
 			status = "okay";
 		};
 
+		hs_m31phy_0: hs_m31phy@7b000 {
+			status = "okay";
+		};
+
+		usb0: usb@8af8800 {
+			qti,select-utmi-as-pipe-clk;
+			status = "okay";
+
+			dwc3@8a00000 {
+				phys = <&hs_m31phy_0>;
+				phy-names = "usb2-phy";
+				maximum-speed = "high-speed";
+			};
+		};
+
 		mdio: mdio@90000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&mdio_pinmux>;
