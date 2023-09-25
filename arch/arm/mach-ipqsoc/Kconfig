@@ -64,6 +64,10 @@ config DPR_VER_2_0
 	bool "DPR Version 2.0 support"
 	default n
 
+config CAPIN_CAPOUT_SUPPORT
+	bool "Update RFA register based on Caldata"
+	default n
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
@@ -207,6 +211,7 @@ config TARGET_IPQ5332
         select PHY_QTI_UNI_SSPHY if IPQ_USB
         select IPQ_QCN9224_FUSING
 	select DPR_VER_2_0
+	select CAPIN_CAPOUT_SUPPORT
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.

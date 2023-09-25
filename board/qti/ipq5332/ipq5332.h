@@ -69,4 +69,11 @@ typedef enum {
 #define STATUS_OK			"status%?okay"
 #define STATUS_DISABLED			"status%?disabled"
 
+/*
+ * OTP Register
+ */
+#define PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0		0xC5D44AC
+#define PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1		0xC5D4484
+#define QFPROM_RAW_FEATURE_CONFIG_ROW0_LSB	0xA0018
+
 #endif /* _IPQ5332_H_ */

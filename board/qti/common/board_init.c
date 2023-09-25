@@ -666,6 +666,11 @@ void setup_board_default_env(void)
 	env_set_ulong("soc_version_minor", ipq_socinfo.soc_version_minor);
 }
 
+__weak void board_update_RFA_settings(void)
+{
+	return;
+}
+
 int board_late_init(void)
 {
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
@@ -688,6 +693,12 @@ int board_late_init(void)
 	 */
 	setup_board_default_env();
 
+#ifdef CONFIG_CAPIN_CAPOUT_SUPPORT
+	/*
+	 * Update RFA register based on caldata
+	 */
+	board_update_RFA_settings();
+#endif
 	return 0;
 }
 
@@ -1049,25 +1060,29 @@ exit:
 }
 #endif /* CONFIG_PHY_AQUANTIA */
 
-int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
+int get_eth_mac_address(uint8_t *enetaddr, int no_of_macs)
+{
+	return get_partition_data("0:ART", 0, enetaddr, no_of_macs * 6);
+}
+
+int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
+			size_t size)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	size_t length = (6 * no_of_macs);
 	int ret = 0;
-	char *part_name = "0:ART";
 #ifdef CONFIG_IPQ_SPI_NOR
 	struct spi_flash *flash = NULL;
 #endif
 	uint32_t start_blk;
 	uint32_t blk_cnt;
-	ipq_part_entry_t art;
+	ipq_part_entry_t part;
 #if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
 	struct mmc *mmc;
 	struct blk_desc *desc;
 	struct disk_partition disk_info;
-	unsigned char *mmc_blks = (unsigned char*) malloc_cache_aligned(512);
-	if(mmc_blks == NULL)
-		return -ENOMEM;
+	unsigned char *mmc_blk = NULL;
+	uint32_t start_blk_no, end_blk_no, i;
+	int rdatacnt = 0, buf_cur_pos = 0;
 #endif
 
 	/* check the smem info to see which flash used for booting */
@@ -1081,8 +1096,9 @@ int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 			ret = -ENXIO;
 			goto exit;
 		} else {
-			ipq_set_part_entry(part_name, sfi, &art, start_blk,
+			ipq_set_part_entry(part_name, sfi, &part, start_blk,
 						blk_cnt);
+			part.offset += offset;
 		}
 	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
 #if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
@@ -1103,21 +1119,53 @@ int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 			printf("Failed to find the partition info \n");
 			goto exit;
 		}
+
+		start_blk_no = (uint32_t) disk_info.start + (offset / 512);
+		end_blk_no = (uint32_t) disk_info.start +
+				((offset + size) / 512);
+
+		mmc_blk = (unsigned char*) malloc_cache_aligned(512);
+		if (mmc_blk == NULL)
+			return -ENOMEM;
+
+		rdatacnt = size;
+		for (i = start_blk_no; i <= end_blk_no; i++) {
 #ifdef CONFIG_BLK
-		ret = blk_dread(desc, (uint)disk_info.start, 1, mmc_blks);
+			ret = blk_dread(desc, i, 1, mmc_blk);
 #else
-		ret = mmc->block_dev.block_read(&mmc->block_dev,
-						(uint)disk_info.start,
-						1,
-						mmc_blks);
+			ret = mmc->block_dev.block_read(&mmc->block_dev,
+						i, 1, mmc_blk);
 #endif
-		if(ret < 0) {
-			printf("MMC: 0:ART read failed %d\n", ret);
-			goto exit;
+			if (ret < 0) {
+				printf("MMC: %s read failed %d\n", part_name,
+					ret);
+				goto exit;
+			}
+
+			if (i == start_blk_no) {
+				if (size <= 512) {
+					memcpy(buf, mmc_blk + (offset % 512),
+						size);
+					if (start_blk_no == end_blk_no)
+						break;
+				} else {
+					memcpy(buf, mmc_blk + (offset % 512),
+						512 - (offset % 512));
+					buf_cur_pos += (512 - (offset % 512));
+					rdatacnt -= (512 - (offset % 512));
+				}
+			} else if (rdatacnt >= 512) {
+				memcpy(buf + buf_cur_pos, mmc_blk, 512);
+				rdatacnt -= 512;
+				buf_cur_pos += 512;
+			} else
+				memcpy(buf + buf_cur_pos, mmc_blk, rdatacnt);
 		}
-		memcpy(enetaddr, mmc_blks, length);
-		if(mmc_blks)
-			free(mmc_blks);
+
+		if (mmc_blk) {
+			free(mmc_blk);
+			mmc_blk = NULL;
+		}
 #endif
 	} else {
 		printf("Unsupported BOOT flash type\n");
@@ -1133,20 +1181,31 @@ int get_eth_mac_address(uchar *enetaddr, int no_of_macs)
 		if (flash == NULL){
 			printf("No SPI flash device found\n");
 			ret = -1;
-		} else {
-			spi_flash_read(flash, art.offset, length, enetaddr);
-		}
+			goto exit;
+		} else
+			spi_flash_read(flash, part.offset, size, buf);
 	}
 #endif
 #ifdef CONFIG_CMD_NAND
 	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
-		nand_read(get_nand_dev_by_index(0),art.offset,
-			&length, enetaddr);
+		if (get_nand_dev_by_index(0) == NULL) {
+			printf("No NAND flash device found\n");
+			ret = -1;
+			goto exit;
+		}
+
+		nand_read(get_nand_dev_by_index(0), part.offset,
+			&size, buf);
 	}
 #endif
 exit:
-	(void)length; // warning fixup for no flash build
+#if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
+	if (mmc_blk) {
+		free(mmc_blk);
+		mmc_blk = NULL;
+	}
+#endif
 	return ret;
 }
 

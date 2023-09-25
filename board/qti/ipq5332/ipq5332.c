@@ -11,6 +11,7 @@
 #include <mtd_node.h>
 #include <sysreset.h>
 #include <linux/psci.h>
+#include <mach/ipq_scm.h>
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
 #endif
@@ -233,3 +234,119 @@ static struct mm_region ipq5332_mem_map[] = {
 
 struct mm_region *mem_map = ipq5332_mem_map;
 #endif
+
+void board_update_RFA_settings(void)
+{
+	int ret;
+	int slotId = 0; /* Default slotId 0 */
+	uint32_t reg_val;
+	uint32_t calDataOffset;
+	uint32_t calData;
+	uint32_t CDACIN;
+	uint32_t CDACOUT;
+	scm_param param;
+
+	/* Check for Q6 DISABLE bit 15 */
+	if ((readl(QFPROM_RAW_FEATURE_CONFIG_ROW0_LSB) >> 15) & 0x1)
+		return;
+
+	calDataOffset  = (((slotId * 150) + 4) * 1024 + 0x66C4);
+	ret = get_partition_data("0:ART", calDataOffset, (uint8_t*)&calData, 4);
+	if (ret < 0) {
+		printf("\nget_partition_data failed, ret: %d\n", ret);
+		return;
+	}
+
+	CDACIN = calData & 0x3FF;
+	CDACOUT = (calData >> 16) & 0x1FF;
+
+	if(((CDACIN == 0x0) || (CDACIN == 0x3FF)) &&
+			((CDACOUT == 0x0) || (CDACOUT == 0x1FF))) {
+		CDACIN = 0x230;
+		CDACOUT = 0xB0;
+	}
+
+	CDACIN = CDACIN << 22;
+	CDACOUT = CDACOUT << 13;
+
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_PHYA0_REGION_RD;
+
+	/* args[0] has the addr */
+	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1;
+	param.arg_type[0] = SCM_VAL;
+
+	param.len = 1;
+	param.get_ret = 1;
+
+	ret = ipq_scm_call(&param);
+	if (ret) {
+		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1"
+			"read failed, ret : %d", ret);
+		return;
+	}
+
+	reg_val = param.res.result[0];
+
+	reg_val = (reg_val & 0xFFF9FFFF) | (0x3 << 17u);
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_PHYA0_REGION_WR;
+
+	/* args[0] has the addr */
+	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1;
+	param.arg_type[0] = SCM_VAL;
+
+	/* args[1] has the regval */
+	param.buff[1] = reg_val;
+	param.arg_type[1] = SCM_VAL;
+
+	param.len = 2;
+
+	ret = ipq_scm_call(&param);
+	if (ret) {
+		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1"
+			"write failed, ret : %d", ret);
+		return;
+	}
+
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_PHYA0_REGION_RD;
+
+	/* args[0] has the addr */
+	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0;
+	param.arg_type[0] = SCM_VAL;
+
+	param.len = 1;
+	param.get_ret = 1;
+
+	ipq_scm_call(&param);
+
+	reg_val = param.res.result[0];
+
+	if((CDACIN == (reg_val & (0x3FF << 22))) &&
+			(CDACOUT == (reg_val & (0x1FF << 13)))) {
+		printf("ART data same as PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0\n");
+		return;
+	}
+
+	reg_val = ((reg_val & 0x1FFF) | ((CDACIN | CDACOUT) & (~0x1FFF)));
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_PHYA0_REGION_WR;
+
+	/* args[0] has the addr */
+	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0;
+	param.arg_type[0] = SCM_VAL;
+
+	/* args[1] has the regval */
+	param.buff[1] = reg_val;
+	param.arg_type[1] = SCM_VAL;
+
+	param.len = 2;
+
+	ret = ipq_scm_call(&param);
+	if (ret) {
+		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0"
+			"write failed, ret : %d", ret);
+		return;
+	}
+}

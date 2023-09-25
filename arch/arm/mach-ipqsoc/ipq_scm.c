@@ -248,6 +248,14 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_FUSE;
 		desc.cmd = QCOM_TME_DPR_PROCESSING;
 		break;
+	case SCM_PHYA0_REGION_WR:
+		desc.svc = QCOM_SCM_PHYA0_SVC_ID;
+		desc.cmd = QCOM_SCM_PHYA0_WRITE_CMD;
+		break;
+	case SCM_PHYA0_REGION_RD:
+		desc.svc = QCOM_SCM_PHYA0_SVC_ID;
+		desc.cmd = QCOM_SCM_PHYA0_READ_CMD;
+		break;
 	default:
 		printf("Invalid call ID: %d\n", param->type);
 		ret = -EINVAL;

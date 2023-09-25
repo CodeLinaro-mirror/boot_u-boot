@@ -463,4 +463,6 @@ uint8_t * get_boot_mode(void);
 #if CONFIG_IS_ENABLED(NAND_QTI)
 void board_nand_init(void);
 #endif
+int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
+			size_t size);
 #endif

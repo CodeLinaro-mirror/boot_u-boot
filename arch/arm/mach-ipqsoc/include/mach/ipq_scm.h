@@ -91,6 +91,10 @@ struct qcom_scm_res {
 #define QCOM_TME_DPR_PROCESSING		0x21
 #define QCOM_TZ_READ_FUSE_VALUE_CMD	0x22
 
+#define QCOM_SCM_PHYA0_SVC_ID		0x02
+#define QCOM_SCM_PHYA0_READ_CMD		0x22
+#define QCOM_SCM_PHYA0_WRITE_CMD	0x23
+
 /* scm_arg*/
 #define SCM_VAL				0x00
 #define SCM_READ_OP			0x01
@@ -127,7 +131,9 @@ enum scm_type {
 	SCM_CHECK_ATF_SUPPORT,
 	SCM_FUSE_IPQ,
 	SCM_LIST_FUSE,
-	SCM_TME_DPR_PROCESSING
+	SCM_TME_DPR_PROCESSING,
+	SCM_PHYA0_REGION_WR,
+	SCM_PHYA0_REGION_RD
 };
 
 typedef struct {
