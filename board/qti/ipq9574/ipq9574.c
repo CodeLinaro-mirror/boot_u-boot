@@ -78,32 +78,103 @@ struct machid_dts_map * machid_dts_info = machid_dts;
 int * machid_dts_entries = &machid_dts_nos;
 #endif /* CONFIG_DTB_RESELECT */
 
-struct dumpinfo_t dumpinfo_n[] = {
-	/* TZ stores the DDR physical address at which it stores the
-	 * APSS regs, UTCM copy dump. We will have the TZ IMEM
-	 * IMEM Addr at which the DDR physical address is stored as
-	 * the start
-	 *     --------------------
-         *     |  DDR phy (start) | ----> ------------------------
-         *     --------------------       | APSS regsave (8k)    |
-         *                                ------------------------
-         *                                |                      |
-	 *                                | 	 UTCM copy	 |
-         *                                |        (192k)        |
-	 *                                |                      |
-         *                                ------------------------
-	 */
-
-	{ "EBICS0.BIN", 0x40000000, 0x40000000, 0 },
-	{ "CODERAM.BIN", 0x00200000, 0x00028000, 0 },
-	{ "DATARAM.BIN", 0x00290000, 0x00014000, 0 },
-	{ "MSGRAM.BIN", 0x00060000, 0x00006000, 1 },
-	{ "IMEM.BIN", 0x08600000, 0x00001000, 0 },
+static crashdump_infos_t dumpinfo_n[] = {
+	{
+		.name = "EBICS.BIN",
+		.start_addr = 0x40000000,
+		.size = 0xBAD0FF5E,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = SZ_1G,
+		.is_aligned_access = false,
+		.compression_support = true
+	},
+	{
+		.name = "CODERAM.BIN",
+		.start_addr = 0x00200000,
+		.size = 0x00028000,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "DATARAM.BIN",
+		.start_addr = 0x00290000,
+		.size = 0x00014000,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "MSGRAM.BIN",
+		.start_addr = 0x00060000,
+		.size = 0x00006000,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = true,
+		.compression_support = false
+	},
+	{
+		.name = "IMEM.BIN",
+		.start_addr = 0x08600000,
+		.size = 0x00001000,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "UNAME.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "CPU_INFO.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "DMESG.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "PT.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
+	{
+		.name = "WLAN_MOD.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
 };
-int dump_entries_n = ARRAY_SIZE(dumpinfo_n);
 
-struct dumpinfo_t * dumpinfo = dumpinfo_n;
-int * dump_entries = &dump_entries_n;
+static uint8_t dump_entries_n = ARRAY_SIZE(dumpinfo_n);
+
+crashdump_infos_t *board_dumpinfo = dumpinfo_n;
+uint8_t *board_dump_entries = &dump_entries_n;
 
 void reset_cpu(void)
 {

@@ -328,30 +328,48 @@ extern struct machid_dts_map * machid_dts_info;
 extern int * machid_dts_entries;
 #endif /* CONFIG_DTB_RESELECT */
 
-/* Crashdump levels */
+enum debug_component {
+	DBG_DISABLE = 0,
+	DBG_CRASHDUMP,
+};
+
+#define DUMP_NAME_STR_MAX_LEN			20
+
 enum {
-	FULL_DUMP,
-	MINIMAL_DUMP
+	FULLDUMP= 0,
+	MINIDUMP,
+	MINIDUMP_AND_FULLDUMP,
 };
 
-struct dumpinfo_t {
-	char name[256]; /* use only file name in 8.3 format */
-	uint32_t start;
-	uint32_t size;
-	int is_aligned_access; /* non zero represent 4 byte access */
-	uint32_t is_redirected; /* If this flag is set, 'start' is considered
-				 * a ptr to address to be dumped
-				 */
-	uint32_t offset; /* offset to be added to start address */
-	uint32_t dump_level;
-	uint32_t to_compress; /* non-zero represent for compressed dump*/
+enum {
+	DUMP_TO_TFTP = 0,
+	DUMP_TO_USB,
+	DUMP_TO_MEM,
 };
 
-/*
- * Extern variables
- */
-extern struct dumpinfo_t * dumpinfo;
-extern int * dump_entries;
+typedef struct {
+	char name[DUMP_NAME_STR_MAX_LEN];/* dump name */
+	uint32_t start_addr;		/* dump start addr */
+	uint32_t size;			/* dump size
+					   0xBAD0FF5E - get ram_size runtime,
+					   otherwise specify size */
+	uint8_t dump_level;		/* dump level
+					   refer crashdump_level_t */
+	uint32_t split_bin_sz;		/* split bin size
+					   if non-zero means, if size is
+					   greater than split_bin_sz, it will
+					   dump entire region as seperate bin
+					   of size split_bin_sz */
+	uint8_t is_aligned_access:1;	/* If this flag is set,
+					   'start' is considered a unaligned
+					   address, so content will be copied
+					   to a aligned one and gets dumped */
+	uint8_t compression_support:1;	/* does this binary need to be
+					   compressed ? non-zero means true. */
+} crashdump_infos_t;
+
+extern crashdump_infos_t *board_dumpinfo;
+extern uint8_t *board_dump_entries;
 
 /*
  * QCN9224 fusing
