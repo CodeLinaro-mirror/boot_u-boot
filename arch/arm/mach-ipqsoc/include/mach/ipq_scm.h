@@ -88,6 +88,7 @@ struct qcom_scm_res {
 #define QCOM_SCM_SVC_FUSE		0x08
 #define QCOM_QFPROM_IS_AUTHENTICATE_CMD	0x07
 #define QCOM_TZ_BLOW_FUSE_SECDAT_CMD	0x20
+#define QCOM_TME_DPR_PROCESSING		0x21
 #define QCOM_TZ_READ_FUSE_VALUE_CMD	0x22
 
 /* scm_arg*/
@@ -125,7 +126,8 @@ enum scm_type {
 	SCM_SET_ACTIVE_PART,
 	SCM_CHECK_ATF_SUPPORT,
 	SCM_FUSE_IPQ,
-	SCM_LIST_FUSE
+	SCM_LIST_FUSE,
+	SCM_TME_DPR_PROCESSING
 };
 
 typedef struct {

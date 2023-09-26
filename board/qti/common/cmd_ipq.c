@@ -753,3 +753,64 @@ U_BOOT_CMD(fuse_qcn9224, 2, 1, do_pci_cmd,
 	   "Fuse QCN9224 V2 fuses and argument is PCIe device ID",
 	   "If not QCN9224 V2, then fuse blow will be skipped");
 #endif
+
+#if defined(CONFIG_DPR_VER_1_0) || defined(CONFIG_DPR_VER_2_0)
+int do_dpr(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	int ret = CMD_RET_USAGE, i;
+	unsigned long loadaddr, filesize;
+	unsigned long default_hex_val = 0xFFFFFFFF;
+	uint32_t dpr_status = 0;
+	scm_param param;
+
+	memset(&param, 0, sizeof(scm_param));
+	if (argc > cmdtp->maxargs || (cmdtp->maxargs == 3 && argc == 2))
+		goto fail;
+
+	if (argc == cmdtp->maxargs)
+		for(i = 0; i < cmdtp->maxargs - 1; i++)
+			param.buff[i] = simple_strtoul(argv[i + 1], NULL, 16);
+	else {
+		loadaddr = env_get_hex("fileaddr", default_hex_val);
+		if (loadaddr == default_hex_val)
+			goto fail;
+
+		param.buff[0] = loadaddr;
+
+		if (cmdtp->maxargs == 3) {
+			filesize = env_get_hex("filesize", default_hex_val);
+			if (filesize == default_hex_val)
+				goto fail;
+
+			param.buff[1] = filesize;
+		}
+	}
+
+	param.type = SCM_TME_DPR_PROCESSING;
+	param.len = cmdtp->maxargs - 1;
+	param.get_ret = 1;
+
+	ret = ipq_scm_call(&param);
+	dpr_status = param.res.result[0];
+	if (ret || dpr_status) {
+		printf("Error in DPR Processing ret : %d, dpr_status : %d\n",
+			ret, dpr_status);
+	} else
+		printf("DPR Process Successful\n");
+
+fail:
+	return ret;
+}
+
+#ifdef CONFIG_DPR_VER_1_0
+U_BOOT_CMD(dpr_execute, 2, 0, do_dpr,
+                "Debug Policy Request processing\n",
+                "dpr_execute [address] - Processing dpr\n");
+#endif
+
+#ifdef CONFIG_DPR_VER_2_0
+U_BOOT_CMD(dpr_execute, 3, 0, do_dpr,
+                "Debug Policy Request processing\n",
+                "dpr_execute [fileaddr] [filesize] - Processing dpr\n");
+#endif
+#endif

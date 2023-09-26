@@ -56,6 +56,14 @@ config SOC_HW_VERSION_REG
 	hex "Define SoC HW version register"
 	default 0x194D000
 
+config DPR_VER_1_0
+	bool "DPR Version 1.0 support"
+	default n
+
+config DPR_VER_2_0
+	bool "DPR Version 2.0 support"
+	default n
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
@@ -190,6 +198,7 @@ config TARGET_IPQ5332
         select PHY_QTI_USB_HS_M31 if IPQ_USB
         select PHY_QTI_UNI_SSPHY if IPQ_USB
         select IPQ_QCN9224_FUSING
+	select DPR_VER_2_0
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -218,6 +227,7 @@ config TARGET_IPQ9574
         select PHY_QTI_QUSB2 if IPQ_USB
         select PHY_QTI_QMP_USB3 if IPQ_USB
         select IPQ_QCN9224_FUSING
+	select DPR_VER_1_0
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
