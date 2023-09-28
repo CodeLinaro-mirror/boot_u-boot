@@ -2291,11 +2291,17 @@ static int ipq_eth_start(struct udevice *dev)
 	struct phy_device *phydev;
 	struct port_info *port = NULL;
 	int i, ret, link, speed, duplex, linkup = 0;
+	ulong active_port = env_get_ulong("active_port", 10,
+						CONFIG_ETH_MAX_MAC);
 
 	if (IS_ENABLED(CONFIG_TFTP_PORT))
 		env_set_ulong("tftpsrcp", tftp_acl_our_port);
 
 	for (i = 0; i < CONFIG_ETH_MAX_MAC; ++i) {
+
+		if (active_port != i && active_port != CONFIG_ETH_MAX_MAC)
+			continue;
+
 		port = priv->port[i];
 
 		if (!port || !port->phydev)
