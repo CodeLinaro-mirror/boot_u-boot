@@ -106,6 +106,8 @@
 
 #define TWO_PORT_MODE				BIT(1)
 
+#define PARF_BDF_TO_SID_TABLE			0x2000
+
 struct pcie_dw_qti {
 	struct pcie_dw dw;
 	struct phy phy;
@@ -210,6 +212,14 @@ static int pcie_dw_qti_pcie_link_up(struct pcie_dw_qti *pcie)
 	mdelay(1);
 
 	ret = is_pcie_link_up(pcie);
+
+	mdelay(1);
+
+	for (val = 0; val < 255; val++) {
+		writel(0, pcie->parf + PARF_BDF_TO_SID_TABLE +
+			(4 * val));
+		udelay(500);
+	}
 
 	return ret;
 }
