@@ -1020,6 +1020,15 @@ int read_kernel(void)
 		flash_type = sfi->flash_type;
 #endif
 
+	/*
+	 * set fdt_high parameter so that u-boot will not load
+	 * dtb above FDT_HIGH region.
+	 */
+
+	ret = env_set("fdt_high", MK_STR(FDT_HIGH));
+	if (ret)
+		return CMD_RET_FAILURE;
+
 	if(boot_info.debug)
 		printf("[debug]Loading Kernel\n");
 
