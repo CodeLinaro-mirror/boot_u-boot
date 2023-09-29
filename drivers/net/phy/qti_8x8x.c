@@ -4351,16 +4351,11 @@ static int qti_8x8x_startup(struct phy_device *phydev)
 		return ret;
 	}
 
-	qti_8x8x_switch_link_update(phydev, dev->switch_info);
-
-	/* Since we are connected directly to the switch, hardcode the link
-	 * parameters to match those of the CPU port configured in
-	 * qti_8x8x, we cannot be dependent on the user-facing port
-	 * settings (e.g: 100Mbits/sec would not work here)
-	 */
-	phydev->speed = dev->switch_info->port[DEV_8X8X_PORT_0].speed;
-	phydev->duplex = 1;
-	phydev->link = 1;
+	if (!qti_8x8x_switch_link_update(phydev, dev->switch_info)) {
+		phydev->speed = dev->switch_info->port[DEV_8X8X_PORT_0].speed;
+		phydev->duplex = 1;
+		phydev->link = 1;
+	}
 
 	return ret;
 }
