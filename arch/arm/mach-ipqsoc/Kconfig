@@ -162,6 +162,15 @@ config IPQ_PCIE
 	select PCIE_DW_QTI
 	select CMD_PCI
 
+config IPQ_QCN9224_FUSING
+	depends on IPQ_PCIE
+	bool "Enable QCN9224 Fusing"
+
+config IPQ_MAX_PCIE
+	int "Max PCIE supported in IPQSOC"
+	default 3 if TARGET_IPQ5332
+	default 4 if TARGET_IPQ9574
+
 choice
 	prompt "IPQ board select"
 
@@ -180,6 +189,7 @@ config TARGET_IPQ5332
 	select PHY if IPQ_USB
         select PHY_QTI_USB_HS_M31 if IPQ_USB
         select PHY_QTI_UNI_SSPHY if IPQ_USB
+        select IPQ_QCN9224_FUSING
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -207,6 +217,7 @@ config TARGET_IPQ9574
 	select PHY_QTI_QMP_PCIE
         select PHY_QTI_QUSB2 if IPQ_USB
         select PHY_QTI_QMP_USB3 if IPQ_USB
+        select IPQ_QCN9224_FUSING
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

@@ -13,7 +13,39 @@
 #include <cpu_func.h>
 #include <linux/bug.h>
 #include <linux/arm-smccc.h>
+#ifdef CONFIG_IPQ_QCN9224_FUSING
+#include <dm.h>
+#include <init.h>
+#include <pci.h>
+#include <dt-bindings/pci/pci.h>
+#include <asm/io.h>
+#include <linux/iopoll.h>
+#endif
+
 #include "ipq_board.h"
+
+
+#ifdef CONFIG_IPQ_QCN9224_FUSING
+struct jtag_ids {
+        u32 id;
+        char *name;
+};
+
+struct jtag_ids qcn9224_jtag_ids[] = {
+        { 0x101D50E1, "QCN9274" },
+        { 0x101D80E1, "QCN9272" },
+        { 0x101ED0E1, "QCN6214" },
+        { 0x101EE0E1, "QCN6224" },
+        { 0x101EF0E1, "QCN6274" },
+};
+
+enum {
+	PCI_LIST_QCN9224_FUSE = 0,
+	PCI_FUSE_QCN9224,
+	PCI_DETECT_QCN9224,
+	PCI_LIST
+};
+#endif
 
 #define PRI_PARTITION	1
 #define ALT_PARTITION	2
@@ -295,4 +327,429 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(list_ipq5332_fuse, 1, 0, do_list_ipq5332_fuse,
 		"fuse set of QFPROM registers from memory\n",
 		"");
+#endif
+#ifdef CONFIG_IPQ_QCN9224_FUSING
+static struct pci_device_id device_table [] = {
+	{QCN_VENDOR_ID, QCN9224_DEVICE_ID},
+	{}
+};
+
+static int pci_cmd(const char *cmd)
+{
+	if (strcmp(cmd, "list_qcn9224_fuse") == 0)
+		return PCI_LIST_QCN9224_FUSE;
+	else if (strcmp(cmd, "fuse_qcn9224") == 0)
+		return PCI_FUSE_QCN9224;
+	else if (strcmp(cmd, "detect_qcn9224") == 0)
+		return PCI_DETECT_QCN9224;
+	else
+		return PCI_LIST;
+}
+
+static void pci_select_window(uintptr_t base, uint32_t offset)
+{
+	uint32_t window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
+	uint32_t prev_window = 0, curr_window = 0, prev_cleared_window = 0;
+
+	prev_window = readl(base + QCN9224_PCIE_REMAP_BAR_CTRL_OFFSET);
+
+	/* Clear out last 6 bits of window register */
+	prev_cleared_window = prev_window & ~(0x3f);
+
+	/* Write the new last 6 bits of window register. Only window 1 values
+	 * are changed. Window 2 and 3 are unaffected.
+	 */
+	curr_window = prev_cleared_window | window;
+
+	writel(WINDOW_ENABLE_BIT | curr_window, base +
+			QCN9224_PCIE_REMAP_BAR_CTRL_OFFSET);
+}
+
+static void print_error_code(pci_addr_t addr, bool pbl_log)
+{
+	int i;
+	u32 val;
+	struct {
+		char *name;
+		u32 offset;
+	} error_reg[] = {
+		{ "ERROR_CODE", BHI_ERRCODE },
+		{ "ERROR_DBG1", BHI_ERRDBG1 },
+		{ "ERROR_DBG2", BHI_ERRDBG2 },
+		{ "ERROR_DBG3", BHI_ERRDBG3 },
+		{ NULL },
+	};
+
+	for (i = 0; error_reg[i].name; i++) {
+		val = readl(addr + error_reg[i].offset);
+		printf("Reg: %s value: 0x%x\n", error_reg[i].name, val);
+	}
+	if (pbl_log) {
+		pci_select_window(addr, QCN9224_TCSR_PBL_LOGGING_REG);
+		val = readl(addr + WINDOW_START +
+				(QCN9224_TCSR_PBL_LOGGING_REG &
+					WINDOW_RANGE_MASK));
+		printf("Reg: TCSR_PBL_LOGGING: 0x%x\n", val);
+	}
+}
+
+static void qcn92xx_global_soc_reset(uintptr_t bar0_base)
+{
+	u32 val, ret, count = 0;
+	uintptr_t reg;
+
+	do {
+		reg = bar0_base + PCIE_SOC_GLOBAL_RESET_ADDRESS;
+		writel(PCIE_SOC_GLOBAL_RESET_VALUE, reg);
+
+		reg = bar0_base + BHI_EXECENV;
+		ret = readl_poll_sleep_timeout(reg, val, val == 0, 1 * 1000,
+						20 * 1000);
+		if (ret == 0)
+			break;
+		else
+			++count;
+	} while (count < MAX_SOC_GLOBAL_RESET_WAIT_CNT);
+
+	if (val != 0)
+		printk("SoC global reset failed! Reset count : %d\n",count);
+}
+
+static int fuse_qcn9224(const struct pci_device_id *ids, int device_id)
+{
+	struct udevice *dev;
+	ulong vendor, device;
+	int version, val, ret = 0;
+	uintptr_t bar0_base, reg;
+	uint32_t load_addr, file_size;
+
+	ret = pci_find_device_id(ids, device_id, &dev);
+	if (ret) {
+		printf("Device not found\n");
+		return CMD_RET_FAILURE;
+	}
+
+	load_addr = env_get_ulong("fileaddr", 16, 0);
+	file_size = env_get_ulong("filesize", 16, 0);
+
+	if ((file_size == 0) || (load_addr == 0)) {
+		printf("Fuse data not found\n");
+		return CMD_RET_FAILURE;
+	}
+
+	ret = CMD_RET_FAILURE;
+
+	dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, (uint32_t *)&bar0_base);
+	bar0_base &= 0xFFF00000;
+
+	dm_pci_read_config(dev, PCI_VENDOR_ID, &vendor, PCI_SIZE_16);
+	dm_pci_read_config(dev, PCI_DEVICE_ID, &device, PCI_SIZE_16);
+
+	/* Read QCN9224 version */
+	pci_select_window(bar0_base, QCN9224_TCSR_SOC_HW_VERSION);
+
+	version = readl(bar0_base + WINDOW_START +
+			(QCN9224_TCSR_SOC_HW_VERSION & WINDOW_RANGE_MASK));
+
+	version = (version & QCN9224_TCSR_SOC_HW_VERSION_MASK) >>
+					QCN9224_TCSR_SOC_HW_VERSION_SHIFT;
+
+	if (version == 1) {
+		printk("Fusing not supported in QCN9224 V1\n");
+		return CMD_RET_FAILURE;
+	}
+
+	printf("Fusing on Vendor ID:0x%lx device ID:0x%lx devbusfn:0x%x\n",
+				vendor, device, dm_pci_get_bdf(dev));
+	/*
+	 *flush dcache
+	 */
+	flush_dcache_all();
+
+	writel(0, bar0_base + BHI_STATUS);
+	writel(upper_32_bits(load_addr), bar0_base + BHI_IMGADDR_HIGH);
+	writel(lower_32_bits(load_addr), bar0_base + BHI_IMGADDR_LOW);
+	writel(file_size, bar0_base + BHI_IMGSIZE);
+	writel(1, bar0_base + BHI_IMGTXDB);
+
+	printf("Waiting for fuse blower bin download...\n");
+
+	reg = bar0_base + BHI_STATUS;
+	ret = readl_poll_sleep_timeout(reg, val,
+			((val & BHI_STATUS_MASK) >> BHI_STATUS_SHIFT) ==
+				BHI_STATUS_SUCCESS, 250 * 1000, 12500 * 1000);
+	if (ret) {
+		printf("Fuse blower bin Download failed, "
+				"BHI_STATUS 0x%x, ret %d\n", val, ret);
+		print_error_code(bar0_base, true);
+		ret = CMD_RET_FAILURE;
+		goto fail;
+	}
+
+	reg = bar0_base + BHI_EXECENV;
+	ret = readl_poll_sleep_timeout(reg, val, (val & NO_MASK ) == 1,
+					250 * 1000, 12500 * 1000);
+	if (ret) {
+		printf("EXECENV is not correct, "
+				"BHI_EXECENV 0x%x, ret %d\n",val, ret);
+		print_error_code(bar0_base, true);
+		ret = CMD_RET_FAILURE;
+		goto fail;
+	}
+
+	printf("Fuse blower bin loaded sucessfully\n");
+
+	reg = bar0_base + BHI_ERRCODE;
+	ret = readl_poll_sleep_timeout(reg, val, (val & NO_MASK) == 0xCAFECACE,
+					250 * 1000, 12500 * 1000);
+	if (ret) {
+		printf("Fusing failed, ret %d\n",ret);
+		print_error_code(bar0_base, false);
+		ret = CMD_RET_FAILURE;
+		goto fail;
+	}
+
+	printf("Fusing completed sucessfully\n");
+	ret = CMD_RET_SUCCESS;
+
+fail:
+	/* Target SoC global reset */
+	qcn92xx_global_soc_reset(bar0_base);
+
+	mdelay(1000);
+
+	/* Target MHI reset */
+	val = readl(bar0_base + MHICTRL);
+	writel(val | MHICTRL_RESET_MASK, bar0_base + MHICTRL);
+	return ret;
+}
+
+static void print_qcn9224_fuse(struct udevice *bus,
+				const struct pci_device_id *ids)
+{
+	struct udevice *dev;
+	int val, ret, i = 0;
+	uintptr_t bar0_base;
+
+	ret = pci_bus_find_devices(bus, ids, &i, &dev);
+	if (ret)
+		return;
+
+	dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, (uint32_t *)&bar0_base);
+	bar0_base &= 0xFFF00000;
+
+	printf("Slot id: %d\tPCIe Bus ID: %d\nFuse Name \t\t  Address\t "
+		"Value\n", ((dev_seq(bus) - 1) >> 1), dev_seq(bus));
+	printf("------------------------------------------------------\n");
+
+	pci_select_window(bar0_base, QCN9224_SECURE_BOOT0_AUTH_EN);
+
+	val = readl(bar0_base + WINDOW_START +
+			(QCN9224_SECURE_BOOT0_AUTH_EN & WINDOW_RANGE_MASK));
+
+	printf("SECURE_BOOT0_AUTH_EN\t   0x%x \t 0x%x \n",
+		QCN9224_SECURE_BOOT0_AUTH_EN,
+			(val & QCN9224_SECURE_BOOT0_AUTH_EN_MASK));
+
+	pci_select_window(bar0_base, QCN9224_OEM_MODEL_ID);
+
+	val = readl(bar0_base + WINDOW_START +
+			(QCN9224_OEM_MODEL_ID & WINDOW_RANGE_MASK));
+
+	printf("OEM ID\t\t\t   0x%x \t 0x%lx \n",QCN9224_OEM_MODEL_ID,
+			(val & QCN9224_OEM_ID_MASK) >> QCN9224_OEM_ID_SHIFT);
+	printf("MODEL ID\t\t   0x%x \t 0x%lx \n",QCN9224_OEM_MODEL_ID,
+			(val & QCN9224_MODEL_ID_MASK));
+
+	pci_select_window(bar0_base, QCN9224_ANTI_ROLL_BACK_FEATURE);
+
+	val = readl(bar0_base + WINDOW_START +
+			(QCN9224_ANTI_ROLL_BACK_FEATURE & WINDOW_RANGE_MASK));
+	printf("ANTI_ROLL_BACK_FEATURE_EN  0x%x \t 0x%lx \n",
+			QCN9224_ANTI_ROLL_BACK_FEATURE,
+			(val & QCN9224_ANTI_ROLL_BACK_FEATURE_EN_MASK) >>
+				QCN9224_ANTI_ROLL_BACK_FEATURE_EN_SHIFT);
+	printf("TOTAL_ROT_NUM\t\t   0x%x \t 0x%lx \n",
+			QCN9224_ANTI_ROLL_BACK_FEATURE,
+			(val & QCN9224_TOTAL_ROT_NUM_MASK) >>
+				QCN9224_TOTAL_ROT_NUM_SHIFT);
+	printf("ROT_REVOCATION\t\t   0x%x \t 0x%lx \n",
+			QCN9224_ANTI_ROLL_BACK_FEATURE,
+			(val & QCN9224_ROT_REVOCATION_MASK) >>
+				QCN9224_ROT_REVOCATION_SHIFT);
+	printf("ROT_ACTIVATION\t\t   0x%x \t 0x%lx \n",
+			QCN9224_ANTI_ROLL_BACK_FEATURE,
+			(val & QCN9224_ROT_ACTIVATION_MASK) >>
+			QCN9224_ROT_ACTIVATION_SHIFT);
+
+	for(i = 0; i <= QCN9224_OEM_PK_HASH_SIZE ; i+=4) {
+		pci_select_window(bar0_base, QCN9224_OEM_PK_HASH + i);
+
+		val = readl(bar0_base + WINDOW_START +
+				((QCN9224_OEM_PK_HASH + i) &
+					WINDOW_RANGE_MASK));
+
+		printf("OEM PK hash \t\t   0x%x \t 0x%x\n",
+			QCN9224_OEM_PK_HASH + i, val);
+	}
+
+	pci_select_window(bar0_base, QCN9224_JTAG_ID);
+	val = readl(bar0_base + WINDOW_START +
+			(QCN9224_JTAG_ID & WINDOW_RANGE_MASK));
+
+	for(i = 0; i < ARRAY_SIZE(qcn9224_jtag_ids); i++) {
+		if(qcn9224_jtag_ids[i].id == val) {
+			printf("JTAG ID\t\t\t   0x%x \t 0x%x(%s)\n",
+					QCN9224_JTAG_ID, val,
+					qcn9224_jtag_ids[i].name);
+			break;
+		}
+	}
+
+	if(i >= ARRAY_SIZE(qcn9224_jtag_ids))
+		printf("JTAG ID\t\t\t   0x%x \t 0x%x\n",
+			QCN9224_JTAG_ID, val);
+
+	pci_select_window(bar0_base, QCN9224_SERIAL_NUM);
+	val = readl(bar0_base + WINDOW_START +
+			(QCN9224_SERIAL_NUM & WINDOW_RANGE_MASK));
+	printf("Serial Number\t\t   0x%x \t 0x%x\n",
+			QCN9224_SERIAL_NUM, val);
+
+	pci_select_window(bar0_base, QCN9224_PART_TYPE_EXTERNAL);
+	val = readl(bar0_base + WINDOW_START +
+			(QCN9224_PART_TYPE_EXTERNAL & WINDOW_RANGE_MASK));
+	val = (val & QCN9224_PART_TYPE_EXTERNAL_MASK) >>
+			QCN9224_PART_TYPE_EXTERNAL_SHIFT;
+	printf("Part Type\t\t   0x%x \t 0x%x(%s)\n",
+			QCN9224_PART_TYPE_EXTERNAL, val, val?"EXT":"INT");
+
+	printf("------------------------------------------------------\n\n");
+}
+
+static void detect_qcn9224(struct udevice *bus,
+				const struct pci_device_id *ids)
+{
+	int ret;
+	struct udevice *dev;
+	int qcn9224_version, index = 0;
+	uintptr_t bar0_base;
+
+	ret = pci_bus_find_devices(bus, ids, &index, &dev);
+	if (ret)
+		return;
+
+	dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, (uint32_t *)&bar0_base);
+	bar0_base &= 0xFFF00000;
+
+	/* Read QCN9224 version */
+	pci_select_window(bar0_base, QCN9224_TCSR_SOC_HW_VERSION);
+
+	qcn9224_version = readl(bar0_base + WINDOW_START +
+				(QCN9224_TCSR_SOC_HW_VERSION &
+					WINDOW_RANGE_MASK));
+
+	qcn9224_version = (qcn9224_version &
+				QCN9224_TCSR_SOC_HW_VERSION_MASK) >>
+					QCN9224_TCSR_SOC_HW_VERSION_SHIFT;
+
+	env_set_ulong("qcn9224_version",(unsigned long)qcn9224_version);
+}
+
+static void list_pci_device(struct udevice *bus)
+{
+	struct udevice *dev;
+	ulong vendor, device;
+	uint32_t bar0_base;
+
+	for (device_find_first_child(bus, &dev);
+		dev;
+		device_find_next_child(&dev)) {
+
+		dm_pci_read_config(dev, PCI_VENDOR_ID, &vendor, PCI_SIZE_16);
+		dm_pci_read_config(dev, PCI_DEVICE_ID, &device, PCI_SIZE_16);
+		dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, &bar0_base);
+
+		printf("\t   %d  \t\t    %d    \t\t0x%x        \t0x%lx\n",
+				((dev_seq(bus) - 1) >> 1),
+				dev_seq(bus),
+				bar0_base & 0xFF000000,
+				PCI_VENDEV(vendor,device));
+	}
+}
+
+static int do_pci_cmd(struct cmd_tbl *cmdtp, int flag, int argc,
+                                          char *const argv[])
+{
+	struct udevice *bus;
+	int busnum, cmd, device_id, ret = CMD_RET_SUCCESS;
+
+	/*
+	 * Init Pci
+	 * disable console to avoid pci init logs
+	 */
+	gd->have_console = 0;
+	pci_init();
+	gd->have_console = 1;
+
+	cmd = pci_cmd(argv[0]);
+
+	switch (cmd) {
+	case PCI_FUSE_QCN9224:
+		if (argc != 2) {
+			ret = CMD_RET_USAGE;
+			goto fail;
+		} else {
+			device_id = simple_strtoul(argv[1], NULL, 16);
+			if (device_id > CONFIG_IPQ_MAX_PCIE) {
+				printf("Supported PCIe instances 0 to %d\n",
+					CONFIG_IPQ_MAX_PCIE - 1);
+				ret = CMD_RET_USAGE;
+				goto fail;
+			}
+		}
+		ret = fuse_qcn9224(device_table, device_id);
+		break;
+	case PCI_LIST:
+		printf("\t Slotid\t\tBus Number\t\tBase Address\t\t"
+			"Device ID \n");
+	case PCI_LIST_QCN9224_FUSE:
+	case PCI_DETECT_QCN9224:
+		for (busnum = 0;
+			uclass_get_device_by_seq(UCLASS_PCI, busnum, &bus) == 0;
+			++busnum) {
+
+			if (!device_is_on_pci_bus(bus))
+				continue;
+
+			if (cmd == PCI_LIST)
+				list_pci_device(bus);
+			else if (cmd == PCI_DETECT_QCN9224)
+				detect_qcn9224(bus, device_table);
+			else
+				print_qcn9224_fuse(bus, device_table);
+		}
+		break;
+	default:
+		;
+	}
+fail:
+	return ret;
+}
+
+U_BOOT_CMD(list_pci, 1, 1, do_pci_cmd,
+	   "Print the RC's PCIe details and attached device ID",
+	   "If no attach is present, then nothing will be printed");
+
+U_BOOT_CMD(list_qcn9224_fuse, 1, 1, do_pci_cmd,
+	   "Print QCN9224 fuse details from attached PCIe slots",
+	   "If there is no QCN9224 attach, then nothing will be printed");
+
+U_BOOT_CMD(detect_qcn9224, 1, 1, do_pci_cmd,
+	   "Detect qcn9224 version and populate it on qcn9224_version Env",
+	   "qcn9224_version will be zero if not attached else one / two");
+
+U_BOOT_CMD(fuse_qcn9224, 2, 1, do_pci_cmd,
+	   "Fuse QCN9224 V2 fuses and argument is PCIe device ID",
+	   "If not QCN9224 V2, then fuse blow will be skipped");
 #endif
