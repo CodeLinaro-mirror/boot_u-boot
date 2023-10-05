@@ -431,14 +431,18 @@ struct cmd_element* bam_add_cmd_element(struct cmd_element *ptr,
                                         uint32_t value,
                                         enum bam_ce_cmd_t cmd_type)
 {
+
 	/* Write cmd type.
 	 * Also, write the register address.
 	 */
 	ptr->addr_n_cmd = (reg_addr & ~(BAM_CE_REG_ADDR_MASK)) |
-				(cmd_type << (BAM_CE_CMD_TYPE_SHIFT));
+				((cmd_type & 0xFF) << (BAM_CE_CMD_TYPE_SHIFT));
 
-	/* Do not mask any of the addr bits by default */
-	ptr->reg_mask = BAM_CE_REG_MASK;
+	/*
+	 * Do not mask any of the addr bits by default
+	 * For ddr 36bit addressing mode ,reg_mask is 0
+	 */
+	ptr->reg_mask = cmd_type & BIT(8)  ? 0 : BAM_CE_REG_MASK;
 
 	/* Write the value to be written */
 	ptr->reg_data = value;

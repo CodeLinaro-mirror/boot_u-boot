@@ -9,5 +9,6 @@
 /* GCC controlled clock IDs */
 #define GCC_QUPV3_UART0_CLK				0
 #define GCC_QUPV3_UART1_CLK				1
+#define GCC_QPIC_IO_MACRO_CLK				2
 
 #endif

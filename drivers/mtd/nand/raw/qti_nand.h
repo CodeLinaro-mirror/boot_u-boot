@@ -686,6 +686,7 @@ struct qcom_nand_controller {
 	bool quad_mode;
 	bool check_quad_config;
 	bool do_serial_training;
+	bool support_36bit_addressing;
 	uint32_t oob_per_page;
 	uint32_t buff_start;
 	uint32_t buff_count;
