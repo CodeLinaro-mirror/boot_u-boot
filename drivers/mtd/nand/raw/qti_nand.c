@@ -33,6 +33,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define WINBOND_MFR_ID		0xef
 #define CMD3_MASK		0xfff0ffff
 #define TRAINING_PART_OFFSET	0x3c00000
+#define DEFAULT_CLK_200_MHZ	200000000
 
 #define MAXIMUM_ALLOCATED_TRAINING_BLOCK	4
 
@@ -305,7 +306,7 @@ static uint32_t qti_nandc_get_id(struct mtd_info *mtd)
 	uint32_t exec_cmd = 1;
 	int nand_ret = NANDC_RESULT_SUCCESS;
 	uint32_t vld = NAND_CMD_VALID_BASE;
-	uint32_t cmd_vld = NAND_DEV_CMD_VLD_V1_4_20;
+	uint32_t cmd_vld = NAND_FLASH_DEV_CMD_VLD;
 
 
 	flash_cmd |= QTI_SPI_WP_SET | QTI_SPI_HOLD_SET |
@@ -316,9 +317,6 @@ static uint32_t qti_nandc_get_id(struct mtd_info *mtd)
 	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD, (uint32_t)flash_cmd,
 				CE_WRITE_TYPE);
 	cmd_list_ptr++;
-
-	if (nandc->hw_ver == QTI_V1_5_20 || nandc->hw_ver == QTI_V2_1_1)
-		cmd_vld = NAND_DEV_CMD_VLD_V1_5_20;
 
 	bam_add_cmd_element(cmd_list_ptr, cmd_vld, (uint32_t)vld,
 			    CE_WRITE_TYPE);
@@ -439,7 +437,8 @@ static int qti_bam_init(struct qcom_nand_controller *nandc,
 	nandc->bam.max_desc_len = config->max_desc_len;
 
 	/* BAM Init. */
-	bam_init(&nandc->bam);
+	bam_init(&nandc->bam, nandc->varient_info->bam_cfg,
+				nandc->varient_info->bam_threshold_reg_write);
 
 	/* Initialize BAM QTI read pipe */
 	bam_sys_pipe_init(&nandc->bam, DATA_PRODUCER_PIPE_INDEX);
@@ -1062,7 +1061,7 @@ static void qti_spi_init(struct mtd_info *mtd)
 
 	val = readl(NAND_QSPI_MSTR_CONFIG);
 
-	default_clk_rate = IO_MACRO_CLK_200_MHZ;
+	default_clk_rate = DEFAULT_CLK_200_MHZ;
 	val |= FB_CLK_BIT;
 	if ((readl(QTI_NAND_CTRL) & BAM_MODE_EN)) {
 
@@ -1102,13 +1101,6 @@ static void qti_spi_init(struct mtd_info *mtd)
 	}
 
 	num_desc = 0;
-
-	/* set the FB_CLK_BIT of register QTI_QSPI_MSTR_CONFIG
-	 * to by pass the serial training. if this FB_CLK_BIT
-	 * bit enabled then , we can apply upto maximum 200MHz
-	 * input to IO_MACRO_BLOCK.
-	 */
-	clk_set_rate(&nandc->clk, default_clk_rate);
 
 	/* According to HPG Setting Xfer steps and spi_num_addr_cycles
 	 * is part of initialization flow before reset.However these
@@ -3143,7 +3135,6 @@ static int qti_nandc_read_oob(struct mtd_info *mtd, loff_t to,
 static int qti_nandc_read(struct mtd_info *mtd, loff_t from, size_t len,
              size_t *retlen, u_char *buf)
 {
-	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	unsigned ret = 0;
 	struct mtd_oob_ops ops;
 
@@ -3156,14 +3147,7 @@ static int qti_nandc_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ops.datbuf = (uint8_t *)buf;
 	ops.oobbuf = NULL;
 
-	if (nandc->hw_ver >= QTI_V2_1_1) {
-		ret = qti_read_page_scope(mtd, from,
-				&ops);
-	} else {
-		printf("QTI controller not support page scope and \
-			multi page read.\n");
-		return -EIO;
-	}
+	ret = qti_read_page_scope(mtd, from, &ops);
 
 	*retlen = ops.retlen;
 
@@ -3960,6 +3944,10 @@ static int qti_nand_probe(struct udevice *device)
 	chip = mtd->priv;
 	chip->priv = nandc;
 
+	nandc->varient_info = (void *)dev_get_driver_data(device);
+	if(!nandc->varient_info)
+		return -EINVAL;
+
 	/*Read register base  from dts*/
 	nand_base = dev_read_addr(device);
 	if (nand_base == FDT_ADDR_T_NONE) {
@@ -3972,13 +3960,6 @@ static int qti_nand_probe(struct udevice *device)
 
 	/* Read the Hardware Version register */
 	nandc->hw_ver = readl(NAND_VERSION);
-	/* Only maintain major number */
-	nandc->hw_ver >>= 28;
-	if (nandc->hw_ver < QTI_V2_1_1) {
-		printf("%s : Qpic controller not support serial NAND\n",
-				__func__);
-		return -ENOPROTOOPT;
-	}
 
 	nandc->quad_mode = dev_read_u32_default(device, "quad_mode", -1);
 	if(-1 == (int)nandc->quad_mode) {
@@ -4010,7 +3991,9 @@ static int qti_nand_probe(struct udevice *device)
 	write_pipe_grp = dev_read_u32_default(device, "write_pipe_grp",
 					DATA_CONSUMER_PIPE_GRP);
 
-	ret = clk_get_by_index(device, 0, &nandc->clk);
+	nandc->do_serial_training = dev_read_bool(device, "serial_training");
+
+	ret = clk_get_by_name(device, "qpic-io-macro-clk", &nandc->clk);
 	if (ret)
 		return ret;
 
@@ -4169,8 +4152,13 @@ static int qti_nand_probe(struct udevice *device)
 		goto err_reg;
 	}
 
-	/* start serial training here */
-	ret = qti_serial_training(mtd);
+	if (nandc->do_serial_training) {
+		/* start serial training here */
+		ret = qti_serial_training(mtd);
+	} else {
+		ret = -1;
+		printf("Skipping Serial trainig\n");
+	}
 
 	if (ret) {
 		printf("Error in serial training.\n");
@@ -4179,7 +4167,7 @@ static int qti_nand_probe(struct udevice *device)
 		if ((readl(QTI_NAND_CTRL) & BAM_MODE_EN)) {
 			qti_reg_write_dma(nandc,NAND_QSPI_MSTR_CONFIG,
 				(FB_CLK_BIT | readl(NAND_QSPI_MSTR_CONFIG)));
-			clk_set_rate(&nandc->clk, IO_MACRO_CLK_200_MHZ);
+			clk_set_rate(&nandc->clk, DEFAULT_CLK_200_MHZ);
 			qti_reg_write_dma(nandc,NAND_FLASH_SPI_CFG, 0x0);
 			qti_reg_write_dma(nandc, NAND_FLASH_SPI_CFG,
 					SPI_CFG_VAL);
@@ -4191,7 +4179,7 @@ static int qti_nand_probe(struct udevice *device)
 			writel((FB_CLK_BIT | readl(NAND_QSPI_MSTR_CONFIG)),
 				(uintptr_t)NAND_QSPI_MSTR_CONFIG);
 
-			clk_set_rate(&nandc->clk, IO_MACRO_CLK_200_MHZ);
+			clk_set_rate(&nandc->clk, DEFAULT_CLK_200_MHZ);
 			writel(0x0, (uintptr_t)NAND_FLASH_SPI_CFG);
 			writel(SPI_CFG_VAL, (uintptr_t)NAND_FLASH_SPI_CFG);
 			writel((SPI_CFG_VAL & ~SPI_LOAD_CLK_CNTR_INIT_EN),
@@ -4208,8 +4196,13 @@ err_buf:
 	return ret;
 }
 
+static const struct target_varient_info qpic_v_2_1_1_info = {
+	.bam_cfg			= 0xffffffff & ~(1 << 11),
+	.bam_threshold_reg_write	= 1,
+};
+
 static const struct udevice_id qti_ver_ids[] = {
-	{ .compatible = "qti,spi-nand-v2.1.1", .data = QTI_V2_1_1},
+	{ .compatible = "qti,spi-nand-v2.1.1", .data = (ulong)&qpic_v_2_1_1_info},
 	{ },
 };
 
