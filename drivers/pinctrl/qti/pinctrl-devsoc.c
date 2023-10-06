@@ -20,6 +20,10 @@ static const struct pinctrl_function msm_pinctrl_functions[] = {
 	{"uart0_tx", 1},
 	{"uart1_rx", 1},
 	{"uart1_tx", 1},
+	{"spi0_miso", 1},
+	{"spi0_mosi", 1},
+	{"spi0_sclk", 1},
+	{"spi0_cs0", 1},
 };
 
 static const char *devsoc_get_function_name(struct udevice *dev,

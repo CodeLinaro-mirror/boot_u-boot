@@ -379,6 +379,15 @@ config SPI_QUP
 	  mode supports up to 50MHz, up to four chip selects, programmable
 	  data path from 4 bits to 32 bits and numerous protocol variants.
 
+config MSM_GENI_SPI
+	bool "Qualcomm SPI controller with QUPv3 interface"
+	depends on ARCH_IPQSOC
+	help
+	  This driver supports GENI serial engine based SPI controller in
+	  master mode on the Qualcomm Technologies Inc.'s SoCs. If you say
+	  yes to this option, support will be included for the built-in SPI
+	  interface on the Qualcomm Technologies Inc.'s SoCs.
+
 config RENESAS_RPC_SPI
 	bool "Renesas RPC SPI driver"
 	depends on RCAR_GEN3 || RZA1

@@ -2,658 +2,446 @@
 // Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
 // Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
 
-#include <linux/clk.h>
-#include <linux/dmaengine.h>
-#include <linux/dma-mapping.h>
-#include <linux/dma/qcom-gpi-dma.h>
-#include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/log2.h>
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/pm_opp.h>
-#include <linux/pm_runtime.h>
-#include <linux/qcom-geni-se.h>
-#include <linux/spi/spi.h>
-#include <linux/spinlock.h>
+#include <asm/gpio.h>
+#include <asm/io.h>
+#include <clk.h>
+#include <common.h>
+#include <dm.h>
+#include <errno.h>
+#include <linux/delay.h>
+#include <cpu_func.h>
+#include <spi.h>
+#include <misc.h>
 
 /* SPI SE specific registers and respective register fields */
-#define SE_SPI_CPHA		0x224
-#define CPHA			BIT(0)
+#define SE_SPI_CPHA			0x224
+#define CPHA				BIT(0)
 
-#define SE_SPI_LOOPBACK		0x22c
-#define LOOPBACK_ENABLE		0x1
-#define NORMAL_MODE		0x0
-#define LOOPBACK_MSK		GENMASK(1, 0)
+#define SE_SPI_LOOPBACK			0x22c
+#define LOOPBACK_ENABLE			0x1
 
-#define SE_SPI_CPOL		0x230
-#define CPOL			BIT(2)
+#define SE_SPI_CPOL			0x230
+#define CPOL				BIT(2)
 
-#define SE_SPI_DEMUX_OUTPUT_INV	0x24c
-#define CS_DEMUX_OUTPUT_INV_MSK	GENMASK(3, 0)
+#define SE_SPI_DEMUX_OUTPUT_INV		0x24c
+#define SE_SPI_DEMUX_SEL		0x250
 
-#define SE_SPI_DEMUX_SEL	0x250
-#define CS_DEMUX_OUTPUT_SEL	GENMASK(3, 0)
+#define SE_SPI_TRANS_CFG		0x25c
+#define CS_TOGGLE			BIT(0)
 
-#define SE_SPI_TRANS_CFG	0x25c
-#define CS_TOGGLE		BIT(0)
+#define SE_SPI_WORD_LEN			0x268
+#define WORD_LEN_MSK			GENMASK(9, 0)
+#define MIN_WORD_LEN			4
 
-#define SE_SPI_WORD_LEN		0x268
-#define WORD_LEN_MSK		GENMASK(9, 0)
-#define MIN_WORD_LEN		4
-
-#define SE_SPI_TX_TRANS_LEN	0x26c
-#define SE_SPI_RX_TRANS_LEN	0x270
-#define TRANS_LEN_MSK		GENMASK(23, 0)
-
-#define SE_SPI_PRE_POST_CMD_DLY	0x274
-
-#define SE_SPI_DELAY_COUNTERS	0x278
-#define SPI_INTER_WORDS_DELAY_MSK	GENMASK(9, 0)
-#define SPI_CS_CLK_DELAY_MSK		GENMASK(19, 10)
-#define SPI_CS_CLK_DELAY_SHFT		10
+#define SE_SPI_TX_TRANS_LEN		0x26c
+#define SE_SPI_RX_TRANS_LEN		0x270
+#define TRANS_LEN_MSK			GENMASK(23, 0)
 
 /* M_CMD OP codes for SPI */
-#define SPI_TX_ONLY		1
-#define SPI_RX_ONLY		2
-#define SPI_TX_RX		7
-#define SPI_CS_ASSERT		8
-#define SPI_CS_DEASSERT		9
-#define SPI_SCK_ONLY		10
+#define SPI_TX_ONLY			1
+#define SPI_RX_ONLY			2
+
 /* M_CMD params for SPI */
-#define SPI_PRE_CMD_DELAY	BIT(0)
-#define TIMESTAMP_BEFORE	BIT(1)
-#define FRAGMENTATION		BIT(2)
-#define TIMESTAMP_AFTER		BIT(3)
-#define POST_CMD_DELAY		BIT(4)
+#define FRAGMENTATION			BIT(2)
 
-#define GSI_LOOPBACK_EN		BIT(0)
-#define GSI_CS_TOGGLE		BIT(3)
-#define GSI_CPHA		BIT(4)
-#define GSI_CPOL		BIT(5)
+/* GENI SE QUP Registers */
+#define QUP_HW_VER_REG			0x4
+#define QUP_SE_VERSION_1_0		0x10000000
+#define QUP_SE_VERSION_3_10		0x300A0000
 
-struct spi_geni_master {
-	struct geni_se se;
-	struct device *dev;
-	u32 tx_fifo_depth;
-	u32 fifo_width_bits;
-	u32 tx_wm;
-	u32 last_mode;
-	unsigned long cur_speed_hz;
-	unsigned long cur_sclk_hz;
-	unsigned int cur_bits_per_word;
-	unsigned int tx_rem_bytes;
-	unsigned int rx_rem_bytes;
-	const struct spi_transfer *cur_xfer;
-	struct completion cs_done;
-	struct completion cancel_done;
-	struct completion abort_done;
-	unsigned int oversampling;
-	spinlock_t lock;
-	int irq;
-	bool cs_flag;
-	bool abort_failed;
-	struct dma_chan *tx;
-	struct dma_chan *rx;
-	int cur_xfer_mode;
+/* Registers*/
+#define GENI_SER_M_CLK_CFG		0x48
+#define SE_HW_PARAM_0			0xE24
+#define SE_GENI_M_CMD0			0x600
+#define SE_GENI_M_CMD_CTRL_REG          0x604
+#define SE_GENI_M_IRQ_CLEAR		0x618
+#define SE_GENI_M_IRQ_STATUS		0x610
+#define SE_GENI_M_IRQ_EN		0x614
+#define SE_GENI_S_IRQ_CLEAR             0x648
+#define SE_GENI_TX_FIFOn		0x700
+#define SE_GENI_RX_FIFOn		0x780
+#define SE_GENI_RX_FIFO_STATUS		0x804
+#define SE_GENI_TX_WATERMARK_REG	0x80C
+#define SE_GENI_TX_PACKING_CFG0		0x260
+#define SE_GENI_TX_PACKING_CFG1		0x264
+#define SE_GENI_RX_PACKING_CFG0		0x284
+#define SE_GENI_RX_PACKING_CFG1		0x288
+
+#define NUM_PACKING_VECTORS		4
+#define PACKING_START_SHIFT		5
+#define PACKING_DIR_SHIFT		4
+#define PACKING_LEN_SHIFT		1
+#define PACKING_STOP_BIT		BIT(0)
+#define PACKING_VECTOR_SHIFT		10
+
+/* GENI_OUTPUT_CTRL fields */
+#define SE_GENI_RX_WATERMARK_REG	0x810
+#define SE_GENI_RX_RFR_WATERMARK_REG	0x814
+#define SE_DMA_TX_IRQ_STAT		0xc40
+#define SE_DMA_TX_IRQ_CLR		0xc44
+#define SE_DMA_RX_IRQ_STAT		0xd40
+#define SE_DMA_RX_IRQ_CLR		0xd44
+#define SE_GENI_BYTE_GRAN		0x254
+
+/* GENI_SER_M_CLK_CFG/GENI_SER_S_CLK_CFG */
+#define SER_CLK_EN			(BIT(0))
+#define CLK_DIV_SHFT			4
+
+/* SE_HW_PARAM_0 fields */
+#define TX_FIFO_WIDTH_MSK		(GENMASK(29, 24))
+#define TX_FIFO_WIDTH_SHFT		24
+#define TX_FIFO_DEPTH_MSK_256B		(GENMASK(23, 16))
+#define TX_FIFO_DEPTH_MSK		(GENMASK(21, 16))
+#define TX_FIFO_DEPTH_SHFT		16
+
+/* GENI_M_CMD_CTRL_REG */
+#define M_GENI_CMD_CANCEL		BIT(2)
+#define M_GENI_CMD_ABORT		BIT(1)
+#define SE_IRQ_EN			0xe1c
+
+/* SE_IRQ_EN fields */
+#define DMA_RX_IRQ_EN			BIT(0)
+#define DMA_TX_IRQ_EN			BIT(1)
+#define GENI_M_IRQ_EN			BIT(2)
+#define GENI_S_IRQ_EN			BIT(3)
+
+#define SE_GENI_DMA_MODE_EN		0x258
+/* SE_GENI_DMA_MODE_EN */
+#define GENI_DMA_MODE_EN		BIT(0)
+#define SE_GSI_EVENT_EN			0xe18
+
+/* GENI_M_IRQ_EN fields */
+#define M_CMD_DONE_EN			BIT(0)
+#define M_CMD_OVERRUN_EN		BIT(1)
+#define M_ILLEGAL_CMD_EN		BIT(2)
+#define M_CMD_FAILURE_EN		BIT(3)
+#define M_CMD_CANCEL_EN			BIT(4)
+#define M_CMD_ABORT_EN			BIT(5)
+#define M_IO_DATA_DEASSERT_EN		BIT(22)
+#define M_IO_DATA_ASSERT_EN		BIT(23)
+#define M_RX_FIFO_RD_ERR_EN		BIT(24)
+#define M_RX_FIFO_WR_ERR_EN		BIT(25)
+#define M_RX_FIFO_WATERMARK_EN		BIT(26)
+#define M_RX_FIFO_LAST_EN		BIT(27)
+#define M_TX_FIFO_RD_ERR_EN		BIT(28)
+#define M_TX_FIFO_WR_ERR_EN		BIT(29)
+#define M_TX_FIFO_WATERMARK_EN		BIT(30)
+
+#define M_COMMON_GENI_M_IRQ_EN		(GENMASK(6, 1) | \
+			M_IO_DATA_DEASSERT_EN | \
+			M_IO_DATA_ASSERT_EN | M_RX_FIFO_RD_ERR_EN | \
+			M_RX_FIFO_WR_ERR_EN | M_TX_FIFO_RD_ERR_EN | \
+			M_TX_FIFO_WR_ERR_EN)
+
+#define M_OPCODE_SHFT			27
+#define M_PARAMS_MSK			GENMASK(26, 0)
+
+/*  GENI_RX_FIFO_STATUS fields */
+#define RX_LAST				BIT(31)
+#define RX_LAST_BYTE_VALID_MSK		GENMASK(30, 28)
+#define RX_LAST_BYTE_VALID_SHFT		28
+#define RX_FIFO_WC_MSK			GENMASK(24, 0)
+
+/* SE_DMA_TX_IRQ_STAT Register fields */
+#define TX_DMA_DONE			BIT(0)
+#define TX_RESET_DONE			BIT(3)
+
+/* SE_DMA_RX_IRQ_STAT Register fields */
+#define RX_DMA_DONE			BIT(0)
+#define RX_RESET_DONE			BIT(3)
+
+#define GENI_SE_DMA_DONE_EN		BIT(0)
+#define GENI_SE_DMA_EOT_EN		BIT(1)
+#define GENI_SE_DMA_AHB_ERR_EN		BIT(2)
+#define GENI_SE_DMA_EOT_BUF		BIT(0)
+
+#define SE_DMA_TX_PTR_L			0xc30
+#define SE_DMA_TX_PTR_H			0xc34
+#define SE_DMA_TX_ATTR			0xc38
+#define SE_DMA_TX_LEN			0xc3c
+#define SE_DMA_TX_IRQ_EN_SET		0xc4c
+#define SE_DMA_TX_FSM_RST		0xc58
+#define SE_DMA_RX_PTR_L			0xd30
+#define SE_DMA_RX_PTR_H			0xd34
+#define SE_DMA_RX_ATTR			0xd38
+#define SE_DMA_RX_LEN			0xd3c
+#define SE_DMA_RX_IRQ_EN_SET		0xd4c
+#define SE_DMA_RX_FSM_RST		0xd58
+
+#define SPI_BITLEN_MSK			0x07
+#define MAX_TIMEOUT			10
+
+enum geni_se_xfer_status {
+	XFER_IN_PROGRESS = 0,
+	XFER_COMPLETE,
+	XFER_ERR,
 };
 
-static int get_spi_clk_cfg(unsigned int speed_hz,
-			struct spi_geni_master *mas,
-			unsigned int *clk_idx,
-			unsigned int *clk_div)
-{
-	unsigned long sclk_freq;
-	unsigned int actual_hz;
-	int ret;
+struct qupv3_spi_xfer_info {
+	u8 *tx_buf;
+	u32 tx_rem;
+	u8 *rx_buf;
+	u32 rx_rem;
+	u32 len;
+	bool is_end;
+	uint8_t dma_mode;
+	uint8_t stat;
+};
 
-	ret = geni_se_clk_freq_match(&mas->se,
-				speed_hz * mas->oversampling,
-				clk_idx, &sclk_freq, false);
-	if (ret) {
-		dev_err(mas->dev, "Failed(%d) to find src clk for %dHz\n",
-							ret, speed_hz);
-		return ret;
+struct qupv3_spi_priv {
+	phys_addr_t base;
+	struct clk clk;
+	bool dma_disable;
+	bool cs_high;
+	uint8_t num_cs;
+	uint8_t bits_per_word;
+	uint32_t max_hz;
+	uint32_t bus_speed;
+	uint8_t oversampling;
+	uint32_t tx_fifo_depth;
+	uint32_t fifo_width_bits;
+	uint32_t geni_se_version;
+};
+
+static void geni_cfg_sclk(phys_addr_t base_address, u32 clk_div)
+{
+	u32 clk_cfg = 0;
+
+	clk_cfg |= SER_CLK_EN;
+	clk_cfg |= (clk_div << CLK_DIV_SHFT);
+
+	writel(clk_cfg, base_address + GENI_SER_M_CLK_CFG);
+}
+
+static int qupv3_spi_set_speed(struct udevice *dev, uint speed)
+{
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	u32 clk_div, desired_hz = speed * priv->oversampling;
+
+	if (desired_hz == priv->bus_speed)
+		return 0;
+
+	if (desired_hz > priv->max_hz)
+		return -EINVAL;
+
+	clk_div = priv->max_hz / desired_hz;
+	clk_div += ((priv->max_hz % desired_hz) ? 1 : 0);
+
+	if (clk_div > 0xFFFFF) {
+		pr_err("%s: Can't find matching DFS entry for speed %d\n",
+				__func__, desired_hz);
+		return -EINVAL;
 	}
 
-	*clk_div = DIV_ROUND_UP(sclk_freq, mas->oversampling * speed_hz);
-	actual_hz = sclk_freq / (mas->oversampling * *clk_div);
-
-	dev_dbg(mas->dev, "req %u=>%u sclk %lu, idx %d, div %d\n", speed_hz,
-				actual_hz, sclk_freq, *clk_idx, *clk_div);
-	ret = dev_pm_opp_set_rate(mas->dev, sclk_freq);
-	if (ret)
-		dev_err(mas->dev, "dev_pm_opp_set_rate failed %d\n", ret);
-	else
-		mas->cur_sclk_hz = sclk_freq;
-
-	return ret;
+	geni_cfg_sclk(priv->base, clk_div);
+	priv->bus_speed = desired_hz;
+	return 0;
 }
 
-static void handle_fifo_timeout(struct spi_master *spi,
-				struct spi_message *msg)
+static int qupv3_spi_set_mode(struct udevice *dev, uint mode)
 {
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	unsigned long time_left;
-	struct geni_se *se = &mas->se;
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	u32 cpha, cpol;
 
-	spin_lock_irq(&mas->lock);
-	reinit_completion(&mas->cancel_done);
-	writel(0, se->base + SE_GENI_TX_WATERMARK_REG);
-	mas->cur_xfer = NULL;
-	geni_se_cancel_m_cmd(se);
-	spin_unlock_irq(&mas->lock);
-
-	time_left = wait_for_completion_timeout(&mas->cancel_done, HZ);
-	if (time_left)
-		return;
-
-	spin_lock_irq(&mas->lock);
-	reinit_completion(&mas->abort_done);
-	geni_se_abort_m_cmd(se);
-	spin_unlock_irq(&mas->lock);
-
-	time_left = wait_for_completion_timeout(&mas->abort_done, HZ);
-	if (!time_left) {
-		dev_err(mas->dev, "Failed to cancel/abort m_cmd\n");
-
-		/*
-		 * No need for a lock since SPI core has a lock and we never
-		 * access this from an interrupt.
-		 */
-		mas->abort_failed = true;
-	}
-}
-
-static void handle_gpi_timeout(struct spi_master *spi, struct spi_message *msg)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-
-	dmaengine_terminate_sync(mas->tx);
-	dmaengine_terminate_sync(mas->rx);
-}
-
-static void spi_geni_handle_err(struct spi_master *spi, struct spi_message *msg)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-
-	switch (mas->cur_xfer_mode) {
-	case GENI_SE_FIFO:
-		handle_fifo_timeout(spi, msg);
+	switch (mode) {
+	case SPI_MODE_1:
+		cpol = 0;
+		cpha = CPHA;
 		break;
-	case GENI_GPI_DMA:
-		handle_gpi_timeout(spi, msg);
+	case SPI_MODE_2:
+		cpol = CPOL;
+		cpha = 0;
+		break;
+	case SPI_MODE_3:
+		cpol = CPOL;
+		cpha = CPHA;
 		break;
 	default:
-		dev_err(mas->dev, "Abort on Mode:%d not supported", mas->cur_xfer_mode);
-	}
-}
-
-static bool spi_geni_is_abort_still_pending(struct spi_geni_master *mas)
-{
-	struct geni_se *se = &mas->se;
-	u32 m_irq, m_irq_en;
-
-	if (!mas->abort_failed)
-		return false;
-
-	/*
-	 * The only known case where a transfer times out and then a cancel
-	 * times out then an abort times out is if something is blocking our
-	 * interrupt handler from running.  Avoid starting any new transfers
-	 * until that sorts itself out.
-	 */
-	spin_lock_irq(&mas->lock);
-	m_irq = readl(se->base + SE_GENI_M_IRQ_STATUS);
-	m_irq_en = readl(se->base + SE_GENI_M_IRQ_EN);
-	spin_unlock_irq(&mas->lock);
-
-	if (m_irq & m_irq_en) {
-		dev_err(mas->dev, "Interrupts pending after abort: %#010x\n",
-			m_irq & m_irq_en);
-		return true;
-	}
-
-	/*
-	 * If we're here the problem resolved itself so no need to check more
-	 * on future transfers.
-	 */
-	mas->abort_failed = false;
-
-	return false;
-}
-
-static void spi_geni_set_cs(struct spi_device *slv, bool set_flag)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(slv->master);
-	struct spi_master *spi = dev_get_drvdata(mas->dev);
-	struct geni_se *se = &mas->se;
-	unsigned long time_left;
-
-	if (!(slv->mode & SPI_CS_HIGH))
-		set_flag = !set_flag;
-
-	if (set_flag == mas->cs_flag)
-		return;
-
-	pm_runtime_get_sync(mas->dev);
-
-	if (spi_geni_is_abort_still_pending(mas)) {
-		dev_err(mas->dev, "Can't set chip select\n");
-		goto exit;
-	}
-
-	spin_lock_irq(&mas->lock);
-	if (mas->cur_xfer) {
-		dev_err(mas->dev, "Can't set CS when prev xfer running\n");
-		spin_unlock_irq(&mas->lock);
-		goto exit;
-	}
-
-	mas->cs_flag = set_flag;
-	reinit_completion(&mas->cs_done);
-	if (set_flag)
-		geni_se_setup_m_cmd(se, SPI_CS_ASSERT, 0);
-	else
-		geni_se_setup_m_cmd(se, SPI_CS_DEASSERT, 0);
-	spin_unlock_irq(&mas->lock);
-
-	time_left = wait_for_completion_timeout(&mas->cs_done, HZ);
-	if (!time_left) {
-		dev_warn(mas->dev, "Timeout setting chip select\n");
-		handle_fifo_timeout(spi, NULL);
-	}
-
-exit:
-	pm_runtime_put(mas->dev);
-}
-
-static void spi_setup_word_len(struct spi_geni_master *mas, u16 mode,
-					unsigned int bits_per_word)
-{
-	unsigned int pack_words;
-	bool msb_first = (mode & SPI_LSB_FIRST) ? false : true;
-	struct geni_se *se = &mas->se;
-	u32 word_len;
-
-	/*
-	 * If bits_per_word isn't a byte aligned value, set the packing to be
-	 * 1 SPI word per FIFO word.
-	 */
-	if (!(mas->fifo_width_bits % bits_per_word))
-		pack_words = mas->fifo_width_bits / bits_per_word;
-	else
-		pack_words = 1;
-	geni_se_config_packing(&mas->se, bits_per_word, pack_words, msb_first,
-								true, true);
-	word_len = (bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK;
-	writel(word_len, se->base + SE_SPI_WORD_LEN);
-}
-
-static int geni_spi_set_clock_and_bw(struct spi_geni_master *mas,
-					unsigned long clk_hz)
-{
-	u32 clk_sel, m_clk_cfg, idx, div;
-	struct geni_se *se = &mas->se;
-	int ret;
-
-	if (clk_hz == mas->cur_speed_hz)
-		return 0;
-
-	ret = get_spi_clk_cfg(clk_hz, mas, &idx, &div);
-	if (ret) {
-		dev_err(mas->dev, "Err setting clk to %lu: %d\n", clk_hz, ret);
-		return ret;
-	}
-
-	/*
-	 * SPI core clock gets configured with the requested frequency
-	 * or the frequency closer to the requested frequency.
-	 * For that reason requested frequency is stored in the
-	 * cur_speed_hz and referred in the consecutive transfer instead
-	 * of calling clk_get_rate() API.
-	 */
-	mas->cur_speed_hz = clk_hz;
-
-	clk_sel = idx & CLK_SEL_MSK;
-	m_clk_cfg = (div << CLK_DIV_SHFT) | SER_CLK_EN;
-	writel(clk_sel, se->base + SE_GENI_CLK_SEL);
-	writel(m_clk_cfg, se->base + GENI_SER_M_CLK_CFG);
-
-	/* Set BW quota for CPU as driver supports FIFO mode only. */
-	se->icc_paths[CPU_TO_GENI].avg_bw = Bps_to_icc(mas->cur_speed_hz);
-	ret = geni_icc_set_bw(se);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static int setup_fifo_params(struct spi_device *spi_slv,
-					struct spi_master *spi)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	struct geni_se *se = &mas->se;
-	u32 loopback_cfg = 0, cpol = 0, cpha = 0, demux_output_inv = 0;
-	u32 demux_sel;
-
-	if (mas->last_mode != spi_slv->mode) {
-		if (spi_slv->mode & SPI_LOOP)
-			loopback_cfg = LOOPBACK_ENABLE;
-
-		if (spi_slv->mode & SPI_CPOL)
-			cpol = CPOL;
-
-		if (spi_slv->mode & SPI_CPHA)
-			cpha = CPHA;
-
-		if (spi_slv->mode & SPI_CS_HIGH)
-			demux_output_inv = BIT(spi_slv->chip_select);
-
-		demux_sel = spi_slv->chip_select;
-		mas->cur_bits_per_word = spi_slv->bits_per_word;
-
-		spi_setup_word_len(mas, spi_slv->mode, spi_slv->bits_per_word);
-		writel(loopback_cfg, se->base + SE_SPI_LOOPBACK);
-		writel(demux_sel, se->base + SE_SPI_DEMUX_SEL);
-		writel(cpha, se->base + SE_SPI_CPHA);
-		writel(cpol, se->base + SE_SPI_CPOL);
-		writel(demux_output_inv, se->base + SE_SPI_DEMUX_OUTPUT_INV);
-
-		mas->last_mode = spi_slv->mode;
-	}
-
-	return geni_spi_set_clock_and_bw(mas, spi_slv->max_speed_hz);
-}
-
-static void
-spi_gsi_callback_result(void *cb, const struct dmaengine_result *result)
-{
-	struct spi_master *spi = cb;
-
-	spi->cur_msg->status = -EIO;
-	if (result->result != DMA_TRANS_NOERROR) {
-		dev_err(&spi->dev, "DMA txn failed: %d\n", result->result);
-		spi_finalize_current_transfer(spi);
-		return;
-	}
-
-	if (!result->residue) {
-		spi->cur_msg->status = 0;
-		dev_dbg(&spi->dev, "DMA txn completed\n");
-	} else {
-		dev_err(&spi->dev, "DMA xfer has pending: %d\n", result->residue);
-	}
-
-	spi_finalize_current_transfer(spi);
-}
-
-static int setup_gsi_xfer(struct spi_transfer *xfer, struct spi_geni_master *mas,
-			  struct spi_device *spi_slv, struct spi_master *spi)
-{
-	unsigned long flags = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
-	struct dma_slave_config config = {};
-	struct gpi_spi_config peripheral = {};
-	struct dma_async_tx_descriptor *tx_desc, *rx_desc;
-	int ret;
-
-	config.peripheral_config = &peripheral;
-	config.peripheral_size = sizeof(peripheral);
-	peripheral.set_config = true;
-
-	if (xfer->bits_per_word != mas->cur_bits_per_word ||
-	    xfer->speed_hz != mas->cur_speed_hz) {
-		mas->cur_bits_per_word = xfer->bits_per_word;
-		mas->cur_speed_hz = xfer->speed_hz;
-	}
-
-	if (xfer->tx_buf && xfer->rx_buf) {
-		peripheral.cmd = SPI_DUPLEX;
-	} else if (xfer->tx_buf) {
-		peripheral.cmd = SPI_TX;
-		peripheral.rx_len = 0;
-	} else if (xfer->rx_buf) {
-		peripheral.cmd = SPI_RX;
-		if (!(mas->cur_bits_per_word % MIN_WORD_LEN)) {
-			peripheral.rx_len = ((xfer->len << 3) / mas->cur_bits_per_word);
-		} else {
-			int bytes_per_word = (mas->cur_bits_per_word / BITS_PER_BYTE) + 1;
-
-			peripheral.rx_len = (xfer->len / bytes_per_word);
-		}
-	}
-
-	peripheral.loopback_en = !!(spi_slv->mode & SPI_LOOP);
-	peripheral.clock_pol_high = !!(spi_slv->mode & SPI_CPOL);
-	peripheral.data_pol_high = !!(spi_slv->mode & SPI_CPHA);
-	peripheral.cs = spi_slv->chip_select;
-	peripheral.pack_en = true;
-	peripheral.word_len = xfer->bits_per_word - MIN_WORD_LEN;
-
-	ret = get_spi_clk_cfg(mas->cur_speed_hz, mas,
-			      &peripheral.clk_src, &peripheral.clk_div);
-	if (ret) {
-		dev_err(mas->dev, "Err in get_spi_clk_cfg() :%d\n", ret);
-		return ret;
-	}
-
-	if (!xfer->cs_change) {
-		if (!list_is_last(&xfer->transfer_list, &spi->cur_msg->transfers))
-			peripheral.fragmentation = FRAGMENTATION;
-	}
-
-	if (peripheral.cmd & SPI_RX) {
-		dmaengine_slave_config(mas->rx, &config);
-		rx_desc = dmaengine_prep_slave_sg(mas->rx, xfer->rx_sg.sgl, xfer->rx_sg.nents,
-						  DMA_DEV_TO_MEM, flags);
-		if (!rx_desc) {
-			dev_err(mas->dev, "Err setting up rx desc\n");
-			return -EIO;
-		}
-	}
-
-	/*
-	 * Prepare the TX always, even for RX or tx_buf being null, we would
-	 * need TX to be prepared per GSI spec
-	 */
-	dmaengine_slave_config(mas->tx, &config);
-	tx_desc = dmaengine_prep_slave_sg(mas->tx, xfer->tx_sg.sgl, xfer->tx_sg.nents,
-					  DMA_MEM_TO_DEV, flags);
-	if (!tx_desc) {
-		dev_err(mas->dev, "Err setting up tx desc\n");
-		return -EIO;
-	}
-
-	tx_desc->callback_result = spi_gsi_callback_result;
-	tx_desc->callback_param = spi;
-
-	if (peripheral.cmd & SPI_RX)
-		dmaengine_submit(rx_desc);
-	dmaengine_submit(tx_desc);
-
-	if (peripheral.cmd & SPI_RX)
-		dma_async_issue_pending(mas->rx);
-
-	dma_async_issue_pending(mas->tx);
-	return 1;
-}
-
-static bool geni_can_dma(struct spi_controller *ctlr,
-			 struct spi_device *slv, struct spi_transfer *xfer)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(slv->master);
-
-	/* check if dma is supported */
-	return mas->cur_xfer_mode != GENI_SE_FIFO;
-}
-
-static int spi_geni_prepare_message(struct spi_master *spi,
-					struct spi_message *spi_msg)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	int ret;
-
-	switch (mas->cur_xfer_mode) {
-	case GENI_SE_FIFO:
-		if (spi_geni_is_abort_still_pending(mas))
-			return -EBUSY;
-		ret = setup_fifo_params(spi_msg->spi, spi);
-		if (ret)
-			dev_err(mas->dev, "Couldn't select mode %d\n", ret);
-		return ret;
-
-	case GENI_GPI_DMA:
-		/* nothing to do for GPI DMA */
-		return 0;
-	}
-
-	dev_err(mas->dev, "Mode not supported %d", mas->cur_xfer_mode);
-	return -EINVAL;
-}
-
-static int spi_geni_grab_gpi_chan(struct spi_geni_master *mas)
-{
-	int ret;
-
-	mas->tx = dma_request_chan(mas->dev, "tx");
-	if (IS_ERR(mas->tx)) {
-		ret = dev_err_probe(mas->dev, PTR_ERR(mas->tx),
-				    "Failed to get tx DMA ch\n");
-		goto err_tx;
-	}
-
-	mas->rx = dma_request_chan(mas->dev, "rx");
-	if (IS_ERR(mas->rx)) {
-		ret = dev_err_probe(mas->dev, PTR_ERR(mas->rx),
-				    "Failed to get rx DMA ch\n");
-		goto err_rx;
-	}
-
-	return 0;
-
-err_rx:
-	mas->rx = NULL;
-	dma_release_channel(mas->tx);
-err_tx:
-	mas->tx = NULL;
-	return ret;
-}
-
-static void spi_geni_release_dma_chan(struct spi_geni_master *mas)
-{
-	if (mas->rx) {
-		dma_release_channel(mas->rx);
-		mas->rx = NULL;
-	}
-
-	if (mas->tx) {
-		dma_release_channel(mas->tx);
-		mas->tx = NULL;
-	}
-}
-
-static int spi_geni_init(struct spi_geni_master *mas)
-{
-	struct geni_se *se = &mas->se;
-	unsigned int proto, major, minor, ver;
-	u32 spi_tx_cfg, fifo_disable;
-	int ret = -ENXIO;
-
-	pm_runtime_get_sync(mas->dev);
-
-	proto = geni_se_read_proto(se);
-	if (proto != GENI_SE_SPI) {
-		dev_err(mas->dev, "Invalid proto %d\n", proto);
-		goto out_pm;
-	}
-	mas->tx_fifo_depth = geni_se_get_tx_fifo_depth(se);
-
-	/* Width of Tx and Rx FIFO is same */
-	mas->fifo_width_bits = geni_se_get_tx_fifo_width(se);
-
-	/*
-	 * Hardware programming guide suggests to configure
-	 * RX FIFO RFR level to fifo_depth-2.
-	 */
-	geni_se_init(se, mas->tx_fifo_depth - 3, mas->tx_fifo_depth - 2);
-	/* Transmit an entire FIFO worth of data per IRQ */
-	mas->tx_wm = 1;
-	ver = geni_se_get_qup_hw_version(se);
-	major = GENI_SE_VERSION_MAJOR(ver);
-	minor = GENI_SE_VERSION_MINOR(ver);
-
-	if (major == 1 && minor == 0)
-		mas->oversampling = 2;
-	else
-		mas->oversampling = 1;
-
-	fifo_disable = readl(se->base + GENI_IF_DISABLE_RO) & FIFO_IF_DISABLE;
-	switch (fifo_disable) {
-	case 1:
-		ret = spi_geni_grab_gpi_chan(mas);
-		if (!ret) { /* success case */
-			mas->cur_xfer_mode = GENI_GPI_DMA;
-			geni_se_select_mode(se, GENI_GPI_DMA);
-			dev_dbg(mas->dev, "Using GPI DMA mode for SPI\n");
-			break;
-		}
-		/*
-		 * in case of failure to get dma channel, we can still do the
-		 * FIFO mode, so fallthrough
-		 */
-		dev_warn(mas->dev, "FIFO mode disabled, but couldn't get DMA, fall back to FIFO mode\n");
-		fallthrough;
-
-	case 0:
-		mas->cur_xfer_mode = GENI_SE_FIFO;
-		geni_se_select_mode(se, GENI_SE_FIFO);
-		ret = 0;
+	case SPI_MODE_0:
+		cpol = 0;
+		cpha = 0;
 		break;
 	}
 
-	/* We always control CS manually */
-	spi_tx_cfg = readl(se->base + SE_SPI_TRANS_CFG);
-	spi_tx_cfg &= ~CS_TOGGLE;
-	writel(spi_tx_cfg, se->base + SE_SPI_TRANS_CFG);
-
-out_pm:
-	pm_runtime_put(mas->dev);
-	return ret;
-}
-
-static unsigned int geni_byte_per_fifo_word(struct spi_geni_master *mas)
-{
-	/*
-	 * Calculate how many bytes we'll put in each FIFO word.  If the
-	 * transfer words don't pack cleanly into a FIFO word we'll just put
-	 * one transfer word in each FIFO word.  If they do pack we'll pack 'em.
-	 */
-	if (mas->fifo_width_bits % mas->cur_bits_per_word)
-		return roundup_pow_of_two(DIV_ROUND_UP(mas->cur_bits_per_word,
-						       BITS_PER_BYTE));
-
-	return mas->fifo_width_bits / BITS_PER_BYTE;
-}
-
-static bool geni_spi_handle_tx(struct spi_geni_master *mas)
-{
-	struct geni_se *se = &mas->se;
-	unsigned int max_bytes;
-	const u8 *tx_buf;
-	unsigned int bytes_per_fifo_word = geni_byte_per_fifo_word(mas);
-	unsigned int i = 0;
-
-	/* Stop the watermark IRQ if nothing to send */
-	if (!mas->cur_xfer) {
-		writel(0, se->base + SE_GENI_TX_WATERMARK_REG);
-		return false;
+	if (mode & SPI_LOOP) {
+		writel(LOOPBACK_ENABLE, priv->base + SE_SPI_LOOPBACK);
 	}
 
-	max_bytes = (mas->tx_fifo_depth - mas->tx_wm) * bytes_per_fifo_word;
-	if (mas->tx_rem_bytes < max_bytes)
-		max_bytes = mas->tx_rem_bytes;
+	writel(cpha, priv->base + SE_SPI_CPHA);
+	writel(cpol, priv->base + SE_SPI_CPOL);
 
-	tx_buf = mas->cur_xfer->tx_buf + mas->cur_xfer->len - mas->tx_rem_bytes;
+	if (mode & SPI_CS_HIGH)
+		priv->cs_high = true;
+	else
+		priv->cs_high = false;
+
+	return 0;
+}
+
+static void geni_se_setup_m_cmd(phys_addr_t base, u32 cmd, u32 params)
+{
+	u32 m_cmd;
+
+	m_cmd = (cmd << M_OPCODE_SHFT) | (params & M_PARAMS_MSK);
+	writel(m_cmd, base + SE_GENI_M_CMD0);
+}
+
+static void geni_se_io_set_mode(phys_addr_t base)
+{
+	u32 val;
+
+	val = readl(base + SE_IRQ_EN);
+	val |= GENI_M_IRQ_EN | GENI_S_IRQ_EN;
+	val |= DMA_TX_IRQ_EN | DMA_RX_IRQ_EN;
+	writel(val, base + SE_IRQ_EN);
+
+	val = readl(base + SE_GENI_DMA_MODE_EN);
+	val &= ~GENI_DMA_MODE_EN;
+	writel(val, base + SE_GENI_DMA_MODE_EN);
+
+	writel(0, base + SE_GSI_EVENT_EN);
+}
+
+static void geni_se_irq_clear(phys_addr_t base)
+{
+	writel(0xffffffff, base + SE_GENI_M_IRQ_CLEAR);
+	writel(0xffffffff, base + SE_GENI_S_IRQ_CLEAR);
+	writel(0xffffffff, base + SE_DMA_TX_IRQ_CLR);
+	writel(0xffffffff, base + SE_DMA_RX_IRQ_CLR);
+	writel(0xffffffff, base + SE_IRQ_EN);
+}
+
+static void geni_se_config_fifo_mode(phys_addr_t base)
+{
+	u32 val, val_old;
+
+	geni_se_irq_clear(base);
+
+	val_old = val = readl(base + SE_GENI_M_IRQ_EN);
+	val |= M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN;
+	val |= M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN;
+	if (val != val_old) {
+		writel(val, base + SE_GENI_M_IRQ_EN);
+	}
+
+	val_old = val = readl(base + SE_GENI_DMA_MODE_EN);
+	val &= ~GENI_DMA_MODE_EN;
+	if (val != val_old) {
+		writel(val, base + SE_GENI_DMA_MODE_EN);
+	}
+}
+
+static void geni_se_config_packing(struct udevice *dev, int bpw,
+		bool msb_to_lsb, bool tx_cfg, bool rx_cfg)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	u32 cfg0, cfg1, cfg[NUM_PACKING_VECTORS] = {0};
+	int len;
+	int temp_bpw = bpw;
+	int idx_start = msb_to_lsb ? bpw - 1 : 0;
+	int idx = idx_start;
+	int idx_delta = msb_to_lsb ? -BITS_PER_BYTE : BITS_PER_BYTE;
+	int i, iter;
+	unsigned int pack_words, ceil_bpw;
+
+	if (bpw <= 8)
+		pack_words = 4;
+	else if (bpw <= 16)
+		pack_words = 2;
+	else
+		pack_words = 1;
+
+	ceil_bpw = (bpw & (BITS_PER_BYTE - 1)) ?
+		((bpw & ~(BITS_PER_BYTE - 1)) + BITS_PER_BYTE) : bpw;
+
+	iter = (ceil_bpw * pack_words) >> 3;
+	if (iter <= 0 || iter > NUM_PACKING_VECTORS)
+		return;
+
+	for (i = 0; i < iter; i++) {
+		len = min_t(int, temp_bpw, BITS_PER_BYTE) - 1;
+		cfg[i] = idx << PACKING_START_SHIFT;
+		cfg[i] |= msb_to_lsb << PACKING_DIR_SHIFT;
+		cfg[i] |= len << PACKING_LEN_SHIFT;
+
+		if (temp_bpw <= BITS_PER_BYTE) {
+			idx = ((i + 1) * BITS_PER_BYTE) + idx_start;
+			temp_bpw = bpw;
+		} else {
+			idx = idx + idx_delta;
+			temp_bpw = temp_bpw - BITS_PER_BYTE;
+		}
+	}
+	cfg[iter - 1] |= PACKING_STOP_BIT;
+	cfg0 = cfg[0] | (cfg[1] << PACKING_VECTOR_SHIFT);
+	cfg1 = cfg[2] | (cfg[3] << PACKING_VECTOR_SHIFT);
+
+	if (tx_cfg) {
+		writel(cfg0, priv->base + SE_GENI_TX_PACKING_CFG0);
+		writel(cfg1, priv->base + SE_GENI_TX_PACKING_CFG1);
+	}
+	if (rx_cfg) {
+		writel(cfg0, priv->base + SE_GENI_RX_PACKING_CFG0);
+		writel(cfg1, priv->base + SE_GENI_RX_PACKING_CFG1);
+	}
+
+	/*
+	 * Number of protocol words in each FIFO entry
+	 * 0 - 4x8, four words in each entry, max word size of 8 bits
+	 * 1 - 2x16, two words in each entry, max word size of 16 bits
+	 * 2 - 1x32, one word in each entry, max word size of 32 bits
+	 * 3 - undefined
+	 */
+	if (pack_words || bpw == 32) {
+		writel(bpw / 16, priv->base + SE_GENI_BYTE_GRAN);
+	}
+}
+
+static int qupv3_spi_claim_bus(struct udevice *dev)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	struct dm_spi_slave_plat *slave_plat = dev_get_parent_plat(dev);
+	struct spi_slave *slave = dev_get_parent_priv(dev);
+
+	writel(slave_plat->cs, priv->base + SE_SPI_DEMUX_SEL);
+	if (priv->cs_high)
+		writel(BIT(slave_plat->cs),
+				priv->base + SE_SPI_DEMUX_OUTPUT_INV);
+
+	priv->bits_per_word = slave->wordlen;
+	geni_se_config_packing(dev, priv->bits_per_word,
+			!(slave_plat->mode & SPI_LSB_FIRST), true, true);
+	writel(((priv->bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK),
+			priv->base + SE_SPI_WORD_LEN);
+
+	return 0;
+}
+
+static unsigned int geni_byte_per_fifo_word(struct udevice *dev)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+
+	return priv->fifo_width_bits / BITS_PER_BYTE;
+}
+
+static void geni_spi_handle_tx(struct udevice *dev,
+		struct qupv3_spi_xfer_info* xfer)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	unsigned int max_bytes;
+	const u8 *tx_buf;
+	unsigned int bytes_per_fifo_word = geni_byte_per_fifo_word(dev);
+	unsigned int i = 0;
+
+	max_bytes = (priv->tx_fifo_depth - 1) * bytes_per_fifo_word;
+	if (xfer->tx_rem < max_bytes)
+		max_bytes = xfer->tx_rem;
+
+	tx_buf = xfer->tx_buf + xfer->len - xfer->tx_rem;
 	while (i < max_bytes) {
 		unsigned int j;
 		unsigned int bytes_to_write;
@@ -663,27 +451,31 @@ static bool geni_spi_handle_tx(struct spi_geni_master *mas)
 		bytes_to_write = min(bytes_per_fifo_word, max_bytes - i);
 		for (j = 0; j < bytes_to_write; j++)
 			fifo_byte[j] = tx_buf[i++];
-		iowrite32_rep(se->base + SE_GENI_TX_FIFOn, &fifo_word, 1);
+		writel(fifo_word, priv->base + SE_GENI_TX_FIFOn);
 	}
-	mas->tx_rem_bytes -= max_bytes;
-	if (!mas->tx_rem_bytes) {
-		writel(0, se->base + SE_GENI_TX_WATERMARK_REG);
-		return false;
+
+	xfer->tx_rem -= max_bytes;
+
+	if (!xfer->tx_rem) {
+		writel(0, priv->base + SE_GENI_TX_WATERMARK_REG);
 	}
-	return true;
+
+	return;
 }
 
-static void geni_spi_handle_rx(struct spi_geni_master *mas)
+static void geni_spi_handle_rx(struct udevice *dev,
+		struct qupv3_spi_xfer_info* xfer)
 {
-	struct geni_se *se = &mas->se;
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
 	u32 rx_fifo_status;
 	unsigned int rx_bytes;
 	unsigned int rx_last_byte_valid;
 	u8 *rx_buf;
-	unsigned int bytes_per_fifo_word = geni_byte_per_fifo_word(mas);
+	unsigned int bytes_per_fifo_word = geni_byte_per_fifo_word(dev);
 	unsigned int i = 0;
 
-	rx_fifo_status = readl(se->base + SE_GENI_RX_FIFO_STATUS);
+	rx_fifo_status = readl(priv->base + SE_GENI_RX_FIFO_STATUS);
 	rx_bytes = (rx_fifo_status & RX_FIFO_WC_MSK) * bytes_per_fifo_word;
 	if (rx_fifo_status & RX_LAST) {
 		rx_last_byte_valid = rx_fifo_status & RX_LAST_BYTE_VALID_MSK;
@@ -692,17 +484,17 @@ static void geni_spi_handle_rx(struct spi_geni_master *mas)
 			rx_bytes -= bytes_per_fifo_word - rx_last_byte_valid;
 	}
 
-	/* Clear out the FIFO and bail if nowhere to put it */
-	if (!mas->cur_xfer) {
-		for (i = 0; i < DIV_ROUND_UP(rx_bytes, bytes_per_fifo_word); i++)
-			readl(se->base + SE_GENI_RX_FIFOn);
+	if (!xfer->rx_buf) {
+		for (i = 0; i < DIV_ROUND_UP(rx_bytes,
+					bytes_per_fifo_word); i++)
+			readl(priv->base + SE_GENI_RX_FIFOn);
 		return;
 	}
 
-	if (mas->rx_rem_bytes < rx_bytes)
-		rx_bytes = mas->rx_rem_bytes;
+	if (xfer->rx_rem < rx_bytes)
+		rx_bytes = xfer->rx_rem;
 
-	rx_buf = mas->cur_xfer->rx_buf + mas->cur_xfer->len - mas->rx_rem_bytes;
+	rx_buf = xfer->rx_buf + xfer->len - xfer->rx_rem;
 	while (i < rx_bytes) {
 		u32 fifo_word = 0;
 		u8 *fifo_byte = (u8 *)&fifo_word;
@@ -710,406 +502,452 @@ static void geni_spi_handle_rx(struct spi_geni_master *mas)
 		unsigned int j;
 
 		bytes_to_read = min(bytes_per_fifo_word, rx_bytes - i);
-		ioread32_rep(se->base + SE_GENI_RX_FIFOn, &fifo_word, 1);
+		fifo_word = readl(priv->base + SE_GENI_RX_FIFOn);
 		for (j = 0; j < bytes_to_read; j++)
 			rx_buf[i++] = fifo_byte[j];
 	}
-	mas->rx_rem_bytes -= rx_bytes;
-}
-static uint32 spi_iface_num_transfers(uint32 num_bytes, uint8 word_size)
-{
-    uint32 num_transfers = 0;
-    if (word_size > 16) {
-        num_transfers = num_bytes / sizeof(uint32);
-    }
-    else if (word_size > 8) {
-        num_transfers = num_bytes / sizeof(uint16);
-    }
-    else {
-        num_transfers = num_bytes;
-    }
-    return num_transfers;
+	xfer->rx_rem -= rx_bytes;
 }
 
-static void setup_fifo_xfer(struct spi_transfer *xfer,
-				struct spi_geni_master *mas,
-				u16 mode, struct spi_master *spi)
+static void geni_spi_isr(struct udevice *dev, struct qupv3_spi_xfer_info* xfer)
 {
-	u32 m_cmd = 0;
-	u32 len;
-	struct geni_se *se = &mas->se;
-	int ret;
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	u32 m_irq;
 
-	/*
-	 * Ensure that our interrupt handler isn't still running from some
-	 * prior command before we start messing with the hardware behind
-	 * its back.  We don't need to _keep_ the lock here since we're only
-	 * worried about racing with out interrupt handler.  The SPI core
-	 * already handles making sure that we're not trying to do two
-	 * transfers at once or setting a chip select and doing a transfer
-	 * concurrently.
-	 *
-	 * NOTE: we actually _can't_ hold the lock here because possibly we
-	 * might call clk_set_rate() which needs to be able to sleep.
-	 */
-	spin_lock_irq(&mas->lock);
-	spin_unlock_irq(&mas->lock);
-
-	if (xfer->bits_per_word != mas->cur_bits_per_word) {
-		spi_setup_word_len(mas, mode, xfer->bits_per_word);
-		mas->cur_bits_per_word = xfer->bits_per_word;
-	}
-
-	/* Speed and bits per word can be overridden per transfer */
-	ret = geni_spi_set_clock_and_bw(mas, xfer->speed_hz);
-	if (ret)
+	m_irq = readl(priv->base + SE_GENI_M_IRQ_STATUS);
+	if (!m_irq)
 		return;
 
-	mas->tx_rem_bytes = 0;
-	mas->rx_rem_bytes = 0;
+	if (m_irq & (M_CMD_OVERRUN_EN | M_ILLEGAL_CMD_EN | M_CMD_FAILURE_EN |
+				M_RX_FIFO_RD_ERR_EN | M_RX_FIFO_WR_ERR_EN |
+				M_TX_FIFO_RD_ERR_EN | M_TX_FIFO_WR_ERR_EN)) {
+		printf("%s: Unexpected IRQ err status %#010x\n",
+				__func__, m_irq);
+		xfer->stat = XFER_ERR;
+	}
 
-#if 1
-	len = spi_iface_num_transfers(xfer->len, mas->cur_bits_per_word);
-#else
-	if (!(mas->cur_bits_per_word % MIN_WORD_LEN))
-		len = xfer->len * BITS_PER_BYTE / mas->cur_bits_per_word;
+	if (xfer->dma_mode) {
+                u32 dma_tx_status = readl(priv->base + SE_DMA_TX_IRQ_STAT);
+                u32 dma_rx_status = readl(priv->base + SE_DMA_RX_IRQ_STAT);
+
+                if (dma_tx_status)
+                        writel(dma_tx_status, priv->base + SE_DMA_TX_IRQ_CLR);
+                if (dma_rx_status)
+                        writel(dma_rx_status, priv->base + SE_DMA_RX_IRQ_CLR);
+                if (dma_tx_status & TX_DMA_DONE)
+                        xfer->tx_rem = 0;
+                if (dma_rx_status & RX_DMA_DONE) {
+			flush_cache((unsigned long)xfer->rx_buf,
+					(unsigned long)xfer->rx_rem);
+                        xfer->rx_rem = 0;
+		}
+
+		if (!xfer->rx_rem && !xfer->tx_rem)
+			xfer->stat = XFER_COMPLETE;
+	} else {
+		if ((m_irq & M_RX_FIFO_WATERMARK_EN) ||
+				(m_irq & M_RX_FIFO_LAST_EN))
+			geni_spi_handle_rx(dev, xfer);
+
+		if (m_irq & M_TX_FIFO_WATERMARK_EN)
+			geni_spi_handle_tx(dev, xfer);
+
+		if (m_irq & M_CMD_DONE_EN) {
+			xfer->stat = XFER_COMPLETE;
+			if (xfer->tx_rem) {
+				xfer->stat = XFER_ERR;
+				printf("%s: Premature done. tx_rem = %d\n",
+						__func__, xfer->tx_rem);
+			}
+
+			if (xfer->rx_rem) {
+				xfer->stat = XFER_ERR;
+				printf("%s: Premature done. rx_rem = %d\n",
+						__func__, xfer->rx_rem);
+			}
+		}
+	}
+
+	writel(m_irq, priv->base + SE_GENI_M_IRQ_CLEAR);
+	return;
+}
+
+
+static void geni_se_tx_dma_prep(struct udevice *dev,
+					dma_addr_t buf, size_t len)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	u32 val;
+
+	flush_cache((unsigned long)buf, (unsigned long)len);
+	val = GENI_SE_DMA_DONE_EN;
+	val |= GENI_SE_DMA_EOT_EN;
+	val |= GENI_SE_DMA_AHB_ERR_EN;
+	writel(val, priv->base + SE_DMA_TX_IRQ_EN_SET);
+	writel(lower_32_bits(buf), priv->base + SE_DMA_TX_PTR_L);
+	writel(upper_32_bits(buf), priv->base + SE_DMA_TX_PTR_H);
+	writel(GENI_SE_DMA_EOT_BUF, priv->base + SE_DMA_TX_ATTR);
+	writel(len, priv->base + SE_DMA_TX_LEN);
+	return;
+}
+
+static void geni_se_rx_dma_prep(struct udevice *dev,
+					dma_addr_t buf, size_t len)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	u32 val;
+
+	flush_cache((unsigned long)buf, (unsigned long)len);
+	val = GENI_SE_DMA_DONE_EN;
+	val |= GENI_SE_DMA_EOT_EN;
+	val |= GENI_SE_DMA_AHB_ERR_EN;
+	writel(val, priv->base + SE_DMA_RX_IRQ_EN_SET);
+	writel(lower_32_bits(buf), priv->base + SE_DMA_RX_PTR_L);
+	writel(upper_32_bits(buf), priv->base + SE_DMA_RX_PTR_H);
+
+	/* RX does not have EOT buffer type bit. So just reset RX_ATTR */
+	writel(0, priv->base + SE_DMA_RX_ATTR);
+	writel(len, priv->base + SE_DMA_RX_LEN);
+	return;
+}
+
+static void geni_se_config_dma_mode(phys_addr_t base)
+{
+	u32 val, val_old;
+
+	geni_se_irq_clear(base);
+
+	val_old = val = readl(base + SE_GENI_M_IRQ_EN);
+	val &= ~(M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN);
+	val &= ~(M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN);
+	if (val != val_old)
+		writel(val, base + SE_GENI_M_IRQ_EN);
+
+	val_old = val = readl(base + SE_GENI_DMA_MODE_EN);
+	val |= GENI_DMA_MODE_EN;
+	if (val != val_old)
+		writel(val, base + SE_GENI_DMA_MODE_EN);
+}
+
+static int wait_for_cmd_completion(struct udevice *dev, uint32_t cmd_mask)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	uint32_t m_irq;
+	uint8_t count = 10;
+
+	do {
+		udelay(MAX_TIMEOUT);
+		m_irq = readl(priv->base + SE_GENI_M_IRQ_STATUS);
+		if (m_irq & (M_CMD_OVERRUN_EN | M_ILLEGAL_CMD_EN |
+					M_CMD_FAILURE_EN)) {
+			printf("%s: Unexpected CMD err status %#010x\n",
+					__func__, m_irq);
+			return -EIO;
+		}
+	} while (!(m_irq & cmd_mask) && (count--));
+
+	if (!(m_irq & cmd_mask) && !count)
+		return -ETIMEDOUT;
 	else
-		len = xfer->len / (mas->cur_bits_per_word / BITS_PER_BYTE + 1);
-#endif
+		writel(cmd_mask, priv->base + SE_GENI_M_IRQ_CLEAR);
+
+	return 0;
+
+}
+
+static int wait_for_dma_rst(phys_addr_t irq_stat_reg,
+		phys_addr_t irq_clr_reg, uint32_t stat_mask)
+{
+	uint32_t val;
+	uint8_t count = 10;
+
+	do {
+		udelay(MAX_TIMEOUT);
+		val = readl(irq_stat_reg);
+	} while (!(val & stat_mask) && (count--));
+
+	if (!(val & stat_mask) && !count)
+		return -ETIMEDOUT;
+	else
+		writel(stat_mask, irq_clr_reg);
+
+	return 0;
+}
+
+static int spi_geni_handle_err(struct udevice *dev,
+		struct qupv3_spi_xfer_info* xfer)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	int ret = 0;
+
+	if (!xfer->dma_mode)
+		writel(0, priv->base + SE_GENI_TX_WATERMARK_REG);
+
+	writel(M_GENI_CMD_CANCEL, priv->base + SE_GENI_M_CMD_CTRL_REG);
+	ret = wait_for_cmd_completion(dev, M_CMD_CANCEL_EN);
+	if (ret)
+		goto eret;
+
+	writel(M_GENI_CMD_ABORT, priv->base + SE_GENI_M_CMD_CTRL_REG);
+	ret = wait_for_cmd_completion(dev, M_CMD_ABORT_EN);
+	if (ret)
+		goto eret;
+
+	if (xfer->dma_mode) {
+		if (xfer->tx_buf) {
+			writel(1, priv->base + SE_DMA_TX_FSM_RST);
+			ret = wait_for_dma_rst(priv->base + SE_DMA_TX_IRQ_STAT,
+				        priv->base + SE_DMA_TX_IRQ_CLR,
+					TX_RESET_DONE);
+			if (ret)
+				goto eret;
+		}
+
+		if (xfer->rx_buf) {
+			writel(1, priv->base + SE_DMA_RX_FSM_RST);
+			ret = wait_for_dma_rst(priv->base + SE_DMA_RX_IRQ_STAT,
+				        priv->base + SE_DMA_RX_IRQ_CLR,
+					RX_RESET_DONE);
+			if (ret)
+				goto eret;
+		}
+	}
+
+eret:
+	return ret;
+}
+
+static int do_spi_xfer(struct udevice *dev, struct qupv3_spi_xfer_info *xfer)
+{
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	uint32_t len, m_cmd = 0;
+	ulong timeout_cnt;
+	int ret = 0;
+
+	if (priv->bits_per_word > 16)
+		len = xfer->len / sizeof(uint32_t);
+	else if (priv->bits_per_word > 8)
+		len = xfer->len / sizeof(uint16_t);
+	else
+		len = xfer->len;
 	len &= TRANS_LEN_MSK;
+
+	xfer->tx_rem = 0;
+	xfer->rx_rem = 0;
 
 	if (xfer->tx_buf) {
 		m_cmd |= SPI_TX_ONLY;
-		xfer->tx_rem_bytes = xfer->len;
-		writel(len, se->base + SE_SPI_TX_TRANS_LEN);
+		xfer->tx_rem = xfer->len;
 	}
 
 	if (xfer->rx_buf) {
 		m_cmd |= SPI_RX_ONLY;
-		writel(len, se->base + SE_SPI_RX_TRANS_LEN);
-		xfer->rx_rem_bytes = xfer->len;
+		xfer->rx_rem = xfer->len;
 	}
 
-	geni_se_setup_m_cmd(se, m_cmd, FRAGMENTATION);
-	if (m_cmd & SPI_TX_ONLY) {
-		if (geni_spi_handle_tx(mas))
-			writel(mas->tx_wm, se->base + SE_GENI_TX_WATERMARK_REG);
-	}
-}
+	writel((xfer->tx_buf ? len:0), priv->base + SE_SPI_TX_TRANS_LEN);
+	writel((xfer->rx_buf ? len:0), priv->base + SE_SPI_RX_TRANS_LEN);
+	timeout_cnt = priv->bits_per_word * len;
 
-static int spi_geni_transfer_one(struct spi_master *spi,
-				struct spi_device *slv,
-				struct spi_transfer *xfer)
-{
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
+	if (xfer->dma_mode) {
+		geni_se_config_dma_mode(priv->base);
+		geni_se_setup_m_cmd(priv->base, m_cmd,
+				(xfer->is_end ? 0x0 : FRAGMENTATION));
 
-	if (spi_geni_is_abort_still_pending(mas))
-		return -EBUSY;
+		if (m_cmd & SPI_RX_ONLY)
+			geni_se_rx_dma_prep(dev, (dma_addr_t)xfer->rx_buf,
+					xfer->rx_rem);
 
-	/* Terminate and return success for 0 byte length transfer */
-	if (!xfer->len)
-		return 0;
+		if (m_cmd & SPI_TX_ONLY)
+			geni_se_tx_dma_prep(dev, (dma_addr_t)xfer->tx_buf,
+					xfer->tx_rem);
+	} else {
+		geni_se_config_fifo_mode(priv->base);
+		writel(1, priv->base + SE_GENI_TX_WATERMARK_REG);
+		writel(1, priv->base + SE_GENI_RX_WATERMARK_REG);
 
-	if (mas->cur_xfer_mode == GENI_SE_FIFO) {
-		setup_fifo_xfer(xfer, mas, slv->mode, spi);
-		return 1;
-	}
-	return setup_gsi_xfer(xfer, mas, slv, spi);
-}
-
-static irqreturn_t geni_spi_isr(int irq, void *data)
-{
-	struct spi_master *spi = data;
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	struct geni_se *se = &mas->se;
-	u32 m_irq;
-
-	m_irq = readl(se->base + SE_GENI_M_IRQ_STATUS);
-	if (!m_irq)
-		return IRQ_NONE;
-
-	if (m_irq & (M_CMD_OVERRUN_EN | M_ILLEGAL_CMD_EN | M_CMD_FAILURE_EN |
-		     M_RX_FIFO_RD_ERR_EN | M_RX_FIFO_WR_ERR_EN |
-		     M_TX_FIFO_RD_ERR_EN | M_TX_FIFO_WR_ERR_EN))
-		dev_warn(mas->dev, "Unexpected IRQ err status %#010x\n", m_irq);
-
-	spin_lock(&mas->lock);
-
-	if ((m_irq & M_RX_FIFO_WATERMARK_EN) || (m_irq & M_RX_FIFO_LAST_EN))
-		geni_spi_handle_rx(mas);
-
-	if (m_irq & M_TX_FIFO_WATERMARK_EN)
-		geni_spi_handle_tx(mas);
-
-	if (m_irq & M_CMD_DONE_EN) {
-		if (mas->cur_xfer) {
-			spi_finalize_current_transfer(spi);
-			mas->cur_xfer = NULL;
-			/*
-			 * If this happens, then a CMD_DONE came before all the
-			 * Tx buffer bytes were sent out. This is unusual, log
-			 * this condition and disable the WM interrupt to
-			 * prevent the system from stalling due an interrupt
-			 * storm.
-			 *
-			 * If this happens when all Rx bytes haven't been
-			 * received, log the condition. The only known time
-			 * this can happen is if bits_per_word != 8 and some
-			 * registers that expect xfer lengths in num spi_words
-			 * weren't written correctly.
-			 */
-			if (mas->tx_rem_bytes) {
-				writel(0, se->base + SE_GENI_TX_WATERMARK_REG);
-				dev_err(mas->dev, "Premature done. tx_rem = %d bpw%d\n",
-					mas->tx_rem_bytes, mas->cur_bits_per_word);
-			}
-			if (mas->rx_rem_bytes)
-				dev_err(mas->dev, "Premature done. rx_rem = %d bpw%d\n",
-					mas->rx_rem_bytes, mas->cur_bits_per_word);
-		} else {
-			complete(&mas->cs_done);
+		geni_se_setup_m_cmd(priv->base, m_cmd,
+				(xfer->is_end ? 0x0 : FRAGMENTATION));
+		if (m_cmd & SPI_TX_ONLY) {
+			geni_spi_handle_tx(dev, xfer);
 		}
 	}
 
-	if (m_irq & M_CMD_CANCEL_EN)
-		complete(&mas->cancel_done);
-	if (m_irq & M_CMD_ABORT_EN)
-		complete(&mas->abort_done);
+	xfer->stat = XFER_IN_PROGRESS;
 
-	/*
-	 * It's safe or a good idea to Ack all of our interrupts at the end
-	 * of the function. Specifically:
-	 * - M_CMD_DONE_EN / M_RX_FIFO_LAST_EN: Edge triggered interrupts and
-	 *   clearing Acks. Clearing at the end relies on nobody else having
-	 *   started a new transfer yet or else we could be clearing _their_
-	 *   done bit, but everyone grabs the spinlock before starting a new
-	 *   transfer.
-	 * - M_RX_FIFO_WATERMARK_EN / M_TX_FIFO_WATERMARK_EN: These appear
-	 *   to be "latched level" interrupts so it's important to clear them
-	 *   _after_ you've handled the condition and always safe to do so
-	 *   since they'll re-assert if they're still happening.
-	 */
-	writel(m_irq, se->base + SE_GENI_M_IRQ_CLEAR);
+	do {
+		udelay(MAX_TIMEOUT);
+		geni_spi_isr(dev, xfer);
+	} while (!xfer->stat && timeout_cnt--);
 
-	spin_unlock(&mas->lock);
+	if (!xfer->stat && !timeout_cnt)
+		ret = -ETIMEDOUT;
 
-	return IRQ_HANDLED;
+	if (xfer->stat == XFER_ERR)
+		ret = -EIO;
+
+	if (ret)
+		spi_geni_handle_err(dev, xfer);
+
+	return ret;
 }
 
-static int spi_geni_probe(struct platform_device *pdev)
+static int qupv3_spi_xfer(struct udevice *dev, unsigned int bitlen,
+		const void *dout, void *din, unsigned long flags)
 {
-	int ret, irq;
-	struct spi_master *spi;
-	struct spi_geni_master *mas;
-	void __iomem *base;
-	struct clk *clk;
-	struct device *dev = &pdev->dev;
+	struct udevice *bus = dev_get_parent(dev);
+	struct qupv3_spi_priv *priv = dev_get_priv(bus);
+	struct qupv3_spi_xfer_info xfer;
+	uint32_t fifo_max_size = priv->tx_fifo_depth * priv->fifo_width_bits /
+		priv->bits_per_word;
+	int ret = 0;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
-
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
-	if (ret)
-		return dev_err_probe(dev, ret, "could not set DMA mask\n");
-
-	base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(base))
-		return PTR_ERR(base);
-
-	clk = devm_clk_get(dev, "se");
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
-
-	spi = devm_spi_alloc_master(dev, sizeof(*mas));
-	if (!spi)
-		return -ENOMEM;
-
-	platform_set_drvdata(pdev, spi);
-	mas = spi_master_get_devdata(spi);
-	mas->irq = irq;
-	mas->dev = dev;
-	mas->se.dev = dev;
-	mas->se.wrapper = dev_get_drvdata(dev->parent);
-	mas->se.base = base;
-	mas->se.clk = clk;
-
-	ret = devm_pm_opp_set_clkname(&pdev->dev, "se");
-	if (ret)
-		return ret;
-	/* OPP table is optional */
-	ret = devm_pm_opp_of_add_table(&pdev->dev);
-	if (ret && ret != -ENODEV) {
-		dev_err(&pdev->dev, "invalid OPP table in device tree\n");
-		return ret;
+	if (bitlen & SPI_BITLEN_MSK) {
+		printf("%s: Invalid bit length \n", __func__);
+		return -EINVAL;
 	}
 
-	spi->bus_num = -1;
-	spi->dev.of_node = dev->of_node;
-	spi->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH;
-	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
-	spi->num_chipselect = 4;
-	spi->max_speed_hz = 50000000;
-	spi->prepare_message = spi_geni_prepare_message;
-	spi->transfer_one = spi_geni_transfer_one;
-	spi->can_dma = geni_can_dma;
-	spi->dma_map_dev = dev->parent;
-	spi->auto_runtime_pm = true;
-	spi->handle_err = spi_geni_handle_err;
-	spi->use_gpio_descriptors = true;
+	xfer.tx_buf = (void *)dout;
+	xfer.rx_buf = din;
+	xfer.len = bitlen >> 3;
+	xfer.is_end = ((flags & SPI_XFER_END) ? true : false);
+	xfer.dma_mode = ((xfer.len > fifo_max_size) ?
+			(true & !priv->dma_disable): false);
+	debug("%s: len:%d out:%p in:%p mode:%s\n", __func__, xfer.len,
+			dout, din, xfer.dma_mode ? "DMA" : "FIFO");
+	ret = do_spi_xfer(dev, &xfer);
+	if (ret != 0)
+		return ret;
 
-	init_completion(&mas->cs_done);
-	init_completion(&mas->cancel_done);
-	init_completion(&mas->abort_done);
-	spin_lock_init(&mas->lock);
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 250);
-	pm_runtime_enable(dev);
+	return ret;
+}
 
-	ret = geni_icc_get(&mas->se, NULL);
+static int qupv3_spi_hw_init(struct udevice *dev)
+{
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	u32 val = 0;
+
+	geni_se_irq_clear(priv->base);
+	geni_se_io_set_mode(priv->base);
+
+	val = readl(priv->base + SE_GENI_M_IRQ_EN);
+	val |= M_COMMON_GENI_M_IRQ_EN;
+	writel(val, priv->base + SE_GENI_M_IRQ_EN);
+
+	geni_se_config_fifo_mode(priv->base);
+
+	/* We always control CS manually */
+	val = readl(priv->base + SE_SPI_TRANS_CFG);
+	val &= ~CS_TOGGLE;
+	writel(val, priv->base + SE_SPI_TRANS_CFG);
+	return 0;
+}
+
+static void geni_set_oversampling(struct udevice *dev)
+{
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	struct udevice *parent_dev = dev_get_parent(dev);
+	int ret;
+
+	if (device_get_uclass_id(parent_dev) != UCLASS_MISC)
+		return;
+
+	ret = misc_read(parent_dev, QUP_HW_VER_REG,
+			&priv->geni_se_version, sizeof(priv->geni_se_version));
+	if (ret != sizeof(priv->geni_se_version))
+		return;
+
+	if (priv->geni_se_version == QUP_SE_VERSION_1_0)
+		priv->oversampling = 2;
+	else
+		priv->oversampling = 1;
+}
+
+static u32 geni_se_get_tx_fifo_depth(const struct udevice *dev)
+{
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	u32 tx_fifo_depth;
+	u32 tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK;
+
+	if (priv->geni_se_version >= QUP_SE_VERSION_3_10)
+		tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK_256B;
+
+	tx_fifo_depth = ((readl(priv->base + SE_HW_PARAM_0) &
+				tx_fifo_depth_msk) >> TX_FIFO_DEPTH_SHFT);
+	return tx_fifo_depth;
+
+}
+
+static u32 geni_se_get_tx_fifo_width(const struct udevice *dev)
+{
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	u32 tx_fifo_width;
+
+	tx_fifo_width = ((readl(priv->base + SE_HW_PARAM_0) &
+				TX_FIFO_WIDTH_MSK) >> TX_FIFO_WIDTH_SHFT);
+	return tx_fifo_width;
+}
+
+static int qupv3_spi_probe(struct udevice *dev)
+{
+	struct qupv3_spi_priv *priv = dev_get_priv(dev);
+	int ret;
+
+	priv->base = dev_read_addr(dev);
+	if (priv->base == FDT_ADDR_T_NONE)
+		return -EINVAL;
+
+	ret = clk_get_by_index(dev, 0, &priv->clk);
 	if (ret)
-		goto spi_geni_probe_runtime_disable;
-	/* Set the bus quota to a reasonable value for register access */
-	mas->se.icc_paths[GENI_TO_CORE].avg_bw = Bps_to_icc(CORE_2X_50_MHZ);
-	mas->se.icc_paths[CPU_TO_GENI].avg_bw = GENI_DEFAULT_BW;
+		return ret;
 
-	ret = geni_icc_set_bw(&mas->se);
+	ret = clk_enable(&priv->clk);
+	if (ret < 0)
+		return ret;
+
+	priv->num_cs = dev_read_u32_default(dev, "num-cs", 1);
+	priv->max_hz = dev_read_u32_default(dev, "spi-max-frequency", 0);
+	priv->dma_disable = dev_read_bool(dev, "qup-dma-disable");
+
+	geni_set_oversampling(dev);
+
+	priv->tx_fifo_depth = geni_se_get_tx_fifo_depth(dev);
+	priv->fifo_width_bits = geni_se_get_tx_fifo_width(dev);
+
+	ret = qupv3_spi_hw_init(dev);
 	if (ret)
-		goto spi_geni_probe_runtime_disable;
+		return -EIO;
 
-	/* needed */
-	ret = spi_geni_init(mas);
-	if (ret)
-		goto spi_geni_probe_runtime_disable;
+	return 0;
+}
 
+static const struct dm_spi_ops qupv3_spi_ops = {
+	.claim_bus	= qupv3_spi_claim_bus,
+	.xfer		= qupv3_spi_xfer,
+	.set_speed	= qupv3_spi_set_speed,
+	.set_mode	= qupv3_spi_set_mode,
 	/*
-	 * check the mode supported and set_cs for fifo mode only
-	 * for dma (gsi) mode, the gsi will set cs based on params passed in
-	 * TRE
+	 * cs_info is not needed, since we require all chip selects to be
+	 * in the device tree explicitly
 	 */
-	if (mas->cur_xfer_mode == GENI_SE_FIFO)
-		spi->set_cs = spi_geni_set_cs;
-
-	ret = request_irq(mas->irq, geni_spi_isr, 0, dev_name(dev), spi);
-	if (ret)
-		goto spi_geni_release_dma;
-
-	ret = spi_register_master(spi);
-	if (ret)
-		goto spi_geni_probe_free_irq;
-
-	return 0;
-spi_geni_probe_free_irq:
-	free_irq(mas->irq, spi);
-spi_geni_release_dma:
-	spi_geni_release_dma_chan(mas);
-spi_geni_probe_runtime_disable:
-	pm_runtime_disable(dev);
-	return ret;
-}
-
-static int spi_geni_remove(struct platform_device *pdev)
-{
-	struct spi_master *spi = platform_get_drvdata(pdev);
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-
-	/* Unregister _before_ disabling pm_runtime() so we stop transfers */
-	spi_unregister_master(spi);
-
-	spi_geni_release_dma_chan(mas);
-
-	free_irq(mas->irq, spi);
-	pm_runtime_disable(&pdev->dev);
-	return 0;
-}
-
-static int __maybe_unused spi_geni_runtime_suspend(struct device *dev)
-{
-	struct spi_master *spi = dev_get_drvdata(dev);
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	int ret;
-
-	/* Drop the performance state vote */
-	dev_pm_opp_set_rate(dev, 0);
-
-	ret = geni_se_resources_off(&mas->se);
-	if (ret)
-		return ret;
-
-	return geni_icc_disable(&mas->se);
-}
-
-static int __maybe_unused spi_geni_runtime_resume(struct device *dev)
-{
-	struct spi_master *spi = dev_get_drvdata(dev);
-	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	int ret;
-
-	ret = geni_icc_enable(&mas->se);
-	if (ret)
-		return ret;
-
-	ret = geni_se_resources_on(&mas->se);
-	if (ret)
-		return ret;
-
-	return dev_pm_opp_set_rate(mas->dev, mas->cur_sclk_hz);
-}
-
-static int __maybe_unused spi_geni_suspend(struct device *dev)
-{
-	struct spi_master *spi = dev_get_drvdata(dev);
-	int ret;
-
-	ret = spi_master_suspend(spi);
-	if (ret)
-		return ret;
-
-	ret = pm_runtime_force_suspend(dev);
-	if (ret)
-		spi_master_resume(spi);
-
-	return ret;
-}
-
-static int __maybe_unused spi_geni_resume(struct device *dev)
-{
-	struct spi_master *spi = dev_get_drvdata(dev);
-	int ret;
-
-	ret = pm_runtime_force_resume(dev);
-	if (ret)
-		return ret;
-
-	ret = spi_master_resume(spi);
-	if (ret)
-		pm_runtime_force_suspend(dev);
-
-	return ret;
-}
-
-static const struct dev_pm_ops spi_geni_pm_ops = {
-	SET_RUNTIME_PM_OPS(spi_geni_runtime_suspend,
-					spi_geni_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(spi_geni_suspend, spi_geni_resume)
 };
 
-static const struct of_device_id spi_geni_dt_match[] = {
-	{ .compatible = "qcom,geni-spi" },
-	{}
+static const struct udevice_id qupv3_spi_ids[] = {
+	{ .compatible = "qcom,msm-geni-spi", },
+	{ }
 };
-MODULE_DEVICE_TABLE(of, spi_geni_dt_match);
 
-static struct platform_driver spi_geni_driver = {
-	.probe  = spi_geni_probe,
-	.remove = spi_geni_remove,
-	.driver = {
-		.name = "geni_spi",
-		.pm = &spi_geni_pm_ops,
-		.of_match_table = spi_geni_dt_match,
-	},
+U_BOOT_DRIVER(spi_qupv3) = {
+	.name	= "spi_geni_qcom",
+	.id	= UCLASS_SPI,
+	.of_match = qupv3_spi_ids,
+	.ops	= &qupv3_spi_ops,
+	.priv_auto	= sizeof(struct qupv3_spi_priv),
+	.probe	= qupv3_spi_probe,
 };
-module_platform_driver(spi_geni_driver);
-
-MODULE_DESCRIPTION("SPI driver for GENI based QUP cores");
-MODULE_LICENSE("GPL v2");

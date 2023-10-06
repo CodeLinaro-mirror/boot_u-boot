@@ -10,5 +10,9 @@
 #define GCC_QUPV3_UART0_CLK				0
 #define GCC_QUPV3_UART1_CLK				1
 #define GCC_QPIC_IO_MACRO_CLK				2
+#define GCC_QUPV3_SE2_CLK				3
+#define GCC_QUPV3_SE3_CLK				4
+#define GCC_QUPV3_SE4_CLK				5
+#define GCC_QUPV3_SE5_CLK				6
 
 #endif

@@ -86,6 +86,18 @@
 				clock-names = "se-clk";
 				status = "disabled";
 			};
+
+			se4_spi0: spi@1a90000 {
+				compatible = "qcom,msm-geni-spi";
+				reg = <0x1a90000 0x4000>;
+				reg-names = "se_phys";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&gcc GCC_QUPV3_SE4_CLK>;
+				clock-names = "se-clk";
+				spi-max-frequency = <50000000>;
+				status = "disabled";
+			};
 		};
 
 		nand: nand-controller@79B0000 {

@@ -10,6 +10,7 @@
 
 	aliases {
 		console = &se0_uart0;
+		spi0 = &se4_spi0;
 	};
 
 	soc: soc@0 {
@@ -45,6 +46,36 @@
 					bias-pull-up;
 				};
 			};
+
+			spi0_pinmux: spi0 {
+				spi0_miso {
+					pins = "GPIO_6";
+					function = "spi0_miso";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				spi0_mosi {
+					pins = "GPIO_7";
+					function = "spi0_mosi";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				spi0_sclk {
+					pins = "GPIO_8";
+					function = "spi0_sclk";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				spi0_cs0 {
+					pins = "GPIO_9";
+					function = "spi0_cs0";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		qupv3: geniqup@1ac0000 {
@@ -54,6 +85,18 @@
 				pinctrl-0 = <&uart0_pinmux>;
 				pinctrl-names = "default";
 				status = "okay";
+			};
+
+			se4_spi0: spi@1a90000 {
+				pinctrl-0 = <&spi0_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+
+				nor-flash@0 {
+					compatible = "jedec,spi-nor";
+					reg = <0>;
+					spi-max-frequency = <50000000>;
+				};
 			};
 		};
 	};

@@ -121,12 +121,15 @@ config IPQ_NAND
 config IPQ_SPI_NOR
 	bool "Enable SPI NOR flash support in IPQ SOC"
 	select SPI
-	select SPI_QUP
+	select SPI_QUP if TARGET_IPQ9574 || TARGET_IPQ5332
+	select MSM_GENI_SPI if TARGET_DEVSOC
 	select DM_SPI
 	select DM_SPI_FLASH
 	select SPI_FLASH_STMICRO
 	select SPI_FLASH_GIGADEVICE
 	select SPI_FLASH_MACRONIX
+	select SPI_FLASH_WINBOND
+	select SPI_FLASH_SPANSION
 	select SPI_FLASH_MTD if ENV_IS_IN_SPI_FLASH
 
 config IPQ_FLASH_PART_FIXUP
