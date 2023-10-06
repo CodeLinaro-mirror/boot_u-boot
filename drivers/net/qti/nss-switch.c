@@ -2290,7 +2290,7 @@ static int ipq_eth_start(struct udevice *dev)
 	struct ipq_eth_dev *priv = dev_get_priv(dev);
 	struct phy_device *phydev;
 	struct port_info *port = NULL;
-	int i, ret, link, speed, duplex, linkup = 0;
+	int i, ret, link, speed, duplex, linkup = -1;
 	ulong active_port = env_get_ulong("active_port", 10,
 						CONFIG_ETH_MAX_MAC);
 
@@ -2315,6 +2315,8 @@ static int ipq_eth_start(struct udevice *dev)
 			link = ((ret & LINK_STATUS) != 0) ? 1 : 0;
 			duplex = ((ret & DUPLEX) != 0) ? 1: 0;
 			speed = mac_speed_config[ret & SPEED];
+			if (link)
+				++linkup;
 		} else {
 			phydev = port->phydev;
 
@@ -2347,7 +2349,7 @@ static int ipq_eth_start(struct udevice *dev)
 		}
 	}
 
-	return !linkup;
+	return linkup;
 }
 
 static int ipq_eth_send(struct udevice *dev, void *packet, int length)
