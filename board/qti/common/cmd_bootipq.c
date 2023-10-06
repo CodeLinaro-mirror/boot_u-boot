@@ -86,7 +86,9 @@ typedef struct boot_info_t{
 } boot_info_t;
 
 static boot_info_t boot_info = {
+#ifdef CONFIG_IPQ_SPI_NOR
 	.flash		= NULL,
+#endif
 	.load_address	= CONFIG_SYS_LOAD_ADDR
 	};
 
@@ -169,7 +171,7 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 }
 #endif
 
-#ifdef CONFIG_MTD
+#ifdef CONFIG_IPQ_NAND
 /*
  * Set the root device and bootargs for mounting root filesystem.
  */
@@ -235,7 +237,7 @@ int set_bootargs(void)
 		ret  = set_mmc_bootargs(runcmd, "rootfs",
 				MAX_BOOT_ARGS_SIZE, gpt_flag );
 
-#else
+#elif CONFIG_IPQ_NAND
 	ret = set_nand_bootargs();
 #endif
 	if (ret)
@@ -458,7 +460,9 @@ static int boot_nand(void)
 		snprintf(runcmd, sizeof(runcmd),
 			"ubi part fs && ");
 
-		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+		ret = run_command(runcmd, 0);
+
+		if (ret != CMD_RET_SUCCESS)
 			return CMD_RET_FAILURE;
 
 		if(secure_boot) {
@@ -569,7 +573,7 @@ static int boot_nand(void)
 			if(secure_boot) {
 #ifdef CONFIG_IPQ_ELF_AUTH
 
-				spi_flash_read(boot_info.flash, sfi->hlos.offset,
+				ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
 						ELF_HDR_PLUS_PHDR_SIZE,
 						(void *)boot_info.load_address);
 
@@ -713,7 +717,9 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 	unsigned int active_part = get_rootfs_active_partition();
 #endif
 	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
+#ifdef CONFIG_IPQ_SPI_NOR
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+#endif
 
 	if (SMEM_BOOT_NORPLUSNAND == flash_type ||
 		SMEM_BOOT_QSPI_NAND_FLASH == flash_type) {
@@ -767,10 +773,11 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 		}
 #endif
 	} else {
-
+#ifdef CONFIG_IPQ_SPI_NOR
 		spi_flash_read(boot_info.flash, sfi->rootfs.offset,
 					sfi->rootfs.size,
 					(void *) (uintptr_t)request);
+#endif
 	}
 
 	if(runcmd[0])
@@ -799,11 +806,11 @@ static int authenticate_rootfs(unsigned int kernel_addr,
 	request += sizeof(mbn_header_t);/* space for mbn header */
 
 	/* get , kernel size = header + kernel + certificate */
-	mbn_ptr = (mbn_header_t *) kernel_addr;
+	mbn_ptr = (mbn_header_t *) (uintptr_t)kernel_addr;
 	kernel_imgsize = mbn_ptr->image_size + sizeof(mbn_header_t);
 
 	/* get rootfs MBN header and validate it */
-	mbn_ptr = (mbn_header_t *)((uint32_t)mbn_ptr + kernel_imgsize);
+	mbn_ptr = (mbn_header_t *) (uintptr_t)((uint32_t) (uintptr_t)mbn_ptr + kernel_imgsize);
 	if (mbn_ptr->image_type != ROOTFS_IMAGE_TYPE &&
 			(mbn_ptr->code_size + mbn_ptr->signature_size +
 			 mbn_ptr->cert_chain_size != mbn_ptr->image_size))
@@ -815,12 +822,12 @@ static int authenticate_rootfs(unsigned int kernel_addr,
 
 	/* copy rootfs MBN header */
 	memcpy((void *)CONFIG_ROOTFS_LOAD_ADDR,
-			(void *)kernel_addr + kernel_imgsize,
+			(void *) (uintptr_t)kernel_addr + kernel_imgsize,
 			sizeof(mbn_header_t));
 
 	/* copy rootfs certificate */
-	memcpy((void *)request + mbn_ptr->code_size,
-		(void *)kernel_addr + kernel_imgsize + sizeof(mbn_header_t),
+	memcpy((void *) (uintptr_t)request + mbn_ptr->code_size,
+		(void *) (uintptr_t)kernel_addr + kernel_imgsize + sizeof(mbn_header_t),
 		mbn_ptr->signature_size + mbn_ptr->cert_chain_size);
 
 	/* copy rootfs size */
@@ -846,7 +853,7 @@ static int authenticate_rootfs(unsigned int kernel_addr,
 
 	ret = ipq_scm_call(&param);
 
-	memset((void *)kernel_img_info.kernel_load_addr,  0,
+	memset((void *) (uintptr_t)kernel_img_info.kernel_load_addr,  0,
 						sizeof(mbn_header_t));
 
 	memset(mbn_ptr,  0,
@@ -972,7 +979,7 @@ int image_authentication(void)
 
 
 #ifndef CONFIG_IPQ_ELF_AUTH
-	memset((void *)mbn_ptr->signature_ptr, 0,
+	memset((void *) (uintptr_t)mbn_ptr->signature_ptr, 0,
 		(mbn_ptr->signature_size + mbn_ptr->cert_chain_size));
 #else
 	memset((void *) (uintptr_t)kernel_img_info.kernel_load_addr,  0,

@@ -168,6 +168,7 @@ config IPQ_QCN9224_FUSING
 
 config IPQ_MAX_PCIE
 	int "Max PCIE supported in IPQSOC"
+	depends on PCI
 	default 3 if TARGET_IPQ5332
 	default 4 if TARGET_IPQ9574
 
