@@ -55,6 +55,44 @@ enum {
 #define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
 #define MAX_FUSE_ADDR_SIZE		0x8
 
+#define PRINT_BUF_LEN		0x400
+#define MDT_SIZE		0x1B88
+/* Region for loading test application */
+#define TZT_LOAD_ADDR		0x49600000
+/* Reserved size for application */
+#define TZT_LOAD_SIZE		0x00200000
+
+#define XPU_TEST_ID		0x80100004
+
+static int tzt_loaded;
+
+struct xpu_tzt {
+	uint64_t test_id;
+	uint64_t num_param;
+	uint64_t param1;
+	uint64_t param2;
+	uint64_t param3;
+	uint64_t param4;
+	uint64_t param5;
+	uint64_t param6;
+	uint64_t param7;
+	uint64_t param8;
+	uint64_t param9;
+	uint64_t param10;
+};
+
+struct resp {
+	uint64_t status;
+	uint64_t index;
+	uint64_t total_tests;
+};
+
+struct log_buff {
+	uint16_t wrap;
+	uint16_t log_pos;
+	char buffer[PRINT_BUF_LEN];
+};
+
 static int do_secure(struct cmd_tbl *cmdtp, int flag,
 				int argc, char *const argv[])
 {
@@ -767,6 +805,158 @@ U_BOOT_CMD(detect_qcn9224, 1, 1, do_pci_cmd,
 U_BOOT_CMD(fuse_qcn9224, 2, 1, do_pci_cmd,
 	   "Fuse QCN9224 V2 fuses and argument is PCIe device ID",
 	   "If not QCN9224 V2, then fuse blow will be skipped");
+
+static int run_xpu_config_test(void)
+{
+	struct resp resp_buf __aligned(CONFIG_SYS_CACHELINE_SIZE);
+	uint32_t passed = 0, failed = 0;
+	int ret = CMD_RET_FAILURE;
+	struct log_buff logbuff;
+	struct xpu_tzt xputzt;
+	scm_param param;
+	int i = 0;
+
+	memset(&xputzt, 0, sizeof(struct xpu_tzt));
+	memset(&logbuff, 0, sizeof(struct log_buff));
+	memset(&resp_buf, 0, sizeof(struct resp));
+	xputzt.test_id = XPU_TEST_ID;
+	xputzt.num_param = 0x3;
+	xputzt.param3 = (uint64_t)((uint32_t)&resp_buf);
+
+	printf("****** xPU Configuration Validation Test Begin ******\n");
+
+	do {
+		memset(&param, 0, sizeof(scm_param));
+		param.type = SCM_XPU_LOG_BUFFER;
+		/* Log Buffer */
+		param.buff[0] = (uint32_t)&logbuff;
+		param.arg_type[0] = SCM_WRITE_OP;
+
+		/* Log Buffer size*/
+		param.buff[1] = PRINT_BUF_LEN;
+		param.len = 2;
+
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("\nipq_scm_call: SCM_XPU_LOG_BUFFER"
+						" failed, ret : %d\n", ret);
+			goto fail;
+		}
+
+		memset(&param, 0, sizeof(scm_param));
+		param.type = SCM_XPU_SEC_TEST_1;
+
+		xputzt.param2 = i++;
+		param.buff[0] = (uint32_t)&xputzt;
+		param.arg_type[0] = SCM_WRITE_OP;
+
+		param.buff[1] = sizeof(struct xpu_tzt);
+		param.len = 2;
+
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("\nipq_scm_call: SCM_SEC_TEST_1"
+					" failed, ret : %d\n", ret);
+			goto fail;
+		}
+
+		invalidate_dcache_range((unsigned long)&resp_buf,
+					(unsigned long)&resp_buf +
+					CONFIG_SYS_CACHELINE_SIZE);
+		if (resp_buf.status == 0)
+			passed++;
+		else if (resp_buf.status == 1)
+			failed++;
+
+		logbuff.buffer[logbuff.log_pos] = '\0';
+		printf("%s", logbuff.buffer);
+
+	} while(i < resp_buf.total_tests);
+
+	printf("******************************************************\n");
+	printf("Test Result: Passed %u Failed %u (total %u)\n",
+	       passed, failed, (uint32_t)resp_buf.total_tests);
+	printf("****** xPU Configuration Validation Test End ******\n");
+
+fail:
+	return ret;
+}
+
+static int do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	uint32_t img_addr;
+	uint32_t img_size;
+	int ret;
+	scm_param param;
+
+	/* at least two arguments should be there */
+	if (argc < 2) {
+		ret = CMD_RET_USAGE;
+		goto fail;
+	}
+
+	if (strncmp(argv[1], "load", sizeof("load")) == 0) {
+		if (argc < 4) {
+			ret = CMD_RET_USAGE;
+			goto fail;
+		}
+
+		memset(&param, 0, sizeof(scm_param));
+		param.type = SCM_TZT_REGION_NOTIFICATION;
+		/* TZT Load Address */
+		param.buff[0] = TZT_LOAD_ADDR;
+		param.arg_type[0] = SCM_WRITE_OP;
+
+		/* TZT Load Size */
+		param.buff[1] = TZT_LOAD_SIZE;
+		param.len = 2;
+
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("\nipq_scm_call: SCM_TZT_REGION_NOTIFICATION"
+					" failed, ret : %d\n", ret);
+			ret = CMD_RET_FAILURE;
+			goto fail;
+		}
+
+		img_addr = simple_strtoul(argv[2], NULL, 16);
+		img_size = simple_strtoul(argv[3], NULL, 16);
+
+		memset(&param, 0, sizeof(scm_param));
+		param.type = SCM_TZT_TESTEXEC_IMG;
+		param.buff[0] = MDT_SIZE;
+		param.buff[1] = img_size - MDT_SIZE;
+		param.buff[2] = img_addr;
+		param.len = 3;
+
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("\nipq_scm_call: SCM_TZT_TESTEXEC_IMG"
+					" failed, ret : %d\n", ret);
+			ret = CMD_RET_FAILURE;
+			goto fail;
+		}
+
+		tzt_loaded = 1;
+		return 0;
+	}
+
+	if (!tzt_loaded) {
+		printf("load tzt image before running test cases\n");
+		ret = CMD_RET_FAILURE;
+		goto fail;
+	}
+
+	if (strncmp(argv[1], "xpu", sizeof("xpu")) == 0)
+		ret = run_xpu_config_test();
+fail:
+	return ret;
+}
+
+U_BOOT_CMD(tzt, 4, 0, do_tzt,
+	   "load and run tzt\n",
+	   "tzt load address size - To load tzt image\n"
+	   "tzt xpu - To run xpu config test\n");
 #endif
 
 #if defined(CONFIG_DPR_VER_1_0) || defined(CONFIG_DPR_VER_2_0)

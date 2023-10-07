@@ -247,6 +247,24 @@ int ipq_scm_call(scm_param *param)
 	case SCM_TME_DPR_PROCESSING:
 		desc.svc = QCOM_SCM_SVC_FUSE;
 		desc.cmd = QCOM_TME_DPR_PROCESSING;
+	case SCM_XPU_LOG_BUFFER:
+		desc.svc = QCOM_SCM_SVC_APP_MGR;
+		desc.cmd = QCOM_REGISTER_LOG_BUFFER_ID_CMD;
+		desc.owner = ARM_SMCCC_OWNER_TRUSTED_OS;
+		break;
+	case SCM_XPU_SEC_TEST_1:
+		desc.svc = QCOM_SCM_SVC_SEC_TEST_1;
+		desc.cmd = QCOM_SCM_SEC_TEST_ID;
+		break;
+	case SCM_TZT_REGION_NOTIFICATION:
+		desc.svc = QCOM_SCM_SVC_APP_MGR;
+		desc.cmd = QCOM_REGION_NOTIFICATION_ID_CMD;
+		desc.owner = ARM_SMCCC_OWNER_TRUSTED_OS;
+		break;
+	case SCM_TZT_TESTEXEC_IMG:
+		desc.svc = QCOM_SCM_SVC_EXTERNAL;
+		desc.cmd = QCOM_LOAD_TZTESTEXEC_IMG_ID_CMD;
+		desc.owner = ARM_SMCCC_OWNER_TRUSTED_OS;
 		break;
 	case SCM_PHYA0_REGION_WR:
 		desc.svc = QCOM_SCM_PHYA0_SVC_ID;

@@ -94,6 +94,15 @@ struct qcom_scm_res {
 #define QCOM_SCM_PHYA0_SVC_ID		0x02
 #define QCOM_SCM_PHYA0_READ_CMD		0x22
 #define QCOM_SCM_PHYA0_WRITE_CMD	0x23
+#define QCOM_SCM_SVC_APP_MGR		0x01	/* Application service manager */
+#define QCOM_REGISTER_LOG_BUFFER_ID_CMD	0x06
+#define QCOM_REGION_NOTIFICATION_ID_CMD	0x05
+
+#define QCOM_SCM_SVC_SEC_TEST_1		253	/* Secure test calls (continued). */
+#define QCOM_SCM_SEC_TEST_ID		0x2C
+
+#define QCOM_SCM_SVC_EXTERNAL		0x03	/* External Image loading */
+#define QCOM_LOAD_TZTESTEXEC_IMG_ID_CMD	0x00
 
 /* scm_arg*/
 #define SCM_VAL				0x00
@@ -133,7 +142,11 @@ enum scm_type {
 	SCM_LIST_FUSE,
 	SCM_TME_DPR_PROCESSING,
 	SCM_PHYA0_REGION_WR,
-	SCM_PHYA0_REGION_RD
+	SCM_PHYA0_REGION_RD,
+	SCM_XPU_LOG_BUFFER,
+	SCM_XPU_SEC_TEST_1,
+	SCM_TZT_REGION_NOTIFICATION,
+	SCM_TZT_TESTEXEC_IMG
 };
 
 typedef struct {
