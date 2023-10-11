@@ -263,7 +263,8 @@ struct cmd_element {
 	uint32_t reserve;
 } __attribute__ ((packed));
 
-void bam_init(struct bam_instance *bam);
+void bam_init(struct bam_instance *bam, uint32_t bam_cfg,
+		uint32_t threshold_write);
 void bam_sys_pipe_init(struct bam_instance *bam,
                        uint8_t pipe_num);
 int bam_pipe_fifo_init(struct bam_instance *bam,

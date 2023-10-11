@@ -119,7 +119,8 @@ void bam_enable_interrupts(struct bam_instance *bam, uint8_t pipe_num)
 }
 
 /* Reset and initialize the bam module */
-void bam_init(struct bam_instance *bam)
+void bam_init(struct bam_instance *bam, uint32_t bam_cfg,
+		uint32_t threshold_write)
 {
 	uint32_t val = 0;
 
@@ -127,15 +128,17 @@ void bam_init(struct bam_instance *bam)
 	 * The other is assumed to be the opposite system
 	 * transaction.
 	 */
-	if (bam->pipe[0].trans_type == SYS2BAM ||
-		bam->pipe[0].trans_type == BAM2SYS)
+	if ((bam->pipe[0].trans_type == SYS2BAM ||
+		bam->pipe[0].trans_type == BAM2SYS) && threshold_write)
 	{
 		/* Program the threshold count */
-		writel(bam->threshold, (uintptr_t)BAM_DESC_CNT_TRSHLD_REG(bam->base));
+		writel(bam->threshold,
+			(uintptr_t)BAM_DESC_CNT_TRSHLD_REG(bam->base));
 	}
 
 	/* Program config register for H/W bug fixes */
-	val = 0xffffffff & ~(1 << 11);
+	val = bam_cfg;
+
 	writel(val, (uintptr_t)BAM_CNFG_BITS(bam->base));
 
 	val = readl((uintptr_t)BAM_CTRL_REG(bam->base));

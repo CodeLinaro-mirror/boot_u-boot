@@ -544,11 +544,8 @@ phys_addr_t ebi2nd_base;
 #define qspi_debug(fmt,args...)
 #endif /* QSPI_SERIAL_DEBUG */
 
-enum qti_verion{
-	QTI_V1_4_20,
-	QTI_V1_5_20,
-	QTI_V2_1_1,
-};
+#define	QTI_V2_1_1				0x20010001
+#define	QTI_V2_1_3				0x20010003
 
 /* result type */
 typedef enum {
@@ -637,6 +634,12 @@ struct qti_nand_bam_pipes
 
 };
 
+struct target_varient_info
+{
+	uint32_t bam_cfg;
+	uint32_t bam_threshold_reg_write;
+};
+
 /* Structure to define the initial nand config */
 struct qti_nand_init_config
 {
@@ -682,6 +685,7 @@ struct qcom_nand_controller {
 	uint32_t hw_ver;
 	bool quad_mode;
 	bool check_quad_config;
+	bool do_serial_training;
 	uint32_t oob_per_page;
 	uint32_t buff_start;
 	uint32_t buff_count;
@@ -700,6 +704,7 @@ struct qcom_nand_controller {
 	uint32_t status_buf_size;
 	uint32_t training_block_64[16];
 	uint32_t qti_onfi_mode_to_xfer_steps[QTI_MAX_ONFI_MODES][QTI_NUM_XFER_STEPS];
+	const struct target_varient_info *varient_info;
 	struct nand_ecclayout fake_ecc_layout;
 	struct cmd_element *ce_array;
 	struct cmd_element ce_read_array[20];
