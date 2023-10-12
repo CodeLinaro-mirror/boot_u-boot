@@ -39,6 +39,30 @@
 					bias-pull-up;
 				};
 			};
+
+			pcie0_x1_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_38";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+
+			pcie1_x2_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_47";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+
+			pcie2_x1_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_44";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		hs_m31phy_0: hs_m31phy@7b000 {
@@ -91,18 +115,24 @@
 		};
 
 		pcie0_x1: pci@20000000{
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie0_x1_pinmux>;
 			num-lanes = <1>;
 			perst_gpio = <&tlmm 38 0>;
 			status = "okay";
 		};
 
 		pcie1_x2: pci@18000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie1_x2_pinmux>;
 			num-lanes = <1>;
 			perst_gpio = <&tlmm 47 0>;
 			status = "okay";
 		};
 
 		pcie2_x1: pci@10000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie2_x1_pinmux>;
 			num-lanes = <1>;
 			perst_gpio = <&tlmm 44 0>;
 			status = "okay";

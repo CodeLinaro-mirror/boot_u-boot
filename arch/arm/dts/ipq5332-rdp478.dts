@@ -55,6 +55,14 @@
 					bias-pull-up;
 				};
 			};
+
+			pcie1_x2_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_47";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		blsp1_i2c: i2c@78B6000 {
@@ -149,6 +157,8 @@
 		};
 
 		pcie1_x2: pci@18000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie1_x2_pinmux>;
 			num-lanes = <2>;
 			perst_gpio = <&tlmm 47 0>;
 			status = "okay";

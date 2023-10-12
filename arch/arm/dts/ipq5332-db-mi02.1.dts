@@ -25,6 +25,14 @@
 					bias-pull-up;
 				};
 			};
+
+			pcie1_x2_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_47";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		hs_m31phy_0: hs_m31phy@7b000 {
@@ -75,6 +83,8 @@
 		};
 
 		pcie1_x2: pci@18000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie1_x2_pinmux>;
 			num-lanes = <1>;
 			perst_gpio = <&tlmm 47 0>;
 			status = "okay";
