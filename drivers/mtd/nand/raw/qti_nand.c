@@ -115,22 +115,6 @@ static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 				enum nand_cfg_value cfg_mode,
 				struct mtd_oob_ops *ops);
 
-struct cmd_element*
-qti_nand_add_cmd_element(struct qcom_nand_controller *nandc,
-				struct cmd_element *ptr, uint32_t reg_addr,
-				uint32_t value,
-				enum bam_ce_cmd_t cmd_type)
-{
-	/*
-	 * setting bit 8 for 36bit ddr support flag only READ_TYPE.
-	 */
-	if ((nandc->support_36bit_addressing) && (cmd_type == CE_READ_TYPE))
-		return bam_add_cmd_element(ptr, reg_addr, value,
-						cmd_type | BIT(8));
-	else
-		return bam_add_cmd_element(ptr, reg_addr, value, cmd_type);
-}
-
 size_t memlcpy(void *dest, size_t dst_size, const void *src, size_t copy_size)
 {
 	size_t min_size = dst_size < copy_size ? dst_size : copy_size;
@@ -170,8 +154,8 @@ static uint32_t qti_nandc_reg_read(struct mtd_info *mtd, uint32_t reg_addr,
 	struct cmd_element *cmd_list_read_ptr = nandc->ce_read_array;
 	uint32_t *buffer = nandc->reg_buffer;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_read_ptr, reg_addr,
-			   (uint32_t)((uintptr_t)buffer), CE_READ_TYPE);
+	bam_add_cmd_element(cmd_list_read_ptr, reg_addr,
+			   (uintptr_t)buffer, CE_READ_TYPE);
 
 	/* Enqueue the desc for the above command */
 	q_bam_add_one_desc(&nandc->bam,
@@ -193,7 +177,7 @@ static uint32_t qti_nandc_reg_read(struct mtd_info *mtd, uint32_t reg_addr,
 static void multi_page_cmd_reg_reset(struct qcom_nand_controller *nandc,
 			struct cmd_element *cmd_list_ptr, uint8_t flags)
 {
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_MULTI_PAGE_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_MULTI_PAGE_CMD,
 					(uint32_t)0, CE_WRITE_TYPE);
 
 	/* Enqueue the desc for the above command */
@@ -207,7 +191,7 @@ static void multi_page_cmd_reg_reset(struct qcom_nand_controller *nandc,
 static void reset_addr_reg(struct qcom_nand_controller *nandc,
 			struct cmd_element *cmd_list_ptr, uint8_t flags)
 {
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR0, (uint32_t)0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR0, (uint32_t)0,
 			CE_WRITE_TYPE);
 
 	/* Enqueue the desc for the above command */
@@ -230,7 +214,7 @@ void qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
 	/* Reset the Erased Codeword/Page detection controller. */
 	val = NAND_ERASED_CW_DETECT_CFG_RESET_CTRL;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+	bam_add_cmd_element(cmd_list_ptr,
 					NAND_ERASED_CW_DETECT_CFG, val,
 					CE_WRITE_TYPE);
 
@@ -250,7 +234,7 @@ void qti_nandc_erased_status_reset(struct qcom_nand_controller *nandc,
 	val = NAND_ERASED_CW_DETECT_CFG_ACTIVATE_CTRL |
 		NAND_ERASED_CW_DETECT_ERASED_CW_ECC_MASK;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+	bam_add_cmd_element(cmd_list_ptr,
 					NAND_ERASED_CW_DETECT_CFG, val,
 					CE_WRITE_TYPE);
 
@@ -332,16 +316,16 @@ static uint32_t qti_nandc_get_id(struct mtd_info *mtd)
 	vld = FLASH_DEV_CMD_VLD;
 
 	/* Issue the Fetch id command to the NANDc */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD,
 					(uint32_t)flash_cmd, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, cmd_vld, (uint32_t)vld,
+	bam_add_cmd_element(cmd_list_ptr, cmd_vld, (uint32_t)vld,
 			    CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Execute the cmd */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD,
 					(uint32_t)exec_cmd, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -539,16 +523,16 @@ qti_nand_add_addr_n_cfg_ce(struct qcom_nand_controller *nandc,
 {
 	struct cmd_element *cmd_list_ptr = start;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR0,
 					(uint32_t)cfg->addr0, CE_WRITE_TYPE);
 	cmd_list_ptr++;
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR1,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR1,
 					(uint32_t)cfg->addr1, CE_WRITE_TYPE);
 	cmd_list_ptr++;
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_CFG0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_CFG0,
 					(uint32_t)cfg->cfg0, CE_WRITE_TYPE);
 	cmd_list_ptr++;
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_CFG1,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_CFG1,
 					(uint32_t)cfg->cfg1, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -754,17 +738,17 @@ static int qti_serial_get_feature(struct mtd_info *mtd, uint32_t ftr_addr)
 			QTI_SPI_WP_SET | NAND_CMD_ACC_FEATURE);
 
 	/* Set the feature address to NAND_ADDR0 register */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR0, ftr_addr,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR0, ftr_addr,
 			CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Set the value 0x0 to NAND_ADDR1 register */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR1, 0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR1, 0,
 			CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* First Clear the feature register to get the fresh feature value */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_FEATURES, 0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_FEATURES, 0,
 			    CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -775,12 +759,12 @@ static int qti_serial_get_feature(struct mtd_info *mtd, uint32_t ftr_addr)
 	 * wp# pin should be set to high then only we can get the feature
 	 * bit-27 SPI_HOLD : this pin also should be high
 	 */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD, cmd_val,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD, cmd_val,
 			CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Execute the cmd */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD, exec_cmd,
+	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD, exec_cmd,
 			    CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -833,17 +817,17 @@ static int qti_set_feature(struct mtd_info *mtd, uint32_t ftr_addr,
 	uint32_t exec_cmd = 1;
 
 	/* set the feature value to NAND_FLASH_FEATURES feature register */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_FEATURES,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_FEATURES,
 					ftr_val, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Set the feature address to NAND_ADDR0 register */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR0, ftr_addr,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR0, ftr_addr,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Set the value 0x0 to NAND_ADDR1 register */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_ADDR1, 0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_ADDR1, 0,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -854,12 +838,12 @@ static int qti_set_feature(struct mtd_info *mtd, uint32_t ftr_addr,
 	 * wp# pin should be set to high then only we can set the feature
 	 * bit-27 SPI_HOLD : this pin also should be high
 	 */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD, cmd_val,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD, cmd_val,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/* Execute the cmd */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD, exec_cmd,
+	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD, exec_cmd,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -1085,24 +1069,24 @@ static void qti_spi_init(struct mtd_info *mtd)
 	val |= FB_CLK_BIT;
 	if ((readl(QTI_NAND_CTRL) & BAM_MODE_EN)) {
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_QSPI_MSTR_CONFIG,
 						(uint32_t)val, CE_WRITE_TYPE);
 		cmd_list_ptr++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_FLASH_SPI_CFG,
 						(uint32_t)0, CE_WRITE_TYPE);
 		cmd_list_ptr++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_FLASH_SPI_CFG,
 						(uint32_t)SPI_CFG_VAL,
 						CE_WRITE_TYPE);
 		cmd_list_ptr++;
 
 		val = SPI_CFG_VAL & ~SPI_LOAD_CLK_CNTR_INIT_EN;
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_FLASH_SPI_CFG,
 						(uint32_t)val, CE_WRITE_TYPE);
 		cmd_list_ptr++;
@@ -1166,14 +1150,14 @@ static void qti_spi_init(struct mtd_info *mtd)
 	 */
 	if ((readl(QTI_NAND_CTRL) & BAM_MODE_EN)) {
 		cmd_list_ptr = nandc->ce_array;
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_SPI_NUM_ADDR_CYCLES,
 						(uint32_t)SPI_NUM_ADDR_CYCLES,
 						CE_WRITE_TYPE);
 
 		cmd_list_ptr++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 					NAND_SPI_BUSY_CHECK_WAIT_CNT,
 					(uint32_t)SPI_BUSY_CHECK_WAIT_CNT,
 					CE_WRITE_TYPE);
@@ -1223,25 +1207,25 @@ static int reset(struct mtd_info *mtd)
 	 * NAND_EXEC_CMD	0x00000001
 	 */
 	/* write the reset sequence as per HPG */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_CFG0,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_CFG0,
 					(uint32_t)cfg0, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_CFG1,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_CFG1,
 					(uint32_t)cfg1, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_ECC_CFG,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_ECC_CFG,
 					(uint32_t)ecc_cfg, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 
 	/* Issue the Reset device command to the NANDc */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD,
 					(uint32_t)flash_cmd, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 	/* Execute the cmd */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD,
 					(uint32_t)exec_cmd, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 	/* Prepare the cmd desc for the above commands */
@@ -1280,11 +1264,11 @@ qti_nand_add_cmd_ce(struct qcom_nand_controller *nandc, struct cfg_params *cfg,
 
 	cmd_list_ptr = qti_nand_add_addr_n_cfg_ce(nandc, cfg, start);
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD,
 					(uint32_t)cfg->cmd, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD,
 					(uint32_t)cfg->exec, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -1294,12 +1278,12 @@ qti_nand_add_cmd_ce(struct qcom_nand_controller *nandc, struct cfg_params *cfg,
 /* Reads nand_flash_status */
 struct cmd_element*
 qti_nand_add_read_ce(struct qcom_nand_controller *nandc,
-			struct cmd_element *start, uint32_t *flash_status_read)
+			struct cmd_element *start, uintptr_t *flash_status_read)
 {
 	struct cmd_element *cmd_list_ptr = start;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_STATUS,
-				(uint32_t)((uintptr_t)flash_status_read),
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_STATUS,
+				(uintptr_t)flash_status_read,
 				CE_READ_TYPE);
 	cmd_list_ptr++;
 
@@ -1319,12 +1303,12 @@ reset_status_ce(struct qcom_nand_controller *nandc, struct cmd_element *start,
 	flash_status_reset = NAND_FLASH_STATUS_RESET;
 	read_status_reset = NAND_READ_STATUS_RESET;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_STATUS,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_STATUS,
 			   (uint32_t)flash_status_reset, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	if (read_status) {
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_READ_STATUS,
+		bam_add_cmd_element(cmd_list_ptr, NAND_READ_STATUS,
 				   (uint32_t)read_status_reset, CE_WRITE_TYPE);
 		cmd_list_ptr++;
 	}
@@ -1339,11 +1323,11 @@ qti_nand_add_isbad_cmd_ce(struct qcom_nand_controller *nandc,
 {
 	struct cmd_element *cmd_list_ptr = start;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_ECC_CFG,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_ECC_CFG,
 			   (uint32_t)cfg->ecc_cfg, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+	bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(0),
 					(uint32_t)cfg->addr_loc_0,
 					CE_WRITE_TYPE);
@@ -1531,13 +1515,13 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 		ecc = 0x1; /* Disable ECC */
 	}
 	/* Add ECC configuration */
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_ECC_CFG,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_ECC_CFG,
 						(uint32_t)ecc, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	cmd_list_ptr = qti_nand_add_addr_n_cfg_ce(nandc, cfg, cmd_list_ptr);
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD,
 						(uint32_t)cfg->cmd,
 						CE_WRITE_TYPE);
 	cmd_list_ptr++;
@@ -1557,7 +1541,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 		cmd_list_ptr_start = cmd_list_ptr;
 		int_flag = BAM_DESC_INT_FLAG;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD,
+		bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD,
 					(uint32_t)cfg->exec,
 					CE_WRITE_TYPE);
 		cmd_list_ptr++;
@@ -1576,7 +1560,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 
 		cmd_list_read_ptr = qti_nand_add_read_ce(nandc,
 							cmd_list_read_ptr_start,
-							&status[i]);
+							(uintptr_t*)&status[i]);
 		/* Enqueue the desc for the NAND_FLASH_STATUS read command */
 		q_bam_add_one_desc(&nandc->bam,
 				 CMD_PIPE_INDEX,
@@ -1627,7 +1611,7 @@ qti_add_wr_page_cws_data_desc(struct mtd_info *mtd, const void *buffer,
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	int len;
 	int flags;
-	uint32_t start;
+	uint64_t start;
 	unsigned num_desc = 0;
 	unsigned i;
 
@@ -2107,7 +2091,7 @@ static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 								&params,
 								cmd_list_ptr);
 
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 							NAND_DEV0_ECC_CFG,
 							(uint32_t)ecc,
 							CE_WRITE_TYPE);
@@ -2115,7 +2099,7 @@ static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 		} else
 			cmd_list_ptr_start = cmd_list_ptr;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD,
+		bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD,
 					(uint32_t)params.cmd,
 					CE_WRITE_TYPE);
 		cmd_list_ptr++;
@@ -2127,7 +2111,7 @@ static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 			addr_loc_0 |= NAND_RD_LOC_LAST_BIT(0);
 
 			 /*To read only spare bytes 80 0r 16*/
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(1),
 					(uint32_t)addr_loc_1, CE_WRITE_TYPE);
 
@@ -2163,18 +2147,18 @@ static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 		}
 
 		if (i == (nandc->cws_per_page) - 1)
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(0),
 					(uint32_t)addr_loc_0,
 					CE_WRITE_TYPE);
 		else
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 				    NAND_READ_LOCATION_n(0),
 				    (uint32_t)addr_loc_0,
 				    CE_WRITE_TYPE);
 		cmd_list_ptr++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 				    NAND_EXEC_CMD,
 				    (uint32_t)params.exec,
 				    CE_WRITE_TYPE);
@@ -2189,24 +2173,24 @@ static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 				 BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG);
 		num_cmd_desc++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 				NAND_FLASH_STATUS,
-				(uint32_t)((uintptr_t)&(stats[i].flash_sts)),
+				(uintptr_t)&(stats[i].flash_sts),
 				CE_READ_TYPE);
 
 		cmd_list_temp = (uint32_t *)cmd_list_ptr;
 
 		cmd_list_ptr++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 				NAND_BUFFER_STATUS,
-				(uint32_t)((uintptr_t)&(stats[i].buffer_sts)),
+				(uintptr_t)&(stats[i].buffer_sts),
 				CE_READ_TYPE);
 		cmd_list_ptr++;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 			NAND_ERASED_CW_DETECT_STATUS,
-			(uint32_t)((uintptr_t)&(stats[i].erased_cw_sts)),
+			(uintptr_t)&(stats[i].erased_cw_sts),
 			CE_READ_TYPE);
 		cmd_list_ptr++;
 
@@ -2415,13 +2399,13 @@ int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 	spareaddr_st = spareaddr;
 
 	cmd_list_ptr = qti_nand_add_addr_n_cfg_ce(nandc, &params, cmd_list_ptr);
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_DEV0_ECC_CFG,
+	bam_add_cmd_element(cmd_list_ptr, NAND_DEV0_ECC_CFG,
 					(uint32_t)ecc, CE_WRITE_TYPE);
 	cmd_list_ptr++;
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_AUTO_STATUS_EN,
+	bam_add_cmd_element(cmd_list_ptr, NAND_AUTO_STATUS_EN,
 				(uint32_t)auto_status, CE_WRITE_TYPE);
 	cmd_list_ptr++;
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_MULTI_PAGE_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_MULTI_PAGE_CMD,
 				(uint32_t)num_pages - 1, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -2542,29 +2526,29 @@ int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 
 	cmd_list_ptr = cmd_list_ptr_start;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_READ_LOCATION_n(0),
+	bam_add_cmd_element(cmd_list_ptr, NAND_READ_LOCATION_n(0),
 					(uint32_t)addr_loc_0, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+	bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(0),
 					(uint32_t)addr_loc_last,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
 	/*To read only spare bytes 80 0r 16*/
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+	bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(1),
 					(uint32_t)addr_loc_1,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_FLASH_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_CMD,
 					(uint32_t)params.cmd,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, NAND_EXEC_CMD,
+	bam_add_cmd_element(cmd_list_ptr, NAND_EXEC_CMD,
 					(uint32_t)params.exec,
 					CE_WRITE_TYPE);
 	cmd_list_ptr++;
@@ -2754,17 +2738,17 @@ int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 								&params,
 								cmd_list_ptr);
 
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 				NAND_DEV0_ECC_CFG,(uint32_t)ecc,
 				CE_WRITE_TYPE);
 			cmd_list_ptr++;
 
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 				NAND_AUTO_STATUS_EN,(uint32_t)auto_status,
 				CE_WRITE_TYPE);
 			cmd_list_ptr++;
 
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 							NAND_FLASH_CMD,
 							(uint32_t)params.cmd,
 							CE_WRITE_TYPE);
@@ -2779,7 +2763,7 @@ int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 			addr_loc_0 |= NAND_RD_LOC_LAST_BIT(0);
 
 			 /*To read only spare bytes 80 0r 16*/
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(1),
 					(uint32_t)addr_loc_1, CE_WRITE_TYPE);
 
@@ -2843,20 +2827,20 @@ int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 		}
 
 		if (i == (nandc->cws_per_page) - 1) {
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 					NAND_READ_LOCATION_LAST_CW_n(0),
 					(uint32_t)addr_loc_0,
 					CE_WRITE_TYPE);
 			cmd_list_ptr++;
 
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 							NAND_EXEC_CMD,
 							(uint32_t)params.exec,
 							CE_WRITE_TYPE);
 
 			cmd_list_ptr++;
 		} else {
-			qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+			bam_add_cmd_element(cmd_list_ptr,
 				    NAND_READ_LOCATION_n(0),
 				    (uint32_t)addr_loc_0,
 				    CE_WRITE_TYPE);
@@ -3453,7 +3437,7 @@ nand_result_t qti_nandc_block_erase(struct mtd_info *mtd, uint32_t page)
 	* Read the result of GET_STATUS cmd.
 	*/
 	cmd_list_read_ptr = qti_nand_add_read_ce(nandc, cmd_list_read_ptr,
-							&status);
+							(uintptr_t *)&status);
 
 	/* Enqueue the desc for the NAND_FLASH_STATUS read command */
 	q_bam_add_one_desc(&nandc->bam,
@@ -3620,7 +3604,7 @@ static void qti_reg_write_dma(struct qcom_nand_controller *nandc,
 	struct cmd_element *cmd_list_ptr = nandc->ce_array;
 	struct cmd_element *cmd_list_ptr_start = nandc->ce_array;
 
-	qti_nand_add_cmd_element(nandc, cmd_list_ptr, reg,
+	bam_add_cmd_element(cmd_list_ptr, reg,
 				(uint32_t)val, CE_WRITE_TYPE);
 	cmd_list_ptr++;
 
@@ -3654,7 +3638,7 @@ static void qti_set_phase(struct qcom_nand_controller *nandc, int phase)
 
 	if ((readl(QTI_NAND_CTRL) & BAM_MODE_EN)) {
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_FLASH_SPI_CFG,
 						(uint32_t)spi_flash_cfg_val,
 						CE_WRITE_TYPE);
@@ -3665,7 +3649,7 @@ static void qti_set_phase(struct qcom_nand_controller *nandc, int phase)
 		spi_flash_cfg_val |= ((phase << 16) | (phase << 19) |
 			(phase << 22) | (phase << 25));
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_FLASH_SPI_CFG,
 						(uint32_t)spi_flash_cfg_val,
 						CE_WRITE_TYPE);
@@ -3675,7 +3659,7 @@ static void qti_set_phase(struct qcom_nand_controller *nandc, int phase)
 		 */
 		spi_flash_cfg_val &= ~SPI_LOAD_CLK_CNTR_INIT_EN;
 
-		qti_nand_add_cmd_element(nandc, cmd_list_ptr,
+		bam_add_cmd_element(cmd_list_ptr,
 						NAND_FLASH_SPI_CFG,
 						(uint32_t)spi_flash_cfg_val,
 						CE_WRITE_TYPE);
@@ -4049,8 +4033,6 @@ static int qti_nand_probe(struct udevice *device)
 					DATA_CONSUMER_PIPE_GRP);
 
 	nandc->do_serial_training = dev_read_bool(device, "serial_training");
-
-	nandc->support_36bit_addressing = dev_read_bool(device, "support_36bit_addressing");
 
 	ret = clk_get_by_name(device, "qpic-io-macro-clk", &nandc->clk);
 	if (ret)

@@ -155,6 +155,10 @@ void bam_init(struct bam_instance *bam, uint32_t bam_cfg,
 int bam_pipe_fifo_init(struct bam_instance *bam,
                        uint8_t pipe_num)
 {
+
+	uint64_t fifo_head = (uint64_t)((uintptr_t)bam->pipe[pipe_num].fifo.head);
+	uint8_t pipe_index = bam->pipe[pipe_num].pipe_num;
+
 	if (bam->pipe[pipe_num].fifo.size > 0x7FFF) {
 		printf("bam: Size exceeds max size for a descriptor(0x7FFF)\n");
 		return BAM_RESULT_FAILURE;
@@ -177,23 +181,37 @@ int bam_pipe_fifo_init(struct bam_instance *bam,
 
 	/* Set the descriptor buffer size. Must be a multiple of 8 */
 	writel(bam->pipe[pipe_num].fifo.size * BAM_DESC_SIZE,
-		(uintptr_t)BAM_P_FIFO_SIZESn(bam->pipe[pipe_num].\
-						pipe_num, bam->base));
+		(uintptr_t)BAM_P_FIFO_SIZESn(pipe_index, bam->base));
 
 	/* Write descriptors FIFO base addr must be 8-byte aligned */
 	/* Needs a physical address conversion as we are setting up
 	 * the base of the FIFO for the BAM state machine.
 	 */
-	writel((uint32_t)((addr_t)bam->pipe[pipe_num].fifo.head),
-		(uintptr_t)BAM_P_DESC_FIFO_ADDRn(bam->pipe[pipe_num].\
-							pipe_num, bam->base));
+
+	debug("%s:%d: fifo head = 0x%llx\n", __func__, __LINE__, fifo_head);
+
+	if(fifo_head >> 32) {
+
+		writel((uint32_t)fifo_head,
+			(uintptr_t)BAM_P_DESC_FIFO_LSB_ADDRn(pipe_index,
+								bam->base));
+
+		writel((uint32_t)(fifo_head >> 32),
+			(uintptr_t)BAM_P_DESC_FIFO_MSB_ADDRn(pipe_index,
+								bam->base));
+	} else {
+
+		writel((uint32_t)fifo_head,
+			(uintptr_t)BAM_P_DESC_FIFO_ADDRn(pipe_index,
+								bam->base));
+
+	}
 
 	/* Initialize FIFO offset for the first read */
 	bam->pipe[pipe_num].fifo.offset = BAM_DESC_SIZE;
 
-	writel(P_ENABLE | readl((uintptr_t)BAM_P_CTRLn(bam->pipe[pipe_num].\
-							pipe_num, bam->base)),
-		 (uintptr_t)BAM_P_CTRLn(bam->pipe[pipe_num].pipe_num, bam->base));
+	writel(P_ENABLE | readl((uintptr_t)BAM_P_CTRLn(pipe_index, bam->base)),
+		 (uintptr_t)BAM_P_CTRLn(pipe_index, bam->base));
 
 	/* Everything is set.
 	 * Flag pipe init done.
@@ -410,10 +428,11 @@ int q_bam_add_one_desc(struct bam_instance *bam,
 		goto bam_add_one_desc_error;
 	}
 
-	desc->flags    = flags;
-	desc->addr     = (uintptr_t)data_ptr;
-	desc->size     = (uint16_t)len;
-	desc->reserved = 0;
+	desc->flags	= flags;
+	desc->addr	= (uintptr_t)data_ptr;
+	desc->addr_msb	= ((uint64_t)((uintptr_t)data_ptr) >> 32) & 0xf;
+	desc->size	= (uint16_t)len;
+	desc->reserved	= 0;
 
 #if !defined(CONFIG_SYS_DCACHE_OFF)
 	flush_cache((addr_t)data_ptr, len);
@@ -428,7 +447,7 @@ bam_add_one_desc_error:
 
 struct cmd_element* bam_add_cmd_element(struct cmd_element *ptr,
                                         uint32_t reg_addr,
-                                        uint32_t value,
+                                        uint64_t value,
                                         enum bam_ce_cmd_t cmd_type)
 {
 
@@ -438,14 +457,16 @@ struct cmd_element* bam_add_cmd_element(struct cmd_element *ptr,
 	ptr->addr_n_cmd = (reg_addr & ~(BAM_CE_REG_ADDR_MASK)) |
 				((cmd_type & 0xFF) << (BAM_CE_CMD_TYPE_SHIFT));
 
+	/* Write the value to be written */
+	ptr->reg_data = (uint32_t)value;
+
 	/*
 	 * Do not mask any of the addr bits by default
-	 * For ddr 36bit addressing mode ,reg_mask is 0
+	 * For ddr 36bit addressing mode ,reg_mask contains MSB[35:32]
+	 * of read destination address
 	 */
-	ptr->reg_mask = cmd_type & BIT(8)  ? 0 : BAM_CE_REG_MASK;
-
-	/* Write the value to be written */
-	ptr->reg_data = value;
+	ptr->reg_mask = CE_READ_TYPE == cmd_type ? ((value >> 32) & 0xF) :
+							BAM_CE_REG_MASK;
 
 	/* Return the address to add the next element to */
 	return ptr + 1;

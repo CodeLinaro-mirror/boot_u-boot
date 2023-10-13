@@ -790,7 +790,7 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 }
 
 #ifndef CONFIG_IPQ_ELF_AUTH
-static int authenticate_rootfs(unsigned int kernel_addr,
+static int authenticate_rootfs(uintptr_t kernel_addr,
 					kernel_img_info_t kernel_img_info)
 {
 	unsigned int kernel_imgsize;

@@ -473,7 +473,7 @@ phys_addr_t ebi2nd_base;
 /* Number of max cw's the driver allows to flash. */
 #define QTI_NAND_MAX_CWS_IN_PAGE		10
 
-#define QTI_MAX_NO_CMD_ELEMENT                 32
+#define QTI_MAX_NO_CMD_ELEMENT                 64
 
 /* Reset Values for Status registers */
 #define NAND_FLASH_STATUS_RESET			0x00000020
@@ -686,7 +686,6 @@ struct qcom_nand_controller {
 	bool quad_mode;
 	bool check_quad_config;
 	bool do_serial_training;
-	bool support_36bit_addressing;
 	uint32_t oob_per_page;
 	uint32_t buff_start;
 	uint32_t buff_count;
