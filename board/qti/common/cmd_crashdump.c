@@ -867,6 +867,7 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
 
 	list_for_each_entry(dump_entry, &actual_dumps_list, list) {
+		printf("Processing %s:\n", dump_entry->name);
 		ret = dump_to_dst(dump_config, dump_entry);
 		if (ret == CMD_RET_FAILURE)
 			break;
@@ -920,10 +921,6 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 
 	dump_config->debug = debug;
 	parse_crashdump_config(dump_config);
-	ret = verify_crashdump_config(dump_config);
-	if (ret == CMD_RET_FAILURE)
-		goto reset;
-
 	if (!dump_config->force_collect_dump) {
 		etime = get_timer(0) + (10 * CONFIG_SYS_HZ);
 		printf("\nHit any key within 10s to stop dump activity...");
@@ -941,6 +938,10 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 		printf("\nSkipping crashdump ... \n");
 		goto reset;
 	}
+
+	ret = verify_crashdump_config(dump_config);
+	if (ret == CMD_RET_FAILURE)
+		goto reset;
 
 	ret = verify_crashdump_iface(dump_config);
 	if (ret == CMD_RET_FAILURE)
