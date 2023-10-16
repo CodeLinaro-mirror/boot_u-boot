@@ -58,6 +58,22 @@
 					bias-pull-up;
 				};
 			};
+
+			pcie0_x1_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_23";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+
+			pcie1_x1_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_26";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		blsp3_i2c: i2c@78B8000 {
@@ -153,11 +169,15 @@
 		};
 
 		pcie0_x1: pci@28000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie0_x1_pinmux>;
 			status = "okay";
 			perst_gpio = <&tlmm 23 0>;
 		};
 
 		pcie1_x1: pci@10000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie1_x1_pinmux>;
 			status = "okay";
 			perst_gpio = <&tlmm 26 0>;
 		};
