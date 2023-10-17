@@ -269,8 +269,11 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 	};
 	struct fuse_payload *fuse = NULL;
 	scm_param param;
+	size_t size = sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE;
 
-	fuse = malloc(sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE);
+	size = roundup(size, CONFIG_SYS_CACHELINE_SIZE);
+
+	fuse = malloc_cache_aligned(size);
 	if (fuse == NULL) {
 		return 1;
 	}
@@ -295,11 +298,16 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	param.len = 2;
 
-	ret = ipq_scm_call(&param);
+	/* invalidate cache to update latest value in buff */
+	flush_dcache_range((unsigned long)fuse,
+				(unsigned long)fuse +
+				size);
 
-/*	ret = qca_scm_list_ipq5332_fuse(SCM_SVC_FUSE, TZ_READ_FUSE_VALUE, fuse,
-			sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE);
-*/
+	ret = ipq_scm_call(&param);
+	if (ret) {
+		printf("Error (%d) failed to read fuse\n", ret);
+	}
+
 	printf("Fuse Name\tAddress\t\tValue\n");
 	printf("------------------------------------------------\n");
 
@@ -317,9 +325,6 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 				fuse[index].fuse_addr + 0x4, fuse[index].msb_val);
 	}
 
-	if (ret) {
-		printf("Failed to read OEM parameters at Address 0x%X\n", ret);
-	}
 	free(fuse);
 	return 0;
 }
