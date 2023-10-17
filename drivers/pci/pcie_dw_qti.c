@@ -100,7 +100,8 @@
 
 #define PCIE_TYPE0_SLOT_CAPABILITIES_REG	0x84
 
-#define PCIE_LINK_UP_TIMEOUT			10000000
+#define PCIE_LINK_UP_DELAY			100
+#define PCIE_LINK_UP_TIMEOUT			PCIE_LINK_UP_DELAY * 500
 
 #define MAX_PCIE				4
 
@@ -133,9 +134,9 @@ static int is_pcie_link_up(struct pcie_dw_qti *pcie)
 	status = (phys_addr_t)pcie->dw.dbi_base +
 				PCIE_LINK_CONTROL_LINK_STATUS_REG;
 
-	ret = readl_poll_timeout(status, val,
+	ret = readl_poll_sleep_timeout(status, val,
 			(val & PCIE_CAP_DLL_ACTIVE) == PCIE_CAP_DLL_ACTIVE,
-			PCIE_LINK_UP_TIMEOUT);
+			PCIE_LINK_UP_DELAY, PCIE_LINK_UP_TIMEOUT);
 
 	return !ret;
 }
