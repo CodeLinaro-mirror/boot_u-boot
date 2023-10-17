@@ -716,12 +716,19 @@ static int do_pci_cmd(struct cmd_tbl *cmdtp, int flag, int argc,
 			"Device ID \n");
 	case PCI_LIST_QCN9224_FUSE:
 	case PCI_DETECT_QCN9224:
-		for (busnum = 0;
-			uclass_get_device_by_seq(UCLASS_PCI, busnum, &bus) == 0;
-			++busnum) {
+		for (busnum = 0; busnum < CONFIG_IPQ_MAX_PCIE * 2; ++busnum) {
+			/*
+			 * avoid unwannted error logs, so disabling console
+			 */
+			gd->have_console = 0;
+
+			if (uclass_get_device_by_seq(UCLASS_PCI,busnum, &bus))
+				continue;
 
 			if (!device_is_on_pci_bus(bus))
 				continue;
+
+			gd->have_console = 1;
 
 			if (cmd == PCI_LIST)
 				list_pci_device(bus);
@@ -735,6 +742,8 @@ static int do_pci_cmd(struct cmd_tbl *cmdtp, int flag, int argc,
 		;
 	}
 fail:
+	gd->have_console = 1;
+
 	return ret;
 }
 
