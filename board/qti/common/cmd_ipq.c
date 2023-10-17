@@ -668,7 +668,8 @@ static void list_pci_device(struct udevice *bus)
 
 		dm_pci_read_config(dev, PCI_VENDOR_ID, &vendor, PCI_SIZE_16);
 		dm_pci_read_config(dev, PCI_DEVICE_ID, &device, PCI_SIZE_16);
-		dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, &bar0_base);
+		dm_pci_read_config32(dev->parent, PCI_BASE_ADDRESS_0,
+					&bar0_base);
 
 		printf("\t   %d  \t\t    %d    \t\t0x%x        \t0x%lx\n",
 				((dev_seq(bus) - 1) >> 1),
