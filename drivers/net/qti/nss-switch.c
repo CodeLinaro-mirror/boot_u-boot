@@ -2695,8 +2695,6 @@ static int ipq_eth_probe(struct udevice *dev)
 	int phy_no = 0;
 #endif
 
-	pinctrl_select_state(dev, "phy_rst");
-
 	ret = reset_get_bulk(dev, &resets);
 	if (ret) {
 		dev_err(dev, "Can't get reset: %d\n", ret);

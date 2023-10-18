@@ -26,6 +26,22 @@
 				};
 			};
 
+			phy_rst_pinmux: phy_rst {
+				qti_sfp0_tx_los {
+					pins = "GPIO_15";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+					output-enable;
+				};
+
+				qti_sfp1_tx_los {
+					pins = "GPIO_24";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+					output-enable;
+				};
+			};
+
 			pcie1_x2_pinmux: pci_pins {
 				pci_rst {
 					pins = "GPIO_47";
@@ -77,6 +93,8 @@
 		};
 
 		ethernet: nss-switch {
+			pinctrl-names = "default";
+			pinctrl-0 = <&phy_rst_pinmux>;
 			phy-handle0 = <&phy0>;
 			phy-handle1 = <&phy1>;
 			status = "okay";
