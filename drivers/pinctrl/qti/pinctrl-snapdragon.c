@@ -33,12 +33,14 @@ struct msm_pinctrl_priv {
 #define TLMM_FUNC_SEL_MASK GENMASK(5, 2)
 #define TLMM_DRV_STRENGTH_MASK GENMASK(8, 6)
 #define TLMM_GPIO_DISABLE BIT(9)
+#define TLMM_GPIO_OE_MASK		BIT(9)
 
 static const struct pinconf_param msm_conf_params[] = {
 	{ "drive-strength", PIN_CONFIG_DRIVE_STRENGTH, 2 },
 	{ "bias-disable", PIN_CONFIG_BIAS_DISABLE, 0 },
 	{ "bias-pull-up", PIN_CONFIG_BIAS_PULL_UP, 3 },
 	{ "bias-pull-down", PIN_CONFIG_BIAS_PULL_DOWN, 1 },
+	{ "output-enable", PIN_CONFIG_OUTPUT_ENABLE, 1 },
 };
 
 static int msm_get_functions_count(struct udevice *dev)
@@ -112,6 +114,10 @@ static int msm_pinconf_set(struct udevice *dev, unsigned int pin_selector,
 	case PIN_CONFIG_BIAS_PULL_DOWN:
 		clrsetbits_le32(priv->base + GPIO_CONFIG_OFFSET(pin_selector),
 			     TLMM_GPIO_PULL_MASK, argument);
+		break;
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		clrsetbits_le32(priv->base + GPIO_CONFIG_OFFSET(pin_selector),
+			     TLMM_GPIO_OE_MASK, argument << 9);
 		break;
 	default:
 		return 0;

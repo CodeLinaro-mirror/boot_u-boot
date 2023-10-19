@@ -183,6 +183,8 @@
 		};
 
 		ethernet: nss-switch {
+			pinctrl-names = "default";
+			pinctrl-0 = <&phy_rst_pinmux>;
 			phy-handle0 = <&phy0>;
 			phy-handle4 = <&phy4>;
 			phy-handle5 = <&phy5>;

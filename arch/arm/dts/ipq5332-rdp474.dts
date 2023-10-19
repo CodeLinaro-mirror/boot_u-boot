@@ -32,6 +32,13 @@
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
+
+				qti_sfp_tx_los {
+					pins = "GPIO_24";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+					output-enable;
+				};
 			};
 
 			blsp1_i2c_pinmux: blsp1_i2c_pins {
@@ -152,6 +159,8 @@
 		};
 
 		ethernet: nss-switch {
+			pinctrl-names = "default";
+			pinctrl-0 = <&phy_rst_pinmux>;
 			phy-handle0 = <&phy0>;
 			phy-handle1 = <&phy1>;
 			status = "okay";
