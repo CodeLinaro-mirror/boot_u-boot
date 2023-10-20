@@ -779,6 +779,14 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 			compress_out_sz;
 
 		printf("Compressing %s... ", dump_entry->name);
+		if (!strncmp(dump_entry->name, "EBICS0.BIN",
+					strlen("EBICS0.BIN"))) {
+			memcpy((void*)compress_out_addr, (void*)
+					(uintptr_t)dump_entry->start_addr,
+					dump_entry->size);
+			dump_entry->start_addr = compress_out_addr;
+		}
+
 		if (gzip((void *)(uintptr_t) compress_out_addr,
 				&compress_out_sz,
 				(void*)(uintptr_t) dump_entry->start_addr,
