@@ -1523,6 +1523,16 @@ void enable_caches(void)
 	}
 #endif
 	board_cache_init();
+
+#ifndef CONFIG_MULTI_DTB_FIT_NO_COMPRESSION
+	if (gd->new_fdt) {
+		memcpy(gd->new_fdt, gd->fdt_blob, fdt_totalsize(gd->fdt_blob));
+		flush_cache((ulong) gd->new_fdt, ALIGN(
+					fdt_totalsize(gd->fdt_blob),
+					ARCH_DMA_MINALIGN));
+		gd->fdt_blob = gd->new_fdt;
+	}
+#endif
 }
 
 static int do_aqloadfw(struct cmd_tbl *cmdtp, int flag, int argc,
