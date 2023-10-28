@@ -72,3 +72,30 @@ extern uint32_t g_load_addr;
 #define ROOT_FS_PART_NAME			"rootfs"
 
 #define CONFIG_ROOTFS_LOAD_ADDR		CFG_SYS_SDRAM_BASE + (16 << 20)
+
+#define NONCACHED_MEM_REGION_ADDR		((IPQ5332_UBOOT_END_ADDRESS + \
+						SZ_1M - 1) & ~(SZ_1M - 1))
+#define NONCACHED_MEM_REGION_SIZE		SZ_1M
+
+/*
+ * Refer above memory layout,
+ * Non-Cached Memory should not begin at above 0x4A400000 since upcoming
+ * memory regions are being used in the other boot components
+ */
+#if (NONCACHED_MEM_REGION_ADDR > 0x4A400000)
+#error "###: Text Segment overlaps with the Non-Cached Region"
+#endif
+
+#ifdef CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR
+/*
+ * CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR - memory used to decompress multi dtb
+ * NONCACHED_MEM_REGION_ADDR - Non-Cached memory region
+ * both uses same address space. So both should be same.
+ *
+ * Change in CONFIG_TEXT_BASE or CONFIG_TEXT_SIZE various affect this macro.
+ * So, according define the CONFIG_TEXT_BASE and CONFIG_TEXT_SIZE macros.
+ */
+#if (CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR)
+#error "###: CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR"
+#endif
+#endif

@@ -37,8 +37,8 @@ static unsigned long nc_next;
  */
 static int nc_mem_init(void)
 {
-	unsigned long nc_start = 0x49F00000;
-	nc_end = nc_start + 0x100000;
+	unsigned long nc_start = NONCACHED_MEM_REGION_ADDR;
+	nc_end = nc_start + NONCACHED_MEM_REGION_SIZE;
 	nc_next = nc_start;
 
 	mmu_set_region_dcache_behaviour(nc_start, nc_end - nc_start,
