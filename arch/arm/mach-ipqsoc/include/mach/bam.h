@@ -47,6 +47,8 @@
 #define BAM_P_SW_OFSTSn(n, x)           (0x00013800 + 0x1000 * (n) + (x))
 #define BAM_P_EVNT_REGn(n, x)           (0x00013818 + 0x1000 * (n) + (x))
 #define BAM_P_DESC_FIFO_ADDRn(n, x)     (0x0001381C + 0x1000 * (n) + (x))
+#define BAM_P_DESC_FIFO_LSB_ADDRn(n, x)     (0x00013910 + 0x1000 * (n) + (x))
+#define BAM_P_DESC_FIFO_MSB_ADDRn(n, x)     (0x00013914 + 0x1000 * (n) + (x))
 #define BAM_P_FIFO_SIZESn(n, x)         (0x00013820 + 0x1000 * (n) + (x))
 #else
 #define BAM_IRQ_SRCS(x, n)              (0x00000800 + (0x80 * (n)) + (x))
@@ -194,9 +196,10 @@ enum bam_type {
  *      contain an integer number of Descriptors.
  */
 struct bam_desc {
-	uint32_t addr;
+	uint32_t addr;		/* 0th bit - 31st bit */
 	uint16_t size;
-	uint8_t reserved;
+	uint8_t addr_msb : 4;	/* 32nd bit - 35th bit */
+	uint8_t reserved : 4;
 	uint8_t flags;
 } __attribute__ ((packed));
 
@@ -271,7 +274,7 @@ int bam_pipe_fifo_init(struct bam_instance *bam,
                        uint8_t pipe_num);
 struct cmd_element* bam_add_cmd_element(struct cmd_element *ptr,
                                         uint32_t addr,
-                                        uint32_t data,
+                                        uint64_t data,
                                         enum bam_ce_cmd_t cmd_type);
 int bam_add_desc(struct bam_instance *bam,
                  unsigned int pipe_num,

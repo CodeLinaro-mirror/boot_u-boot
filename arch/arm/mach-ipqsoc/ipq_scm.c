@@ -41,6 +41,7 @@ static const char * const qcom_scm_convention_names[] = {
 };
 #endif
 
+#ifdef CONFIG_IPQ_SECURE
 static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 				struct arm_smccc_res *res)
 {
@@ -168,6 +169,7 @@ static int qcom_scm_call(const struct qcom_scm_desc *desc,
 		return -EINVAL;
 	}
 }
+#endif
 
 #ifndef CONFIG_IPQ_SECURE
 __weak int ipq_scm_call(scm_param *param)
