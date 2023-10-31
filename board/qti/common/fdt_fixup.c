@@ -504,10 +504,14 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 		"sbl",
 		NULL
 	};
-	u32 dload = htonl(1);	// DLOAD disable
-	char * s = env_get("dload_dis");
-	if ((s == NULL) || (s[0] == '\0'))
+	char * s = env_get("bootargs");
+
+	if ((s == NULL) || (s[0] == '\0')) {
 		return;
+	} else {
+		if(!strstr(s, "qcom_scm.download_mode=0"))
+			return;
+	}
 
 	/* Reserve only the TZ and SMEM memory region and free the rest */
 	parentoff = fdt_path_offset(blob, LINUX_RSVD_MEM_DTS_NODE);
@@ -527,26 +531,6 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 		}
 	} else {
 		debug("fdt-fixup: unable to find node \n");
-	}
-
-	/* Set the dload_status to DLOAD_DISABLE */
-	nodeoff = fdt_path_offset(blob, LINUX_6_1_DLOAD_DTS_NODE);
-	if (nodeoff < 0) {
-		nodeoff = fdt_path_offset(blob, LINUX_5_4_DLOAD_DTS_NODE);
-		if (nodeoff > 0) {
-			ret = fdt_setprop(blob, nodeoff, "dload_status",
-					&dload, sizeof(dload));
-			if (ret != 0) {
-				debug("fdt-fixup: unable to set prop value\n");
-				return;
-			}
-		}
-	} else {
-		ret = fdt_delprop(blob, nodeoff, "qcom,dload-mode");
-		if (ret != 0) {
-			debug("fdt-fixup: unable to delete prop\n");
-			return;
-		}
 	}
 }
 
