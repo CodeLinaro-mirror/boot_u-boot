@@ -569,7 +569,8 @@ static int qup_i2c_probe_chip(struct udevice *dev, uint chip_addr,
 		goto out;
 
 	qup->config_run = 0;
-	qup_i2c_enable_io_config(qup, QUP_MAX_TAGS_LEN, 0);
+	qup_i2c_enable_io_config(qup, QUP_MAX_TAGS_LEN,
+					READ_RX_TAGS_LEN + 1);
 
 	ret = qup_i2c_change_state(qup, QUP_RUN_STATE);
 	if (ret)
@@ -582,8 +583,9 @@ static int qup_i2c_probe_chip(struct udevice *dev, uint chip_addr,
 	if (ret)
 		goto out;
 
-	qup_i2c_write_word(qup, QUP_TAG_V2_START | ((chip_addr << 1) << 8) |
-			(QUP_TAG_V2_DATAWR_STOP << 16) | (0 << 24));
+	qup_i2c_write_word(qup, QUP_TAG_V2_START | (((chip_addr << 1) | 0x1)
+				<< 8) | (QUP_TAG_V2_DATARD_STOP << 16) |
+				(1 << 24));
 
 	ret = qup_i2c_change_state(qup, QUP_RUN_STATE);
 	if (ret)
@@ -602,12 +604,27 @@ static int qup_i2c_probe_chip(struct udevice *dev, uint chip_addr,
 		goto out;
         writel(QUP_OUT_SVC_FLAG, qup->base + QUP_OPERATIONAL);
 
-out:
 	val = readl(qup->base + QUP_I2C_STATUS);
 	if ((val & QUP_I2C_INVALID_SLAVE_ADDR) ||
-			(val & QUP_I2C_NACK_BIT_STAT))
+			(val & QUP_I2C_NACK_BIT_STAT)) {
 		ret = -EREMOTEIO;
+		goto out;
+	}
 
+	do {
+		if (!count) {
+			ret = -ETIMEDOUT;
+			break;
+		}
+
+		count--;
+		udelay(10);
+	} while (!(readl(qup->base + QUP_OPERATIONAL) & QUP_IN_SVC_FLAG));
+	if (ret)
+		goto out;
+	writel(QUP_IN_SVC_FLAG, qup->base + QUP_OPERATIONAL);
+
+out:
 	qup_i2c_change_state(qup, QUP_RESET_STATE);
 	return ret;
 }
