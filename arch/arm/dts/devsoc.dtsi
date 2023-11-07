@@ -112,6 +112,7 @@
 				clocks = <&gcc GCC_QUPV3_SE4_CLK>;
 				clock-names = "se-clk";
 				spi-max-frequency = <50000000>;
+				nor-blk-enable;
 				status = "disabled";
 			};
 
