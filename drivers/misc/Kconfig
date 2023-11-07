@@ -672,4 +672,12 @@ config SL28CPLD
 	  the base driver which provides common access methods for the
 	  sub-drivers.
 
+config NOR_BLK
+	bool "Qualcomm Nor block wrapper driver"
+	select BLK
+	select EFI_PARTITION
+	depends on IPQ_SPI_NOR
+	help
+	  The driver manages the SPI-Nor device as a block device
+	  that supports the GPT (EFI) partition table.
 endmenu
