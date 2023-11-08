@@ -518,6 +518,12 @@ config QCOM_GENI_SE
 	  The driver manages Generic Interface (GENI) firmware based
 	  Qualcomm Technologies, Inc. Universal Peripheral (QUP) Wrapper.
 
+config QCOM_GENI_SE_FW_LOAD
+	bool "Qualcomm GENI Serial Engine Firmware Loader Support"
+	depends on ARCH_SNAPDRAGON || ARCH_IPQSOC
+	help
+	  Enables this to add support to load GENI SE FW.
+
 config QFW
 	bool
 	help

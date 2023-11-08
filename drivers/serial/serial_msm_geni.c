@@ -15,6 +15,9 @@
 #include <linux/delay.h>
 #include <misc.h>
 #include <serial.h>
+#ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
+#include <geni_se.h>
+#endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 #define UART_OVERSAMPLING	32
 #define STALE_TIMEOUT	160
@@ -567,6 +570,11 @@ static int msm_serial_probe(struct udevice *dev)
 	/* No need to reinitialize the UART after relocation */
 	if (gd->flags & GD_FLG_RELOC)
 		return 0;
+
+#ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
+	/* need to enable clk with default rate */
+	geni_se_fw_load(priv->base, QUPV3_SE_UART);
+#endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 	geni_serial_init(dev);
 	msm_geni_serial_setup_rx(dev);

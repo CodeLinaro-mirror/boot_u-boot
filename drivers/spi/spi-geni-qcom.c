@@ -12,6 +12,9 @@
 #include <cpu_func.h>
 #include <spi.h>
 #include <misc.h>
+#ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
+#include <geni_se.h>
+#endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 /* SPI SE specific registers and respective register fields */
 #define SE_SPI_CPHA			0x224
@@ -910,6 +913,11 @@ static int qupv3_spi_probe(struct udevice *dev)
 	ret = clk_enable(&priv->clk);
 	if (ret < 0)
 		return ret;
+
+#ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
+	/* need to enable clk with default rate */
+	geni_se_fw_load(priv->base, QUPV3_SE_SPI);
+#endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 	priv->num_cs = dev_read_u32_default(dev, "num-cs", 1);
 	priv->max_hz = dev_read_u32_default(dev, "spi-max-frequency", 0);
