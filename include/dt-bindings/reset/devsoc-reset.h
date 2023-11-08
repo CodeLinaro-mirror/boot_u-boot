@@ -18,4 +18,6 @@
 #ifndef __DEVSOC_RESET_H__
 #define __DEVSOC_RESET_H__
 
+#define GCC_SDCC1_BCR		0
+
 #endif

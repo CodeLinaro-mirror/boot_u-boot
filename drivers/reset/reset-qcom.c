@@ -186,6 +186,7 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 #ifdef CONFIG_TARGET_DEVSOC
 #include <dt-bindings/reset/devsoc-reset.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {
+	[GCC_SDCC1_BCR] = {0x33000, 0},
 };
 #endif
 
