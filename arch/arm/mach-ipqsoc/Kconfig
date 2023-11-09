@@ -4,6 +4,7 @@ config ARCH_32BIT_SUPPORT
 	bool "IPQSOC 32-bit support"
 	select CPU_V7A
 	select SYS_ARCH_TIMER
+	select SYS_THUMB_BUILD
 	default n
 
 config ARCH_64BIT_SUPPORT
