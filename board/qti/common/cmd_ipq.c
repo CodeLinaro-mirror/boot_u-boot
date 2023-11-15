@@ -24,37 +24,6 @@
 
 #include "ipq_board.h"
 
-
-#ifdef CONFIG_IPQ_QCN9224_FUSING
-struct jtag_ids {
-        u32 id;
-        char *name;
-};
-
-struct jtag_ids qcn9224_jtag_ids[] = {
-        { 0x101D50E1, "QCN9274" },
-        { 0x101D80E1, "QCN9272" },
-        { 0x101ED0E1, "QCN6214" },
-        { 0x101EE0E1, "QCN6224" },
-        { 0x101EF0E1, "QCN6274" },
-};
-
-enum {
-	PCI_LIST_QCN9224_FUSE = 0,
-	PCI_FUSE_QCN9224,
-	PCI_DETECT_QCN9224,
-	PCI_LIST
-};
-#endif
-
-#define PRI_PARTITION	1
-#define ALT_PARTITION	2
-
-#define FUSEPROV_SUCCESS		0x0
-#define FUSEPROV_INVALID_HASH		0x09
-#define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
-#define MAX_FUSE_ADDR_SIZE		0x8
-
 #define PRINT_BUF_LEN		0x400
 #define MDT_SIZE		0x1B88
 /* Region for loading test application */
@@ -93,13 +62,43 @@ struct log_buff {
 	char buffer[PRINT_BUF_LEN];
 };
 
+#ifdef CONFIG_IPQ_QCN9224_FUSING
+struct jtag_ids {
+        u32 id;
+        char *name;
+};
+
+struct jtag_ids qcn9224_jtag_ids[] = {
+        { 0x101D50E1, "QCN9274" },
+        { 0x101D80E1, "QCN9272" },
+        { 0x101ED0E1, "QCN6214" },
+        { 0x101EE0E1, "QCN6224" },
+        { 0x101EF0E1, "QCN6274" },
+};
+
+enum {
+	PCI_LIST_QCN9224_FUSE = 0,
+	PCI_FUSE_QCN9224,
+	PCI_DETECT_QCN9224,
+	PCI_LIST
+};
+#endif /* CONFIG_IPQ_QCN9224_FUSING */
+
+#define PRI_PARTITION	1
+#define ALT_PARTITION	2
+
+#define FUSEPROV_SUCCESS		0x0
+#define FUSEPROV_INVALID_HASH		0x09
+#define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
+#define MAX_FUSE_ADDR_SIZE		0x8
+
 static int do_secure(struct cmd_tbl *cmdtp, int flag,
 				int argc, char *const argv[])
 {
 	int ret = CMD_RET_FAILURE;
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
 	int active_part = PRI_PARTITION;
-#endif
+#endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
 	uint8_t *buff = NULL;
 	auth_cmd_buf auth_buf;
 
@@ -197,7 +196,7 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag,
 			BUG(); //:TODO check if BUG is necessary
 		}
 
-#endif
+#endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
 		memset(&param, 0, sizeof(scm_param));
 
 		param.type = SCM_SECURE_AUTH;
@@ -370,7 +369,7 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(list_ipq5332_fuse, 1, 0, do_list_ipq5332_fuse,
 		"fuse set of QFPROM registers from memory\n",
 		"");
-#endif
+#endif /* CONFIG_TARGET_IPQ5332 */
 #ifdef CONFIG_IPQ_QCN9224_FUSING
 static struct pci_device_id device_table [] = {
 	{QCN_VENDOR_ID, QCN9224_DEVICE_ID},
@@ -805,6 +804,7 @@ U_BOOT_CMD(detect_qcn9224, 1, 1, do_pci_cmd,
 U_BOOT_CMD(fuse_qcn9224, 2, 1, do_pci_cmd,
 	   "Fuse QCN9224 V2 fuses and argument is PCIe device ID",
 	   "If not QCN9224 V2, then fuse blow will be skipped");
+#endif /* CONFIG_IPQ_QCN9224_FUSING */
 
 static int run_xpu_config_test(void)
 {
@@ -821,7 +821,7 @@ static int run_xpu_config_test(void)
 	memset(&resp_buf, 0, sizeof(struct resp));
 	xputzt.test_id = XPU_TEST_ID;
 	xputzt.num_param = 0x3;
-	xputzt.param3 = (uint64_t)((uint32_t)&resp_buf);
+	xputzt.param3 = (uintptr_t)&resp_buf;
 
 	printf("****** xPU Configuration Validation Test Begin ******\n");
 
@@ -829,7 +829,7 @@ static int run_xpu_config_test(void)
 		memset(&param, 0, sizeof(scm_param));
 		param.type = SCM_XPU_LOG_BUFFER;
 		/* Log Buffer */
-		param.buff[0] = (uint32_t)&logbuff;
+		param.buff[0] = (uintptr_t)&logbuff;
 		param.arg_type[0] = SCM_WRITE_OP;
 
 		/* Log Buffer size*/
@@ -847,7 +847,7 @@ static int run_xpu_config_test(void)
 		param.type = SCM_XPU_SEC_TEST_1;
 
 		xputzt.param2 = i++;
-		param.buff[0] = (uint32_t)&xputzt;
+		param.buff[0] = (uintptr_t)&xputzt;
 		param.arg_type[0] = SCM_WRITE_OP;
 
 		param.buff[1] = sizeof(struct xpu_tzt);
@@ -957,7 +957,6 @@ U_BOOT_CMD(tzt, 4, 0, do_tzt,
 	   "load and run tzt\n",
 	   "tzt load address size - To load tzt image\n"
 	   "tzt xpu - To run xpu config test\n");
-#endif
 
 #if defined(CONFIG_DPR_VER_1_0) || defined(CONFIG_DPR_VER_2_0)
 int do_dpr(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
@@ -1011,11 +1010,11 @@ fail:
 U_BOOT_CMD(dpr_execute, 2, 0, do_dpr,
                 "Debug Policy Request processing\n",
                 "dpr_execute [address] - Processing dpr\n");
-#endif
+#endif /* CONFIG_DPR_VER_1_0 */
 
 #ifdef CONFIG_DPR_VER_2_0
 U_BOOT_CMD(dpr_execute, 3, 0, do_dpr,
                 "Debug Policy Request processing\n",
                 "dpr_execute [fileaddr] [filesize] - Processing dpr\n");
-#endif
-#endif
+#endif /* CONFIG_DPR_VER_2_0 */
+#endif /* CONFIG_DPR_VER_1_0 or CONFIG_DPR_VER_2_0 */
