@@ -687,10 +687,9 @@ struct qcom_nand_controller {
 	bool check_quad_config;
 	bool do_serial_training;
 	uint32_t oob_per_page;
-	uint32_t buff_start;
-	uint32_t buff_count;
+	uint32_t id_buff;
 	uint32_t *reg_buffer;
-	uint8_t data_buffers[2];
+	uint8_t data_buffers[8];
 	uint8_t *buffers;
 	uint8_t *pad_dat;
 	uint8_t *pad_oob;
