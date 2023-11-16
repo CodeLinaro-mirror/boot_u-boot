@@ -14,5 +14,7 @@
 #define GCC_QUPV3_SE3_CLK				4
 #define GCC_QUPV3_SE4_CLK				5
 #define GCC_QUPV3_SE5_CLK				6
+#define GCC_SDCC1_APPS_CLK				7
+#define GCC_SDCC1_AHB_CLK				8
 
 #endif
