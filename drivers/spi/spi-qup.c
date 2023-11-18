@@ -902,6 +902,12 @@ static int qup_spi_xfer(struct udevice *dev, unsigned int bitlen,
 
 	len = bitlen >> 3;
 
+#if defined(CONFIG_TARGET_IPQ9574) && !defined(CONFIG_ARM64)
+	if (fifo_mode_only) {
+		priv->use_dma = 0;
+	}
+#endif
+
 	if (flags & SPI_XFER_BEGIN) {
 		if (!priv->use_dma) {
 			ret = qup_spi_hw_init(dev);
