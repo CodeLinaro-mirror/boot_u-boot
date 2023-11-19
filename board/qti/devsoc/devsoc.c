@@ -22,6 +22,21 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+static dram_bank_info_t devsoc_dram_bank_info[CONFIG_NR_DRAM_BANKS] = {
+	{
+		.start = CFG_SYS_SDRAM_BASE0,
+		.size = CFG_SYS_SDRAM_BASE0_SZ,
+	},
+#if (CONFIG_NR_DRAM_BANKS > 1)
+	{
+		.start = CFG_SYS_SDRAM_BASE1,
+		.size = CFG_SYS_SDRAM_BASE1_SZ,
+	},
+#endif
+};
+
+dram_bank_info_t * board_dram_bank_info = devsoc_dram_bank_info;
+
 #if CONFIG_FDT_FIXUP_PARTITIONS
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
@@ -126,12 +141,19 @@ static struct mm_region devsoc_mem_map[] = {
 	}, {
 		/*
 		 * DDR region after u-boot text base
-		 * added dummy 0xBAD0FF5EUL,
+		 * added dummy 0x0UL,
 		 * will update the actual DDR limit
 		 */
 		.virt = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
 		.phys = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
-		.size = 0xBAD0FF5EUL,
+		.size = 0x0UL,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+			 PTE_BLOCK_INNER_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+	}, {
+		.virt = CFG_SYS_SDRAM_BASE1,
+		.phys = CFG_SYS_SDRAM_BASE1,
+		.size = 0x0UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN

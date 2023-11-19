@@ -764,11 +764,14 @@ int dram_init_banksize(void)
 	gd->bd->bi_dram[i].size = get_effective_memsize();
 
 #if (CONFIG_NR_DRAM_BANKS > 1)
-	phys_size_t total_dram_sz = gd->ram_size;
+	phys_size_t total_dram_sz = gd->ram_size - gd->bd->bi_dram[i].size;
 
 	for (i = 1; i < CONFIG_NR_DRAM_BANKS; i++) {
 		if (!total_dram_sz)
 			break;
+		gd->bd->bi_dram[i].start = board_dram_bank_info[i].start;
+		gd->bd->bi_dram[i].size = min(total_dram_sz,
+				board_dram_bank_info[i].size);
 		total_dram_sz -= gd->bd->bi_dram[i].size;
 	}
 #endif
@@ -1287,11 +1290,18 @@ void enable_caches(void)
 {
 #ifdef CONFIG_ARM64
 	int i;
+	uint8_t bidx = 0;
 
 	/* Now Update the real DDR size based on Board configuration */
 	for (i = 0; mem_map[i].size || mem_map[i].attrs; i++) {
-		if (mem_map[i].size == 0xBAD0FF5EUL) {
-			mem_map[i].size = gd->ram_top - mem_map[i].virt;
+		if (mem_map[i].size == 0x0UL) {
+			if (!bidx)	/* For DDR bank 0 */
+				mem_map[i].size =
+					gd->ram_top - mem_map[i].virt;
+			else		/* For remaining DDR banks */
+				mem_map[i].size =
+					gd->bd->bi_dram[bidx].size;
+			bidx++;
 		}
 	}
 #endif

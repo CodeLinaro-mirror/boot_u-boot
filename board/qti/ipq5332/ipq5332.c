@@ -234,7 +234,7 @@ static struct mm_region ipq5332_mem_map[] = {
 		 */
 		.virt = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
 		.phys = CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE,
-		.size = 0xBAD0FF5EUL,
+		.size = 0x0UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN

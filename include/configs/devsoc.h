@@ -48,7 +48,16 @@ extern uint32_t g_board_machid;
 							460800, 921600 }
 
 #define CFG_SYS_HZ_CLOCK			240000
-#define CFG_SYS_SDRAM_BASE			0x80000000
+
+/* In 64-bit, SDRAM will contains 2 banks */
+#define CFG_SYS_SDRAM_BASE0			0x80000000
+#define CFG_SYS_SDRAM_BASE0_SZ			0x80000000
+#if (CONFIG_NR_DRAM_BANKS > 1)
+#define CFG_SYS_SDRAM_BASE1			0x800000000
+#define CFG_SYS_SDRAM_BASE1_SZ			0x180000000
+#endif
+
+#define CFG_SYS_SDRAM_BASE			CFG_SYS_SDRAM_BASE0
 #define KERNEL_START_ADDR                   	CFG_SYS_SDRAM_BASE
 #define BOOT_PARAMS_ADDR                    	(KERNEL_START_ADDR + 0x100)
 
