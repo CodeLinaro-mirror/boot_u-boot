@@ -50,6 +50,7 @@ extern uint32_t g_board_machid;
 
 #define CFG_SYS_HZ_CLOCK			24000000
 #define CFG_SYS_SDRAM_BASE			0x40000000
+#define CFG_SYS_SDRAM_BASE_MAX_SZ		0xC0000000
 #define KERNEL_START_ADDR                   	CFG_SYS_SDRAM_BASE
 #define BOOT_PARAMS_ADDR                    	(KERNEL_START_ADDR + 0x100)
 
