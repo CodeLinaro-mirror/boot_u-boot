@@ -738,15 +738,26 @@ int dram_init(void)
 	return ret;
 }
 
+phys_size_t get_effective_memsize(void)
+{
+	phys_size_t ram_size = min(gd->ram_size, board_dram_bank_info[0].size);
+
+#ifndef CONFIG_ARM64
+	if (((uint64_t)gd->ram_base + ram_size) > ULONG_MAX)
+		ram_size = ULONG_MAX - gd->ram_base;
+#endif
+	return ram_size;
+}
+
 int dram_init_banksize(void)
 {
 	uint8_t i = 0;
-	phys_size_t total_dram_sz = gd->ram_size;
-
 	gd->bd->bi_dram[i].start = board_dram_bank_info[i].start;
 	gd->bd->bi_dram[i].size = get_effective_memsize();
 
 #if (CONFIG_NR_DRAM_BANKS > 1)
+	phys_size_t total_dram_sz = gd->ram_size;
+
 	for (i = 1; i < CONFIG_NR_DRAM_BANKS; i++) {
 		if (!total_dram_sz)
 			break;
