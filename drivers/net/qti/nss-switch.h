@@ -908,8 +908,15 @@ struct ipq_tdm_config {
 	uint8_t val[128];
 }__attribute__ ((aligned(8)));
 
+struct ipq_eth_sku {
+	phys_addr_t reg;
+	uint8_t max_uniphy;
+	uint8_t uniphy_bit[CONFIG_ETH_MAX_UNIPHY];
+}__attribute__ ((aligned(8)));
+
 extern struct ipq_tdm_config *tdm_config;
 extern struct ipq_eth_port_config *port_config;
+extern struct ipq_eth_sku *ipq_uniphy;
 
 struct edma_config {
 	struct ipq_eth_port_config *pconfig;
@@ -1006,6 +1013,7 @@ struct port_info {
 	uint8_t gmac_type;
 	uint8_t cur_uniphy_mode;
 	uint8_t cur_gmac_type;
+	uint8_t uniphy_sku_stat;
 	bool isforce_speed;
 	bool xgmac;
 	bool isconfigured;

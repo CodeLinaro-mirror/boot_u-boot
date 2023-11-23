@@ -177,6 +177,10 @@ config ETH_MAX_MAC
 	hex "Define Maximum MAC support in SoC"
 	default 2
 
+config ETH_MAX_UNIPHY
+	int "Maximum number of uniphy available"
+	default 2
+
 config IPQ_PCIE
 	bool "Enable PCIE support in IPQ SOC"
 	select PCI
