@@ -2801,10 +2801,10 @@ static int ipq_eth_probe(struct udevice *dev)
 						PORT_WRAPPER_UQXGMII;
 			port->gmac_type = port->cur_gmac_type = XGMAC;
 
-			if (phy_no == 0) {
+			if (phy_no == 0)
 				ppe_uniphy_mode_set(port);
-				ppe_port_mux_set(priv->ppe.base, port);
-			}
+
+			ppe_port_mux_set(priv->ppe.base, port);
 			++phy_no;
 		}
 #endif
