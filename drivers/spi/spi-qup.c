@@ -449,6 +449,10 @@ static int qup_spi_bam_begin_xfer(struct udevice *dev, const u8 *buffer,
 				dma_receive(&priv->dma_rx, (void*)buffer,
 						&prod_flag);
 
+#if !defined(CONFIG_SYS_DCACHE_OFF)
+				flush_cache((unsigned long)buffer,
+						(unsigned long)data_xfer_size);
+#endif
 				rx_bytes_rcvd += data_xfer_size;
 				buffer = buffer + data_xfer_size;
 				bytes = rem_bytes;
