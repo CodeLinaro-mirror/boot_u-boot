@@ -2305,13 +2305,17 @@ static int ipq_eth_start(struct udevice *dev)
 
 	for (i = 0; i < CONFIG_ETH_MAX_MAC; ++i) {
 
-		if (active_port != i && active_port != CONFIG_ETH_MAX_MAC)
-			continue;
-
 		port = priv->port[i];
 
 		if (!port || !port->phydev)
 			continue;
+
+		if (active_port != i && active_port != CONFIG_ETH_MAX_MAC) {
+			ppe_port_bridge_txmac_set(priv->ppe.base,
+					port->id, false);
+			port->cur_speed = 0;
+			continue;
+		}
 
 		if ((port->phy_id == SFP10G_PHY_TYPE) ||
 			(port->phy_id == SFP2_5G_PHY_TYPE) ||
