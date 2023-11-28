@@ -142,8 +142,14 @@ static int msm_serial_putc(struct udevice *dev, const char ch)
 
 static int msm_serial_pending(struct udevice *dev, bool input)
 {
+	struct msm_serial_data *priv = dev_get_priv(dev);
+
 	if (input) {
 		if (msm_serial_fetch(dev))
+			return 1;
+	} else {
+		/* check if tx fifo is not empty */
+		if (!(readl(priv->base + UARTDM_SR) & UARTDM_SR_TX_EMPTY))
 			return 1;
 	}
 
