@@ -328,6 +328,13 @@ extern struct machid_dts_map * machid_dts_info;
 extern int * machid_dts_entries;
 #endif /* CONFIG_DTB_RESELECT */
 
+typedef struct {
+	phys_addr_t start;
+	phys_size_t size;
+} dram_bank_info_t;
+
+extern dram_bank_info_t * board_dram_bank_info;
+
 enum debug_component {
 	DBG_DISABLE = 0,
 	DBG_CRASHDUMP,

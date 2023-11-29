@@ -738,6 +738,25 @@ int dram_init(void)
 	return ret;
 }
 
+int dram_init_banksize(void)
+{
+	uint8_t i = 0;
+	phys_size_t total_dram_sz = gd->ram_size;
+
+	gd->bd->bi_dram[i].start = board_dram_bank_info[i].start;
+	gd->bd->bi_dram[i].size = get_effective_memsize();
+
+#if (CONFIG_NR_DRAM_BANKS > 1)
+	for (i = 1; i < CONFIG_NR_DRAM_BANKS; i++) {
+		if (!total_dram_sz)
+			break;
+		total_dram_sz -= gd->bd->bi_dram[i].size;
+	}
+#endif
+
+	return 0;
+}
+
 void *env_sf_get_env_addr(void)
 {
         return NULL;

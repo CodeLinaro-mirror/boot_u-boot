@@ -28,6 +28,15 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+static dram_bank_info_t ipq5332_dram_bank_info[CONFIG_NR_DRAM_BANKS] = {
+	{
+		.start = CFG_SYS_SDRAM_BASE,
+		.size  = CFG_SYS_SDRAM_BASE_MAX_SZ,
+	},
+};
+
+dram_bank_info_t * board_dram_bank_info = ipq5332_dram_bank_info;
+
 #if CONFIG_FDT_FIXUP_PARTITIONS
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
