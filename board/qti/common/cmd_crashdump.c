@@ -251,6 +251,8 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 				strlen(CPU_DUMP_NAME_PREFIX))) {
 		dump_entry->start_addr = CFG_QTI_KERN_WDT_ADDR;
 		dump_entry->size = CFG_CPU_CONTEXT_DUMP_SIZE;
+		snprintf(dump_entry->name, sizeof(dump_entry->name),
+				"%X.BIN", dump_entry->start_addr);
 		ret = CMD_RET_SUCCESS;
 		return ret;
 	}
@@ -328,7 +330,12 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 
 			switch (cur_type) {
 			case QTI_WDT_LOG_DUMP_TYPE_UNAME:
-				dump_entry->start_addr = (uintptr_t)&buf;
+				void * uname_buf = malloc(cur_size);
+				if (uname_buf)
+					return -ENOMEM;
+				else
+					memcpy(uname_buf, buf, cur_size);
+				dump_entry->start_addr = (uintptr_t)uname_buf;
 				dump_entry->size = cur_size;
 				break;
 			case QTI_WDT_LOG_DUMP_TYPE_DMESG:
@@ -344,6 +351,8 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 				break;
 			}
 
+			snprintf(dump_entry->name, sizeof(dump_entry->name),
+					"%X.BIN", dump_entry->start_addr);
 			ret = CMD_RET_SUCCESS;
 			break;
 		} else {
