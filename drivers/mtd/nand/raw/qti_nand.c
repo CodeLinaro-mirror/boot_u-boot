@@ -34,6 +34,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #define CMD3_MASK		0xfff0ffff
 #define TRAINING_PART_OFFSET	0x3c00000
 #define DEFAULT_CLK_200_MHZ	200000000
+#define CHECK_QUAD_CONFIG	0x00000001
+#define QUAD_MODE		0x00000020
 
 #define MAXIMUM_ALLOCATED_TRAINING_BLOCK	4
 
@@ -42,70 +44,92 @@ DECLARE_GLOBAL_DATA_PTR;
 struct nand_flash_dev qti_nand_flash_ids[] = {
 	{"GD5F1GQ4RE9IG",
 		{ .id = {0xc8, 0xc1} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F1GQ5REYIG",
 		{ .id = {0xc8, 0x41} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F1GQ4RE9IH",
 		{ .id = {0xc8, 0xc9} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"GD5F4GQ6REYIHR",
 		{ .id = {0xc8, 0x25} },
-		SZ_2K, SZ_512, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_512, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"MT29F1G01ABBFDWB-IT",
 		{ .id = {0x2c, 0x15} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, QUAD_MODE, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"W25N01JW",
 		{ .id = {0xef, 0xbc, 0x21} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 3, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"F50D1G41LB(2M)",
 		{ .id = {0xc8, 0x11} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, QUAD_MODE, 2, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"GD5F1GM7REYIG",
 		{ .id = {0xc8, 0x81} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F2GM7REYIG",
 		{ .id = {0xc8, 0x82} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F1GQ5REYIH",
 		{ .id = {0xc8, 0x21} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"W25N02JWZEIF",
 		{ .id = {0xef, 0xbf, 0x22} },
-		SZ_2K, SZ_256, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_256, SZ_128K, CHECK_QUAD_CONFIG, 3, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"W25N01GWZEIG",
 		{ .id = {0xef, 0xba, 0x21} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, QUAD_MODE, 3, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"W25N512GW",
 		{ .id = {0xef, 0xba, 0x20} },
-		SZ_2K, SZ_64, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_64, SZ_128K, QUAD_MODE, 3, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"W25N02KWZEIR",
 		{ .id = {0xef, 0xba, 0x22} },
-		SZ_2K, SZ_256, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_256, SZ_128K, QUAD_MODE, 3, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"MX35UF1GE4AC",
 		{ .id = {0xc2, 0x92} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"F50D2G41KA-83YIG2V",
 		{ .id = {0xc8, 0x51} },
-		SZ_2K, SZ_256, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_256, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"DS35M1GA",
 		{ .id = {0xe5, 0x21} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"GD5F2GQ5REYIG",
 		{ .id = {0xc8, 0x42} },
-		SZ_2K, SZ_256, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_256, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"MX35UF2GE4AD",
 		{ .id = {0xc2, 0xa6} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 160, NAND_ECC_INFO(4, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 160,
+		NAND_ECC_INFO(4, SZ_512), 0},
 	{"MX35UF1G24AD",
 		{ .id = {0xc2, 0x94} },
-		SZ_2K, SZ_128, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F2GQ5REYIH SPI NAND 2G 4-bit",
 		{ .id = {0xc8, 0x22} },
-		SZ_2K, SZ_256, SZ_128K, 0, 2, 64, NAND_ECC_INFO(4, SZ_512) },
+		SZ_2K, SZ_256, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
+		NAND_ECC_INFO(4, SZ_512) },
 	{"MX35UF4GE4AD-Z4I SPI NAND 1G 1.8V",
 		{ .id = {0xc2, 0xb7} },
-		SZ_4K, SZ_512, SZ_256K, 0, 2, 256, NAND_ECC_INFO(8, SZ_512)},
+		SZ_4K, SZ_512, SZ_256K, CHECK_QUAD_CONFIG, 2, 256,
+		NAND_ECC_INFO(8, SZ_512)},
 	{NULL}
 	};
 
@@ -357,9 +381,10 @@ static uint32_t qti_nandc_get_id(struct mtd_info *mtd)
 
 	nandc->id = id;
 	nandc->vendor = id & 0xff;
+	nandc->device = (id >> 8) & 0xffff;
 	nandc->data_buffers[0] = (uint8_t)nandc->vendor;
-	nandc->device = (id >> 8) & 0xff;
 	nandc->data_buffers[1] = (uint8_t)nandc->device;
+	nandc->data_buffers[2] = (uint8_t)(nandc->device >> 8);
 	nandc->dev_cfg = (id >> 24) & 0xFF;
 	nandc->widebus = 0;
 	nandc->widebus &= (id >> 24) & 0xFF;
@@ -555,6 +580,8 @@ static void qti_serial_update_dev_params(struct mtd_info *mtd)
 	nandc->timing_mode_support = chip->onfi_timing_mode_default;
 	mtd->ecc_strength = chip->ecc_strength_ds;
 	mtd->bitflip_threshold = DIV_ROUND_UP(mtd->ecc_strength * 3, 4);
+	nandc->check_quad_config = (chip->options & CHECK_QUAD_CONFIG);
+	nandc->quad_mode = (chip->options & QUAD_MODE) ? true : false;
 
 	printf("ID = %x\n", nandc->id);
 	printf("Vendor = %x\n", nandc->vendor);
@@ -999,12 +1026,7 @@ int qti_spi_nand_config(struct mtd_info *mtd)
 	 * quad config bit.
 	 */
 	/* Get QUAD bit status */
-	if (!nandc->check_quad_config) {
-		nandc->quad_mode = true;
-		return 0;
-	}
-
-	if (nandc->quad_mode) {
+	if (nandc->check_quad_config == 1) {
 
 		status = qti_serial_get_feature(mtd, FLASH_SPI_NAND_FR_ADDR);
 		if (status < 0) {
@@ -1040,10 +1062,12 @@ int qti_spi_nand_config(struct mtd_info *mtd)
 						x1 Mode.\n", __func__);
 				nandc->quad_mode = false;
 			} else {
+				nandc->quad_mode = true;
 				qspi_debug("%s: Quad mode enabled. using X4 \
 							mode\n",__func__);
 			}
 		} else {
+			nandc->quad_mode = true;
 			qspi_debug("%s: Quad mode enabled on Opwer on.\n",
 								__func__);
 		}
@@ -3538,8 +3562,11 @@ void qti_nandc_command(struct mtd_info *mtd, int dat, unsigned int ctrl) {
 		reset(mtd);
 		break;
 	case NAND_CMD_READID:
+		/*
+		 * reset the buffer index
+		 */
+		nandc->id_buff = 0;
 		qti_nandc_get_id(mtd);
-		nandc->buff_count = 2;
 		break;
 	case NAND_CMD_NONE:
 	default:
@@ -3551,13 +3578,9 @@ void qti_nandc_command(struct mtd_info *mtd, int dat, unsigned int ctrl) {
 uint8_t qti_nandc_read_byte (struct mtd_info *mtd)
 {
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
-	uint8_t data_byte;
-	if(!NAND_CMD_READID)
-		return -EINVAL;
-	data_byte = nandc->data_buffers[nandc->buff_start++];
-	if(nandc->buff_start >= nandc->buff_count)
-		nandc->buff_start = 0;
-	return data_byte;
+	if(nandc->id_buff >= sizeof(nandc->data_buffers))
+		nandc->id_buff = 0;
+	return nandc->data_buffers[nandc->id_buff++];
 }
 
 void
@@ -4001,19 +4024,6 @@ static int qti_nand_probe(struct udevice *device)
 
 	/* Read the Hardware Version register */
 	nandc->hw_ver = readl(NAND_VERSION);
-
-	nandc->quad_mode = dev_read_u32_default(device, "quad_mode", -1);
-	if(-1 == (int)nandc->quad_mode) {
-		printf("No valid quad mode value found in device tree\n");
-		return -EINVAL;
-        }
-
-	nandc->check_quad_config = dev_read_u32_default(device,
-					"quad_config_check", -1);
-	if(-1 == (int)nandc->check_quad_config) {
-		printf("No valid quad config value found in device tree\n");
-		return -EINVAL;
-        }
 
 	bam_base = dev_read_u32_default(device, "bam_reg", QTI_BAM_CTRL_BASE);
 	cmd_pipe = dev_read_u32_default(device, "cmd_pipe", CMD_PIPE);
