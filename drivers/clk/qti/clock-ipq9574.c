@@ -20,6 +20,14 @@
 
 #include <dt-bindings/clock/gcc-ipq9574.h>
 
+
+/*UNIPHY status register*/
+#define QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB     0xA4024
+
+#define UNIPHY_0_DISABLE_BIT                    23
+#define UNIPHY_1_DISABLE_BIT                    24
+#define UNIPHY_2_DISABLE_BIT                    25
+
 /* GPLL0 clock control registers */
 #define GPLL0_STATUS_ACTIVE BIT(31)
 
@@ -829,21 +837,39 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_CMN_12GPLL_SYS_CBCR);
 		break;
 	case GCC_UNIPHY0_SYS_CLK:
+		if(readl(QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB) &
+				BIT(UNIPHY_0_DISABLE_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY_SYS_CBCR(0));
 		break;
 	case GCC_UNIPHY0_AHB_CLK:
+		if(readl(QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB) &
+				BIT(UNIPHY_0_DISABLE_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY_AHB_CBCR(0));
 		break;
 	case GCC_UNIPHY1_SYS_CLK:
+		if(readl(QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB) &
+				BIT(UNIPHY_1_DISABLE_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY_SYS_CBCR(1));
 		break;
 	case GCC_UNIPHY1_AHB_CLK:
+		if(readl(QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB) &
+				BIT(UNIPHY_1_DISABLE_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY_AHB_CBCR(1));
 		break;
 	case GCC_UNIPHY2_SYS_CLK:
+		if(readl(QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB) &
+				BIT(UNIPHY_2_DISABLE_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY_SYS_CBCR(2));
 		break;
 	case GCC_UNIPHY2_AHB_CLK:
+		if(readl(QFPROM_CORR_FEATURE_CONFIG_ROW2_MSB) &
+				BIT(UNIPHY_2_DISABLE_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY_AHB_CBCR(2));
 		break;
 	case GCC_MDIO_AHB_CLK:

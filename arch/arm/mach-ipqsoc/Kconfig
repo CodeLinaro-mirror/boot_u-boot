@@ -130,6 +130,7 @@ config IPQ_SPI_NOR
 	select MSM_GENI_SPI if TARGET_DEVSOC
 	select DM_SPI
 	select DM_SPI_FLASH
+	select SPI_FLASH_BAR
 	select SPI_FLASH_STMICRO
 	select SPI_FLASH_GIGADEVICE
 	select SPI_FLASH_MACRONIX
@@ -174,6 +175,10 @@ config IPQ_NET
 
 config ETH_MAX_MAC
 	hex "Define Maximum MAC support in SoC"
+	default 2
+
+config ETH_MAX_UNIPHY
+	int "Maximum number of uniphy available"
 	default 2
 
 config IPQ_PCIE

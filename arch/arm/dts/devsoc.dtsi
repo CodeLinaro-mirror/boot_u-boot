@@ -60,6 +60,14 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		reset: gcc-reset@1800000 {
+			compatible = "qti,gcc-reset-ipqsoc";
+			reg = <0x1800000 0x80000>;
+			#clock-cells = <1>;
+			#reset-cells = <1>;
+			u-boot,dm-pre-reloc;
+		};
+
 		qupv3: geniqup@1ac0000 {
 			compatible = "qcom,geni-se-qup";
 			reg = <0x1ac0000 0x2000>;
@@ -124,5 +132,25 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		mmc: sdhci@7800000 {
+			compatible = "qti,sdhci-msm-v5";
+			reg = <0x7804000 0x1000 0x7805000 0x1000>;
+			reg-names = "hc_mem", "cmdq_mem";
+			resets = <&reset GCC_SDCC1_BCR>;
+			reset-names = "bcr_rst";
+			clock = <&gcc GCC_SDCC1_APPS_CLK>,
+				<&gcc GCC_SDCC1_AHB_CLK>;
+			clock-frequency = <200000000>;
+			max-frequency = <200000000>;
+			sdhci-caps-mask = <0x0 0x04000000>;
+			sdhci-caps = <0x0 0x04000000>;
+			bus-width = <0x4>;
+			index = <0x0>;
+			non-removable;
+			mmc-ddr-1_8v;
+			mmc-hs200-1_8v;
+			bus_pwr_off_rst;
+			status = "okay";
+		};
 	};
 };

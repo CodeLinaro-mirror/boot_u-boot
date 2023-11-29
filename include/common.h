@@ -31,4 +31,8 @@
 # include <env_internal.h>
 #endif
 
+#if defined(CONFIG_TARGET_IPQ9574) && !defined(CONFIG_ARM64)
+extern bool fifo_mode_only;
+#endif
+
 #endif	/* __COMMON_H_ */

@@ -153,6 +153,8 @@ static struct ipq_tdm_config ipq5322_tdm_config [] = {
 
 struct ipq_tdm_config *tdm_config = ipq5322_tdm_config;
 
+struct ipq_eth_sku *ipq_uniphy = NULL;
+
 struct edma_config ipq_edma_config = {
 	.txdesc_ring_start 	= 23,
 	.txdesc_rings 		= 1,
