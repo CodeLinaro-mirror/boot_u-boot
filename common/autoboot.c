@@ -409,10 +409,6 @@ static int abortboot_single_key(int bootdelay)
 	return abort;
 }
 
-#if defined(CONFIG_TARGET_IPQ9574) && !defined(CONFIG_ARM64)
-bool fifo_mode_only = false;
-#endif
-
 static int abortboot(int bootdelay)
 {
 	int abort = 0;
@@ -423,11 +419,6 @@ static int abortboot(int bootdelay)
 		else
 			abort = abortboot_single_key(bootdelay);
 	}
-
-#if defined(CONFIG_TARGET_IPQ9574) && !defined(CONFIG_ARM64)
-	if (abort)
-		fifo_mode_only = true;
-#endif
 
 	if (IS_ENABLED(CONFIG_SILENT_CONSOLE) && abort)
 		gd->flags &= ~GD_FLG_SILENT;
