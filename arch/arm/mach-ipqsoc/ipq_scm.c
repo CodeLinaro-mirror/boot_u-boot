@@ -247,6 +247,7 @@ int ipq_scm_call(scm_param *param)
 	case SCM_TME_DPR_PROCESSING:
 		desc.svc = QCOM_SCM_SVC_FUSE;
 		desc.cmd = QCOM_TME_DPR_PROCESSING;
+		break;
 	case SCM_XPU_LOG_BUFFER:
 		desc.svc = QCOM_SCM_SVC_APP_MGR;
 		desc.cmd = QCOM_REGISTER_LOG_BUFFER_ID_CMD;
