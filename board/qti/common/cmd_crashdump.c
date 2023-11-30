@@ -31,6 +31,22 @@
 #include <gzip.h>
 #endif
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+#ifdef CONFIG_IPQ_MMC
+#include <mmc.h>
+#include <sdhci.h>
+#endif
+
+#ifdef CONFIG_IPQ_NAND
+#include <nand.h>
+#endif
+
+#ifdef CONFIG_IPQ_SPI_NOR
+#include <spi.h>
+#include <spi_flash.h>
+#endif
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
 #include "ipq_board.h"
 
 #define TFTP_MAX_TRF_SZ_LIMIT			SZ_1G
@@ -108,6 +124,7 @@ typedef struct {
 	uint32_t size;
 	uint8_t is_aligned_access:1;
 	uint8_t compression_support:1;
+	uint8_t dumptoflash_support:1;
 	struct list_head list;
 } crashdump_infos_int_t;
 
@@ -119,6 +136,13 @@ typedef struct {
 	uint8_t usb_dev_idx;
 	uint8_t usb_part_idx;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	void *crashdump_cnxt;
+	uint64_t crashdump_offset;
+	uint64_t dump_total_size;
+	uint8_t flash_type;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	uint32_t dump2mem_rsvd_addr;
@@ -144,6 +168,50 @@ typedef struct {
 static LIST_HEAD(actual_dumps_list);
 static crashdump_config_t dump_config;
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+#ifdef CONFIG_IPQ_NAND
+/* Context for NAND Flash memory */
+struct crashdump_flash_nand_cxt {
+	uint64_t cur_crashdump_offset;
+	int cur_page_data_len;
+	int write_size;
+	uint8_t* temp_data;
+	uint32_t part_start;
+	uint32_t part_size;
+};
+static struct crashdump_flash_nand_cxt crashdump_nand_cnxt;
+#endif
+
+#ifdef CONFIG_IPQ_SPI_NOR
+/* Context for SPI NOR Flash memory */
+struct crashdump_flash_spi_cxt {
+	struct spi_flash *crashdump_spi_flash;
+	uint64_t cur_crashdump_offset;
+};
+static struct crashdump_flash_spi_cxt crashdump_flash_spi_cnxt;
+#endif
+
+#ifdef CONFIG_IPQ_MMC
+/* Context for EMMC Flash memory */
+struct crashdump_flash_emmc_cxt {
+	uint64_t cur_crashdump_offset;
+	int cur_blk_data_len;
+	int write_size;
+	uint8_t *temp_data;
+	struct mmc *mmc;
+	struct blk_desc *desc;
+};
+static struct crashdump_flash_emmc_cxt crashdump_emmc_cnxt;
+#endif
+
+static int (*crashdump_flash_write)(void *cnxt, uint8_t *data, uint32_t size);
+static int (*crashdump_flash_write_init)(void *cnxt, uint64_t offset,
+						uint32_t size);
+static int (*crashdump_flash_write_deinit)(void *cnxt);
+static int crashdump_flash_get_args(uint8_t *flash_type, uint64_t *offset);
+static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config);
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
 /**
  * add_entry_crashdump_table() - Adds an entry into dump table
  * &dump_config - crashdump ocnfiguration info
@@ -153,6 +221,14 @@ static int add_entry_crashdump_table(crashdump_config_t *dump_config,
 		crashdump_infos_int_t *dump_entry)
 {
 	crashdump_infos_int_t *new_entry;
+
+	if (dump_config->dump_to ==  DUMP_TO_FLASH) {
+		if (dump_entry->dumptoflash_support)
+			dump_config->iface_cfg.dump_total_size +=
+							dump_entry->size;
+		else
+			return 0;
+	}
 
 	new_entry = malloc(sizeof(crashdump_infos_int_t));
 	if (!new_entry) {
@@ -416,7 +492,7 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_MINIDUMP
 	if (env_get("dump_minimal_and_full"))
 		dump_config->dump_level = MINIDUMP_AND_FULLDUMP;
-	else if (env_get("dump_minimal"))
+	else if (env_get("dump_minimal") || env_get("dump_to_flash"))
 		dump_config->dump_level = MINIDUMP;
 	else
 #endif /* CONFIG_IPQ_MINIDUMP */
@@ -432,6 +508,11 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 	if (env_get("dump_to_mem"))
 		dump_config->dump_to = DUMP_TO_MEM;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	if (env_get("dump_to_flash"))
+		dump_config->dump_to = DUMP_TO_FLASH;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 	dump_config->force_collect_dump =
 		env_get("force_collect_dump") ? 1 : 0;
@@ -510,6 +591,17 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 					"Using / dir in TFTP server\n");
 		}
 		break;
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	case DUMP_TO_FLASH:
+		ret = crashdump_flash_get_args(
+			&dump_config->iface_cfg.flash_type,
+			&dump_config->iface_cfg.crashdump_offset);
+		if (ret) {
+			printf("Failed to collect crashdump in flash\n");
+			return CMD_RET_FAILURE;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 	default:
 		ret = CMD_RET_FAILURE;
 		break;
@@ -625,6 +717,16 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 			ret = CMD_RET_FAILURE;
 		}
 		break;
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	case DUMP_TO_FLASH:
+		ret = crashdump_flash_set_fn_ops(dump_config);
+		if (ret) {
+			printf("failed to set crashdump "
+					"flash function ops ...\n");
+			ret = CMD_RET_FAILURE;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 	default:
 		ret = CMD_RET_FAILURE;
 		break;
@@ -701,6 +803,8 @@ static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 		dump_entry.size = dump_infos[i].size;
 		dump_entry.is_aligned_access = dump_infos[i].is_aligned_access;
 		split_bin_sz = dump_infos[i].split_bin_sz;
+		dump_entry.dumptoflash_support =
+					dump_infos[i].dumptoflash_support;
 
 #ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
 		if (dump_config->is_compress_enabled)
@@ -786,6 +890,570 @@ static int prepare_crashdump_table(crashdump_config_t *dump_config)
 
 	return ret;
 }
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+#ifdef CONFIG_IPQ_NAND
+/*
+* NAND flash check and write. Before writing into the nand flash
+* this function checks if the block is non-bad, and skips if bad. While
+* skipping, there is also possiblity of crossing the partition and corrupting
+* next partition with crashdump data. So this function also checks whether
+* offset is within the partition, where the configured offset belongs.
+*
+* Returns 0 on succes and 1 otherwise
+*/
+static int check_and_write_crashdump_nand_flash(
+			struct crashdump_flash_nand_cxt *nand_cnxt,
+			struct mtd_info * nand, unsigned char *data,
+			unsigned int req_size)
+{
+	nand_erase_options_t nand_erase_options;
+	uint32_t part_start = nand_cnxt->part_start;
+	uint32_t part_end = nand_cnxt->part_start + nand_cnxt->part_size;
+	size_t remaining_len = req_size;
+	size_t write_length, data_offset = 0;
+	uint64_t skipoff, skipoff_cmp, *offset;
+	int ret = 0;
+	static int first_erase = 1;
+
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
+
+	offset = &nand_cnxt->cur_crashdump_offset;
+	memset(&nand_erase_options, 0, sizeof(nand_erase_options));
+	nand_erase_options.length = nand->erasesize;
+
+	while (remaining_len) {
+		skipoff = *offset - (*offset & (nand->erasesize - 1));
+		skipoff_cmp = skipoff;
+
+		for (; skipoff < part_end; skipoff += nand->erasesize) {
+			if (nand_block_isbad(nand, skipoff)) {
+				printf("Skipping bad block at 0x%llx\n",
+					skipoff);
+				continue;
+			} else
+				break;
+		}
+
+		if (skipoff_cmp != skipoff)
+			*offset = skipoff;
+
+		if ((part_start > *offset) ||
+				 ((*offset + remaining_len) >= part_end)) {
+			printf("Failure: Attempt to write in next partition\n");
+			return 1;
+		}
+
+		if ((*offset & (nand->erasesize - 1)) == 0 || first_erase) {
+			nand_erase_options.offset = *offset;
+
+			ret = nand_erase_opts(mtd, &nand_erase_options);
+			if (ret)
+				return ret;
+			first_erase = 0;
+		}
+
+		if (remaining_len > nand->erasesize) {
+
+			skipoff = (*offset & (nand->erasesize - 1));
+			write_length = (skipoff != 0) ?
+					(nand->erasesize - skipoff) :
+					(nand->erasesize);
+			ret = nand_write(nand, *offset, &write_length,
+				data + data_offset);
+			if (ret)
+				return ret;
+
+			remaining_len -= write_length;
+			*offset += write_length;
+			data_offset += write_length;
+		} else {
+
+			ret = nand_write(nand, *offset, &remaining_len,
+				data + data_offset);
+
+			*offset += remaining_len;
+			remaining_len = 0;
+		}
+	}
+	return ret;
+}
+
+/*
+* Init function for NAND flash writing. It intializes its own context
+* and erases the required sectors
+*/
+int init_crashdump_nand_flash_write(void *cnxt, uint64_t offset, uint32_t size)
+{
+	struct crashdump_flash_nand_cxt *nand_cnxt = cnxt;
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	int ret;
+
+	if (!mtd)
+		return -ENODEV;
+
+	ret = smem_getpart_from_offset(offset, &nand_cnxt->part_start,
+						&nand_cnxt->part_size);
+	if (ret) {
+		printf("smem_getpart_from_offset failed\n");
+		return ret;
+	}
+
+	nand_cnxt->cur_crashdump_offset = offset;
+	nand_cnxt->cur_page_data_len = 0;
+	nand_cnxt->write_size = mtd->writesize;
+
+	nand_cnxt->temp_data = malloc_cache_aligned(nand_cnxt->write_size);
+	if (!nand_cnxt->temp_data)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/*
+* Deinit function for NAND flash writing. It writes the remaining data
+* stored in temp buffer to NAND.
+*/
+int deinit_crashdump_nand_flash_write(void *cnxt)
+{
+	int ret = 0;
+	struct crashdump_flash_nand_cxt *nand_cnxt = cnxt;
+	uint32_t cur_nand_write_len = nand_cnxt->cur_page_data_len;
+	int remaining_bytes = nand_cnxt->write_size -
+			nand_cnxt->cur_page_data_len;
+
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
+
+	if (cur_nand_write_len) {
+		/*
+		* Make the write data in multiple of page write size
+		* and write remaining data in NAND flash
+		*/
+		memset(nand_cnxt->temp_data + nand_cnxt->cur_page_data_len,
+			0xFF, remaining_bytes);
+
+		cur_nand_write_len = nand_cnxt->write_size;
+
+		ret = check_and_write_crashdump_nand_flash(nand_cnxt,
+					mtd, nand_cnxt->temp_data,
+					cur_nand_write_len);
+
+	}
+
+	if (nand_cnxt->temp_data) {
+		free(nand_cnxt->temp_data);
+		nand_cnxt->temp_data = NULL;
+	}
+	return ret;
+}
+
+/*
+* Write function for NAND flash. NAND writing works on page basis so
+* this function writes the data in mulitple of page size and stores the
+* remaining data in temp buffer. This temp buffer data will be appended
+* with next write data.
+*/
+int crashdump_nand_flash_write_data(void *cnxt, uint8_t *data, uint32_t size)
+{
+	int ret;
+	struct crashdump_flash_nand_cxt *nand_cnxt = cnxt;
+	uint8_t *cur_data_pos = data;
+	uint32_t remaining_bytes;
+	uint32_t total_bytes;
+	uint32_t cur_nand_write_len;
+	uint32_t remaining_len_cur_page;
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+
+	if (!mtd)
+		return -ENODEV;
+
+	remaining_bytes = total_bytes = nand_cnxt->cur_page_data_len + size;
+
+	/*
+	* Check for minimum write size and store the data in temp buffer if
+	* the total size is less than it
+	*/
+	if (total_bytes < nand_cnxt->write_size) {
+		memcpy(nand_cnxt->temp_data + nand_cnxt->cur_page_data_len,
+					data, size);
+		nand_cnxt->cur_page_data_len += size;
+
+		return 0;
+	}
+
+	/*
+	* Append the remaining length of data for complete nand page write in
+	* currently stored data and do the nand write
+	*/
+	remaining_len_cur_page = nand_cnxt->write_size -
+			nand_cnxt->cur_page_data_len;
+	cur_nand_write_len = nand_cnxt->write_size;
+
+	memcpy(nand_cnxt->temp_data + nand_cnxt->cur_page_data_len, data,
+			remaining_len_cur_page);
+
+	ret = check_and_write_crashdump_nand_flash(nand_cnxt,
+					mtd, nand_cnxt->temp_data,
+					cur_nand_write_len);
+
+	if (ret)
+		return ret;
+
+	cur_data_pos += remaining_len_cur_page;
+
+	/*
+	* Calculate the write length in multiple of page length and do the nand
+	* write for same length
+	*/
+	cur_nand_write_len = ((data + size - cur_data_pos) /
+				nand_cnxt->write_size) * nand_cnxt->write_size;
+
+	if (cur_nand_write_len > 0) {
+		ret = check_and_write_crashdump_nand_flash(nand_cnxt,
+						mtd, cur_data_pos,
+						cur_nand_write_len);
+
+		if (ret)
+			return ret;
+
+	}
+
+	cur_data_pos += cur_nand_write_len;
+
+	/* Store the remaining data in temp data */
+	remaining_bytes = data + size - cur_data_pos;
+
+	memcpy(nand_cnxt->temp_data, cur_data_pos, remaining_bytes);
+
+	nand_cnxt->cur_page_data_len = remaining_bytes;
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_IPQ_SPI_NOR
+/* Init function for SPI NOR flash writing. It erases the required sectors */
+int init_crashdump_spi_flash_write(void *cnxt, uint64_t offset, uint32_t size)
+{
+	int ret;
+	struct crashdump_flash_spi_cxt *spi_flash_cnxt = cnxt;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	spi_flash_cnxt->cur_crashdump_offset = offset;
+	ret = spi_flash_erase(spi_flash_cnxt->crashdump_spi_flash, offset,
+				roundup(size, sfi->flash_block_size));
+
+	return ret;
+}
+
+/* Write function for SPI NOR flash */
+int crashdump_spi_flash_write_data(void *cnxt, uint8_t *data, uint32_t size)
+{
+	int ret;
+	struct crashdump_flash_spi_cxt *spi_flash_cnxt = cnxt;
+
+	ret = spi_flash_write(spi_flash_cnxt->crashdump_spi_flash,
+			spi_flash_cnxt->cur_crashdump_offset, size, data);
+	if (!ret)
+		spi_flash_cnxt->cur_crashdump_offset += size;
+
+	return ret;
+}
+
+/* Deinit function for SPI NOR flash writing. */
+int deinit_crashdump_spi_flash_write(void *cnxt)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_IPQ_MMC
+/*
+* Init function for EMMC flash writing. It initialzes its
+* own context and EMMC
+*/
+int init_crashdump_emmc_flash_write(void *cnxt, uint64_t offset, uint32_t size)
+{
+	struct crashdump_flash_emmc_cxt *emmc_cnxt = cnxt;
+	emmc_cnxt->cur_crashdump_offset = offset;
+	emmc_cnxt->cur_blk_data_len = 0;
+	emmc_cnxt->write_size =  emmc_cnxt->mmc->write_bl_len;
+
+	emmc_cnxt->temp_data = malloc_cache_aligned(
+					emmc_cnxt->mmc->write_bl_len);
+	if (!emmc_cnxt->temp_data)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/*
+* Deinit function for EMMC flash writing. It writes the remaining data
+* stored in temp buffer to EMMC
+*/
+int deinit_crashdump_emmc_flash_write(void *cnxt)
+{
+	struct crashdump_flash_emmc_cxt *emmc_cnxt = cnxt;
+	uint32_t cur_blk_write_len = emmc_cnxt->cur_blk_data_len;
+	int ret = 0;
+	int n;
+	uint32_t remaining_bytes = emmc_cnxt->write_size -
+			emmc_cnxt->cur_blk_data_len;
+
+	if (cur_blk_write_len) {
+		/*
+		* Make the write data in multiple of block length size
+		* and write remaining data in emmc
+		*/
+		memset(emmc_cnxt->temp_data + emmc_cnxt->cur_blk_data_len,
+			0xFF, remaining_bytes);
+
+		cur_blk_write_len = emmc_cnxt->write_size;
+#ifdef CONFIG_BLK
+		n = blk_dwrite(emmc_cnxt->desc,
+				emmc_cnxt->cur_crashdump_offset,
+				1,
+				(uint8_t *)emmc_cnxt->temp_data);
+#else
+		n = emmc_cnxt->mmc->block_dev.block_write(
+					&emmc_cnxt->mmc->block_dev,
+					emmc_cnxt->cur_crashdump_offset,
+					1,
+					(uint8_t *)emmc_cnxt->temp_data);
+#endif
+
+		ret = (n == 1) ? 0 : -ENOMEM;
+	}
+
+	if(emmc_cnxt->temp_data) {
+		free(emmc_cnxt->temp_data);
+		emmc_cnxt->temp_data = NULL;
+	}
+
+	return ret;
+}
+
+/*
+* Write function for EMMC flash. EMMC writing works on block basis so
+* this function writes the data in mulitple of block length and stores
+* remaining data in temp buffer. This temp buffer data will be appended
+* with next write data.
+*/
+int crashdump_emmc_flash_write_data(void *cnxt, uint8_t *data, uint32_t size)
+{
+	struct crashdump_flash_emmc_cxt *emmc_cnxt = cnxt;
+	uint8_t *cur_data_pos = data;
+	uint32_t remaining_bytes;
+	uint32_t total_bytes;
+	uint32_t cur_emmc_write_len;
+	uint32_t cur_emmc_blk_len;
+	uint32_t remaining_len_cur_page;
+	int ret, n;
+
+	remaining_bytes = total_bytes = emmc_cnxt->cur_blk_data_len + size;
+
+	/*
+	* Check for block size and store the data in temp buffer if
+	* the total size is less than it
+	*/
+	if (total_bytes < emmc_cnxt->write_size) {
+		memcpy(emmc_cnxt->temp_data + emmc_cnxt->cur_blk_data_len,
+				data, size);
+		emmc_cnxt->cur_blk_data_len += size;
+
+		return 0;
+	}
+
+	/*
+	* Append the remaining length of data for complete emmc block write in
+	* currently stored data and do the block write
+	*/
+	remaining_len_cur_page = emmc_cnxt->write_size -
+			emmc_cnxt->cur_blk_data_len;
+	cur_emmc_write_len = emmc_cnxt->write_size;
+
+	memcpy(emmc_cnxt->temp_data + emmc_cnxt->cur_blk_data_len, data,
+			remaining_len_cur_page);
+#ifdef CONFIG_BLK
+	n = blk_dwrite(emmc_cnxt->desc, emmc_cnxt->cur_crashdump_offset,
+					1,
+					(uint8_t *)emmc_cnxt->temp_data);
+#else
+	n = emmc_cnxt->mmc->block_dev.block_write(&emmc_cnxt->mmc->block_dev,
+					emmc_cnxt->cur_crashdump_offset,
+					1,
+					(uint8_t *)emmc_cnxt->temp_data);
+#endif
+
+	ret = (n == 1) ? 0 : -ENOMEM;
+	if (ret)
+		return ret;
+
+	cur_data_pos += remaining_len_cur_page;
+	emmc_cnxt->cur_crashdump_offset += 1;
+	/*
+	* Calculate the write length in multiple of block length and do the
+	* emmc block write for same length
+	*/
+	cur_emmc_blk_len = ((data + size - cur_data_pos) /
+				emmc_cnxt->write_size);
+	cur_emmc_write_len = cur_emmc_blk_len * emmc_cnxt->write_size;
+
+	if (cur_emmc_write_len > 0) {
+#ifdef CONFIG_BLK
+		n = blk_dwrite(emmc_cnxt->desc,
+				emmc_cnxt->cur_crashdump_offset,
+				cur_emmc_blk_len,
+				(uint8_t *)cur_data_pos);
+#else
+		n = emmc_cnxt->mmc->block_dev.block_write(
+						&emmc_cnxt->mmc->block_dev,
+						emmc_cnxt->cur_crashdump_offset,
+						cur_emmc_blk_len,
+						(uint8_t *)cur_data_pos);
+#endif
+		ret = (n == cur_emmc_blk_len) ? 0 : -1;
+		if (ret)
+			return ret;
+	}
+
+	cur_data_pos += cur_emmc_write_len;
+	emmc_cnxt->cur_crashdump_offset += cur_emmc_blk_len;
+
+	/* Store the remaining data in temp data */
+	remaining_bytes = data + size - cur_data_pos;
+	memcpy(emmc_cnxt->temp_data, cur_data_pos, remaining_bytes);
+	emmc_cnxt->cur_blk_data_len = remaining_bytes;
+
+	return 0;
+}
+#endif
+
+static int crashdump_flash_get_args(uint8_t *flash_type, uint64_t *offset)
+{
+	char *cmd, *crashdump_offset, *fltype;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	int ret = 0;
+
+	cmd = env_get("dump_to_flash");
+	if (cmd == NULL) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	crashdump_offset = strsep(&cmd, " ");
+	if (!offset) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	*offset = simple_strtoul(crashdump_offset, NULL, 16);
+
+	*flash_type = sfi->flash_type;
+	fltype = strsep(&cmd, " ");
+	if (fltype) {
+		*flash_type = 0;
+#ifdef CONFIG_IPQ_NAND
+		if (!strncmp(fltype, "NAND", sizeof("NAND")))
+			*flash_type = SMEM_BOOT_NAND_FLASH;
+#endif
+#ifdef CONFIG_IPQ_MMC
+		if (!strncmp(fltype, "EMMC", sizeof("EMMC")))
+			*flash_type = SMEM_BOOT_MMC_FLASH;
+#endif
+		if (!*flash_type) {
+			printf("Invalid flash type [NAND / EMMC] ...\n");
+			return -EINVAL;
+		}
+	}
+
+	if (*flash_type != SMEM_BOOT_MMC_FLASH) {
+		if (*offset % sfi->flash_block_size) {
+			printf("crashdump offset is not multiple of "
+				"erase size\n");
+			return -EINVAL;
+		}
+	}
+exit:
+	return ret;
+}
+
+static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config)
+{
+	int ret = 0;
+	uint8_t flash_type = dump_config->iface_cfg.flash_type;
+	void *crashdump_cnxt = NULL;
+
+	/*
+	* Determine the flash type and initialize function pointer for flash
+	* operations and its context which needs to be passed to these functions
+	*/
+	if (((flash_type == SMEM_BOOT_NAND_FLASH) ||
+		(flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
+#ifdef CONFIG_IPQ_NAND
+		crashdump_cnxt = (void *)&crashdump_nand_cnxt;
+		crashdump_flash_write_init = init_crashdump_nand_flash_write;
+		crashdump_flash_write = crashdump_nand_flash_write_data;
+		crashdump_flash_write_deinit =
+			deinit_crashdump_nand_flash_write;
+#endif
+#ifdef CONFIG_IPQ_SPI_NOR
+	} else if (flash_type == SMEM_BOOT_SPI_FLASH) {
+		if (!crashdump_flash_spi_cnxt.crashdump_spi_flash) {
+			crashdump_flash_spi_cnxt.crashdump_spi_flash =
+					spi_flash_probe(CONFIG_SF_DEFAULT_BUS,
+						CONFIG_SF_DEFAULT_CS,
+						CONFIG_SF_DEFAULT_SPEED,
+						CONFIG_SF_DEFAULT_MODE);
+
+			if (!crashdump_flash_spi_cnxt.crashdump_spi_flash) {
+				printf("spi_flash_probe() failed\n");
+				ret = -EIO;
+				goto exit;
+			}
+		}
+
+		crashdump_cnxt = (void *)&crashdump_flash_spi_cnxt;
+		crashdump_flash_write = crashdump_spi_flash_write_data;
+		crashdump_flash_write_init = init_crashdump_spi_flash_write;
+		crashdump_flash_write_deinit =
+			deinit_crashdump_spi_flash_write;
+#endif
+#ifdef CONFIG_IPQ_MMC
+	} else if (flash_type == SMEM_BOOT_MMC_FLASH) {
+		crashdump_emmc_cnxt.mmc = find_mmc_device(0);
+		if (!crashdump_emmc_cnxt.mmc) {
+			printf("no mmc device at slot 0\n");
+			ret = -ENODEV;
+			goto exit;
+		}
+
+		crashdump_emmc_cnxt.desc = mmc_get_blk_desc(
+						crashdump_emmc_cnxt.mmc);
+		if (!crashdump_emmc_cnxt.desc) {
+			printf("Failed to find the desc\n");
+			ret = -ENXIO;
+			goto exit;
+		}
+
+		crashdump_cnxt = (void *)&crashdump_emmc_cnxt;
+		crashdump_flash_write_init = init_crashdump_emmc_flash_write;
+		crashdump_flash_write = crashdump_emmc_flash_write_data;
+		crashdump_flash_write_deinit =
+			deinit_crashdump_emmc_flash_write;
+#endif
+	} else {
+		return -EINVAL;
+	}
+
+	dump_config->iface_cfg.crashdump_cnxt = crashdump_cnxt;
+exit:
+	return ret;
+}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 /**
  * dump_to_dst() - Do the actual dumping based on the requested dump entry
@@ -878,6 +1546,19 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 				dump_entry->start_addr, dump_entry->size,
 				iface_cfg->tftp_dumpdir, dump_entry->name);
 		break;
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	case DUMP_TO_FLASH:
+		printf("Writing %s into FLASH \n", dump_entry->name);
+		if (crashdump_flash_write(iface_cfg->crashdump_cnxt,
+						(void*)(uintptr_t)
+						dump_entry->start_addr,
+						dump_entry->size)) {
+			printf("crashdump data writing in flash failure\n");
+			return CMD_RET_FAILURE;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 	}
 
 	if (runcmd[0] != 0) {
@@ -909,6 +1590,19 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 		}
 	}
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	if (dump_config->dump_to ==  DUMP_TO_FLASH) {
+		ret = crashdump_flash_write_init(
+			dump_config->iface_cfg.crashdump_cnxt,
+			dump_config->iface_cfg.crashdump_offset,
+			dump_config->iface_cfg.dump_total_size);
+		if (ret) {
+			printf("crashdump flash write init failed ...\n");
+			return;
+		}
+	}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 	list_for_each_entry(dump_entry, &actual_dumps_list, list) {
 		printf("Processing %s:\n", dump_entry->name);
@@ -949,6 +1643,19 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 				hdr, sizeof(memdump_hdr_t));
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+	case DUMP_TO_FLASH:
+		if (crashdump_flash_write_deinit(
+				dump_config->iface_cfg.crashdump_cnxt)) {
+			printf("crashdump flash write deinit failed ...\n");
+			return;
+		}
+
+		if (!ret)
+			printf("crashdump data writing in flash successful\n");
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 	}
 
 	return;

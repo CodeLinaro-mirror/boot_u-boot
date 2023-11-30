@@ -352,6 +352,7 @@ enum {
 	DUMP_TO_TFTP = 0,
 	DUMP_TO_USB,
 	DUMP_TO_MEM,
+	DUMP_TO_FLASH,
 };
 
 typedef struct {
@@ -373,6 +374,9 @@ typedef struct {
 					   to a aligned one and gets dumped */
 	uint8_t compression_support:1;	/* does this binary need to be
 					   compressed ? non-zero means true. */
+	uint8_t dumptoflash_support:1;	/* does this binary need to be
+					   dumped in flash ? non-zero
+					   means true. */
 } crashdump_infos_t;
 
 extern crashdump_infos_t *board_dumpinfo;
@@ -452,6 +456,7 @@ socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
 struct smem_ptable * get_ipq_part_table_info(void);
 int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size);
+int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size);
 unsigned int get_rootfs_active_partition(void);
 int mibib_ptable_init(unsigned int* addr);
 void get_kernel_fs_part_details(void);

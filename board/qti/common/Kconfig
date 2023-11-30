@@ -24,6 +24,11 @@ config IPQ_CRASHDUMP_TO_MEMORY
 	depends on IPQ_CRASHDUMP
 	default n
 
+config IPQ_CRASHDUMP_TO_FLASH
+	bool "IPQ Collect Crashdump over FLASH"
+	depends on IPQ_CRASHDUMP && IPQ_MINIDUMP
+	default n
+
 config IPQ_FLUTILS
 	bool "IPQ Flash Utility support"
 	default n
