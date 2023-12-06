@@ -2174,14 +2174,12 @@ int ipq_edma_hw_init(struct udevice *dev, struct ipq_eth_dev *eth)
 static int ipq_eth_port_set_up(struct ipq_eth_dev *priv,
 					struct port_info *port)
 {
-	int mac_speed, i , rate, ret = 0;
+	int mac_speed, i , rate = 0;
+	int ret = 0;
 	char clk_name[64];
 	struct clk clk, pclk;
 
 	switch(port->cur_speed) {
-	case 10:
-		mac_speed = 0;
-		break;
 	case 100:
 		mac_speed = 1;
 		break;
@@ -2198,7 +2196,8 @@ static int ipq_eth_port_set_up(struct ipq_eth_dev *priv,
 		mac_speed = 5;
 		break;
 	default:
-		;
+		/* speed 10Mbps */
+		mac_speed = 0;
 	}
 
 	for (i = 0; port_config[i].id != UNUSED_PHY_TYPE; ++i) {
