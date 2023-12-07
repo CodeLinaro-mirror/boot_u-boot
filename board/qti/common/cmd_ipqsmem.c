@@ -63,6 +63,8 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 	struct smem_ptable * ptable = get_ipq_part_table_info();
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
 #endif
 
 	for (i = 0; i < ptable->len; i++) {
@@ -133,6 +135,8 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct smem_ptable * ptable = get_ipq_part_table_info();
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
 #endif
 #ifdef CONFIG_CMD_UBI
 	struct ubi_device *ubi = NULL;
