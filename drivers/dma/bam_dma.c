@@ -525,7 +525,7 @@ static int bam_dma_send(struct dma *dma, void *src,
 	unsigned int desc_len = 0, n = 0;
 	unsigned int desc_flags;
 	unsigned char *data_ptr = (unsigned char*)src;
-	u8 flags = *((uint8_t*)metadata);
+	u8 flags = 0;
 
 	if (dma->id >= priv->n_pipe)
 		return -EINVAL;
@@ -534,6 +534,7 @@ static int bam_dma_send(struct dma *dma, void *src,
 
 	debug("%s(dma id=%lu)\n", __func__, dma->id);
 
+	flags = *((uint8_t*)metadata);
 	pipe = (struct bam_dma_pipe *)priv->pipe[dma->id];
 	if (pipe->dir != SYS2BAM)
 		return -EINVAL;
@@ -634,7 +635,7 @@ static int bam_dma_receive(struct dma *dma, void **dst, void *metadata)
 	unsigned int desc_len = 0, n = 0;
 	unsigned int desc_flags;
 	unsigned char *data_ptr = (unsigned char*)dst;
-	u8 flags = *((uint8_t*)metadata);
+	u8 flags = 0;
 	size_t len;
 
 	if (dma->id >= priv->n_pipe)
@@ -644,6 +645,7 @@ static int bam_dma_receive(struct dma *dma, void **dst, void *metadata)
 
 	debug("%s(dma id=%lu)\n", __func__, dma->id);
 
+	flags = *((uint8_t*)metadata);
 	pipe = (struct bam_dma_pipe *)priv->pipe[dma->id];
 	if (pipe->dir != BAM2SYS)
 		return -EINVAL;

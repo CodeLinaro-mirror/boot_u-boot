@@ -3321,7 +3321,7 @@ static void qti_8x8x_port_rxfc_status_set(struct phy_device *phydev,
 static void qti_8x8x_port_txfc_status_set(struct phy_device *phydev,
 		u32 port_id, bool enable)
 {
-	u32 val, reg = 0, tmp;
+	u32 val = 0, reg = 0, tmp;
 
 	if (true == enable)
 	{
@@ -3772,7 +3772,7 @@ static void port_link_update(struct phy_device *phydev, u32 port_id,
 static void port_3az_status_set(struct phy_device *phydev,
 		u32 port_id, bool enable)
 {
-	u32 reg = 0, field, offset, device_id, reverse = 0;
+	u32 reg = 0, field = 0, offset, device_id, reverse = 0;
 	u32 eee_mask = 0;
 
 	QTI_8X8X_REG_ENTRY_GET(phydev, MASK_CTL, 0, (u8 *) (&reg));

@@ -416,7 +416,7 @@ ulong msm_get_rate(struct clk *clk)
 ulong msm_set_rate(struct clk *clk, ulong rate)
 {
 	struct msm_clk_priv *priv = dev_get_priv(clk->dev);
-	int ret, src, div = 0, cdiv = 0;
+	int ret = 0, src, div = 0, cdiv = 0;
 	struct clk *pclk = NULL;
 
 	switch (clk->id) {
@@ -715,6 +715,11 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 			return ret;
 
 		pclk = clk_get_parent(clk);
+		if (!pclk) {
+			ret = -ENODEV;
+			break;
+		}
+
 		if (pclk->id == UNIPHY0_NSS_RX_CLK)
 			src = NSS_CC_PORT5_RX_SRC_SEL_UNIPHY0_NSS_RX_CLK;
 		else if (pclk->id == UNIPHY1_NSS_RX_CLK)
@@ -732,6 +737,11 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 			return ret;
 
 		pclk = clk_get_parent(clk);
+		if (!pclk) {
+			ret = -ENODEV;
+			break;
+		}
+
 		if (pclk->id == UNIPHY0_NSS_TX_CLK)
 			src = NSS_CC_PORT5_TX_SRC_SEL_UNIPHY0_NSS_TX_CLK;
 		else if (pclk->id == UNIPHY1_NSS_TX_CLK)
