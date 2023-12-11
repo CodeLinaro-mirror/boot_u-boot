@@ -64,7 +64,8 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ9574_RDP454, "ipq9574-rdp454"},
 	{ MACH_TYPE_IPQ9574_RDP433_MHT_SWT, "ipq9574-rdp433-mht-switch"},
 	{ MACH_TYPE_IPQ9574_RDP467, "ipq9574-rdp467" },
-	{ MACH_TYPE_IPQ9574_RDP455, "ipq9574-rdp455" },
+	{ MACH_TYPE_IPQ9574_RDP455_C11, "ipq9574-rdp455"},
+	{ MACH_TYPE_IPQ9574_RDP455_C12, "ipq9574-rdp455"},
 	{ MACH_TYPE_IPQ9574_RDP459, "ipq9574-rdp459"},
 	{ MACH_TYPE_IPQ9574_RDP457, "ipq9574-rdp457" },
 	{ MACH_TYPE_IPQ9574_RDP456, "ipq9574-rdp456" },
@@ -227,6 +228,16 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 		case MACH_TYPE_IPQ9574_DB_AL02_C2:
 			config_list[config_nos++] = "config@db-al02-c2";
 			config_list[config_nos++] = "config-db-al02-c2";
+			break;
+		case MACH_TYPE_IPQ9574_RDP455_C11:
+			config_list[config_nos++] = "config@al02-c11";
+			config_list[config_nos++] = "config@rdp455-c11";
+			config_list[config_nos++] = "config-rdp455-c11";
+			break;
+		case MACH_TYPE_IPQ9574_RDP455_C12:
+			config_list[config_nos++] = "config@al02-c12";
+			config_list[config_nos++] = "config@rdp455-c12";
+			config_list[config_nos++] = "config-rdp455-c12";
 			break;
 	}
 
