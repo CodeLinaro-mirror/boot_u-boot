@@ -149,11 +149,16 @@ static crashdump_config_t dump_config;
  * &dump_config - crashdump ocnfiguration info
  * &dump_entry - entry that needs to be added into the dump table
  */
-static void add_entry_crashdump_table(crashdump_config_t *dump_config,
+static int add_entry_crashdump_table(crashdump_config_t *dump_config,
 		crashdump_infos_int_t *dump_entry)
 {
-	crashdump_infos_int_t *new_entry =
-		malloc(sizeof(crashdump_infos_int_t));
+	crashdump_infos_int_t *new_entry;
+
+	new_entry = malloc(sizeof(crashdump_infos_int_t));
+	if (!new_entry) {
+		printf("failed to allocate memory to add dump entry \n");
+		return -ENOMEM;
+	}
 
 	memset(new_entry, 0, sizeof(crashdump_infos_int_t));
 	memcpy(new_entry, dump_entry, sizeof(crashdump_infos_int_t));
@@ -166,6 +171,8 @@ static void add_entry_crashdump_table(crashdump_config_t *dump_config,
 			new_entry->size,
 			(new_entry->is_aligned_access ? "true":"false"),
 			(new_entry->compression_support ? "true":"false"));
+
+	return 0;
 }
 
 /**
@@ -322,7 +329,10 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 				break;
 			}
 
-			add_entry_crashdump_table(dump_config, dump_entry);
+			ret = add_entry_crashdump_table(dump_config,
+					dump_entry);
+			if (ret)
+				break;
 		} else if (cur_type == tlv_type) {
 			ret = wdt_extract_tlv_data(&tlv_info, buf, cur_size);
 			if (ret)
@@ -331,7 +341,7 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 			switch (cur_type) {
 			case QTI_WDT_LOG_DUMP_TYPE_UNAME:
 				void * uname_buf = malloc(cur_size);
-				if (uname_buf)
+				if (!uname_buf)
 					return -ENOMEM;
 				else
 					memcpy(uname_buf, buf, cur_size);
@@ -360,6 +370,10 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 				(cur_size + QTI_WDT_SCM_TLV_TYPE_LEN_SIZE);
 		}
 	} while (cur_type != QTI_WDT_LOG_DUMP_TYPE_INVALID);
+
+	if (cur_type == QTI_WDT_LOG_DUMP_TYPE_INVALID)
+		ret = -EINVAL;
+
 	return ret;
 }
 #endif /* CONFIG_IPQ_MINIDUMP */
@@ -456,7 +470,7 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	case DUMP_TO_MEM:
 		char *tmp = env_get("dump_to_mem");
-		if (!str2long(tmp,(ulong*)
+		if (!tmp || !str2long(tmp,(ulong*)
 				&dump_config->iface_cfg.dump2mem_rsvd_addr)) {
 			printf("Failed to decode dump_to_mem reserved mem \n");
 			ret = CMD_RET_FAILURE;
@@ -520,27 +534,28 @@ static int find_usb_dev_for_crashdump(uint8_t *dev_idx, uint8_t *part_idx)
 	for (blk_first_device(UCLASS_USB, &dev); dev;
 			blk_next_device(&dev)) {
 		char dev_str[5] = { 0 };
-		struct blk_desc *bdesc = dev_get_uclass_plat(dev);
+		struct blk_desc *bdev = dev_get_uclass_plat(dev);
 		struct disk_partition dpart_info;
 
-		for (int pidx = 1; pidx <= MAX_SEARCH_PARTITIONS;
+		for (int pidx = 1; (bdev && (pidx <= MAX_SEARCH_PARTITIONS));
 				pidx++) {
-			snprintf(dev_str, sizeof(dev_str)+1, "%d:%d",
-					bdesc->devnum, pidx);
+			struct blk_desc *bdesc = NULL;
+
+			snprintf(dev_str, sizeof(dev_str), "%d:%d",
+					bdev->devnum, pidx);
 			ret = blk_get_device_part_str("usb", dev_str,
 					&bdesc, &dpart_info, 1);
-			if (ret < 0)
+			if ((ret < 0) && !bdesc)
 				continue;
 
 			if (fat_set_blk_dev(bdesc, &dpart_info) == 0) {
-				*dev_idx = bdesc->devnum;
+				*dev_idx = bdev->devnum;
 				*part_idx = pidx;
-				ret = CMD_RET_SUCCESS;
 
 				printf("Selected Device:%d "
 					"Partition:%d for USB dump:\n",
 					*dev_idx, *part_idx);
-				break;
+				return CMD_RET_SUCCESS;
 			}
 		}
 	}
@@ -625,10 +640,11 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
  * &split_size - split size of the dumps
  * &dump_name_prefix - prefix name used for the output dumps
  */
-static void split_bin_dump(crashdump_config_t *dump_config,
+static int split_bin_dump(crashdump_config_t *dump_config,
 		crashdump_infos_int_t *dump_entry, uint32_t split_size,
 		char dump_name_prefix[DUMP_NAME_STR_MAX_LEN])
 {
+	int ret = 0;
 	uint32_t dump_sz = dump_entry->size;
 	uint32_t end_addr = dump_entry->start_addr + dump_sz;
 	uint8_t file_no = (dump_sz / split_size) - 1;
@@ -646,8 +662,12 @@ static void split_bin_dump(crashdump_config_t *dump_config,
 		end_addr -= dump_entry->size;
 		dump_sz -= dump_entry->size;
 		dump_entry->start_addr = end_addr;
-		add_entry_crashdump_table(dump_config, dump_entry);
+		ret = add_entry_crashdump_table(dump_config, dump_entry);
+		if (ret)
+			break;
 	}
+
+	return ret;
 }
 
 /**
@@ -657,10 +677,10 @@ static void split_bin_dump(crashdump_config_t *dump_config,
  * &dump_config - crashdump configuration info
  * &dump_level - requested dump level
  */
-static void prepare_crashdump_level_table(crashdump_config_t *dump_config,
+static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 		uint8_t dump_level)
 {
-	int i;
+	int i, ret = 0;
 	crashdump_infos_int_t dump_entry;
 	crashdump_infos_t *dump_infos = dump_config->dump_infos;
 	char dump_name_prefix[DUMP_NAME_STR_MAX_LEN] = { 0 };
@@ -692,9 +712,13 @@ static void prepare_crashdump_level_table(crashdump_config_t *dump_config,
 			switch (dump_level) {
 #ifdef CONFIG_IPQ_MINIDUMP
 			case MINIDUMP:
-				if (wdt_extract_dump(dump_config, i,
-							&dump_entry))
+				ret = wdt_extract_dump(dump_config,
+						i, &dump_entry);
+				if (ret == -EINVAL) {
+					ret = 0;
 					continue;
+				} else if (ret)
+					return ret;
 				break;
 #endif /* CONFIG_IPQ_MINIDUMP */
 			case FULLDUMP:
@@ -728,17 +752,20 @@ static void prepare_crashdump_level_table(crashdump_config_t *dump_config,
 			continue;
 		}
 
-		add_entry_crashdump_table(dump_config, &dump_entry);
+		ret = add_entry_crashdump_table(dump_config, &dump_entry);
+		if (ret)
+			break;
 	}
 
-	return;
+	return ret;
 }
 
 /**
  * prepare_crashdump_table() - prepare crashdump table top level
  */
-static void prepare_crashdump_table(crashdump_config_t *dump_config)
+static int prepare_crashdump_table(crashdump_config_t *dump_config)
 {
+	int ret = 0;
 	dump_config->actual_nos_dumps = 0;
 	if (dump_config->debug)
 		printf("%-20s\t %-10s\t %-10s\t %-10s\t %-10s\n",
@@ -747,17 +774,17 @@ static void prepare_crashdump_table(crashdump_config_t *dump_config)
 	switch (dump_config->dump_level) {
 #ifdef CONFIG_IPQ_MINIDUMP
 	case MINIDUMP_AND_FULLDUMP:
-		prepare_crashdump_level_table(dump_config, FULLDUMP);
+		ret = prepare_crashdump_level_table(dump_config, FULLDUMP);
 	case MINIDUMP:
-		prepare_crashdump_level_table(dump_config, MINIDUMP);
+		ret = prepare_crashdump_level_table(dump_config, MINIDUMP);
 		break;
 #endif /* CONFIG_IPQ_MINIDUMP */
 	case FULLDUMP:
-		prepare_crashdump_level_table(dump_config, FULLDUMP);
+		ret = prepare_crashdump_level_table(dump_config, FULLDUMP);
 		break;
 	}
 
-	return;
+	return ret;
 }
 
 /**
@@ -968,10 +995,11 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 	dump_config->nos_dumps = *board_dump_entries;
 
 	/* Stage 1 - prepare internal dump table */
-	prepare_crashdump_table(dump_config);
+	ret = prepare_crashdump_table(dump_config);
 
 	/* Stage 2 - dump bins as per the table */
-	ipq_do_dump_data(dump_config);
+	if (!ret)
+		ipq_do_dump_data(dump_config);
 
 	/* Stage 3 - delete internal dump table */
 	delete_crashdump_table();

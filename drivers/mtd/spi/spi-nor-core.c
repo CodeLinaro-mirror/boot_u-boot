@@ -3390,7 +3390,7 @@ static int s25fl129p_setup(struct spi_nor *nor, const struct flash_info *info,
 			   const struct spi_nor_flash_parameter *params)
 {
 	int ret;
-	u8 cr;
+	u8 cr = 0;
 
 	/*
 	 * Read CFR3V to check if uniform sector is selected. If not, assign an

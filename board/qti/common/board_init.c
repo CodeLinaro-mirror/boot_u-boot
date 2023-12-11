@@ -1018,6 +1018,11 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 		part_size = IPQ_ETH_FW_PART_SIZE;
 	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
 		blk_get_device_by_str("mmc", "0", &desc);
+		if (!desc) {
+			ret = -ENODEV;
+			goto exit;
+		}
+
 		part_get_info_by_name(desc, eth_fw_part_name,
 				&disk_info);
 
