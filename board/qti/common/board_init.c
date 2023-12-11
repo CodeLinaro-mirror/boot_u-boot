@@ -152,8 +152,11 @@ void *smem_get_item(unsigned int item) {
 #ifdef CONFIG_CMD_NAND
 uint32_t get_nand_block_size(uint8_t dev_id)
 {
+	uint32_t block_size = 0;
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	return mtd->erasesize;
+	if (mtd)
+		block_size = mtd->erasesize;
+	return block_size;
 }
 #endif
 
@@ -186,6 +189,8 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 	uint32_t bsize;
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
 #endif
 	if (!ptable)
 		return -ENODEV;
@@ -559,8 +564,11 @@ int mibib_ptable_init(unsigned int* addr)
 	 */
 	if ((sfi->flash_type == SMEM_BOOT_NO_FLASH) ||
 			(sfi->flash_type == SMEM_BOOT_MMC_FLASH)) {
-		if (!ptable)
+		if (!ptable) {
 			ptable = malloc(sizeof(struct smem_ptable));
+			if (!ptable)
+				return -ENOMEM;
+		}
 	} else
 		debug("smem ptable found: ver: %d len: %d\n",
 				ptable->version, ptable->len);
@@ -781,6 +789,8 @@ int part_get_info_efi_by_name(const char *name, struct disk_partition *info)
 	int i;
 
 	mmc_dev = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
+	if (!mmc_dev)
+		return -ENODEV;
 
 	if (mmc_dev->type == DEV_TYPE_UNKNOWN)
 		goto done;
@@ -1140,13 +1150,13 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 		mmc = find_mmc_device(CONFIG_SYS_MMC_ENV_DEV);
 		if (!mmc) {
 			printf("Failed to find MMC device \n");
-			ret = -ENXIO;
+			ret = -ENODEV;
 			goto exit;
 		}
 		desc = mmc_get_blk_desc(mmc);
 		if (!desc) {
 			printf("Failed to find the desc \n");
-			ret = -1;
+			ret = -ENXIO;
 			goto exit;
 		}
 		ret = part_get_info_by_name(desc, part_name, &disk_info);
@@ -1215,7 +1225,7 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 					CONFIG_SF_DEFAULT_MODE);
 		if (flash == NULL){
 			printf("No SPI flash device found\n");
-			ret = -1;
+			ret = -ENODEV;
 			goto exit;
 		} else
 			spi_flash_read(flash, part.offset, size, buf);
@@ -1224,14 +1234,14 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 #ifdef CONFIG_CMD_NAND
 	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
-		if (get_nand_dev_by_index(0) == NULL) {
+		struct mtd_info *mtd = get_nand_dev_by_index(0);
+		if (!mtd) {
 			printf("No NAND flash device found\n");
-			ret = -1;
+			ret = -ENODEV;
 			goto exit;
 		}
 
-		nand_read(get_nand_dev_by_index(0), part.offset,
-			&size, buf);
+		nand_read(mtd, part.offset, &size, buf);
 	}
 #endif
 exit:

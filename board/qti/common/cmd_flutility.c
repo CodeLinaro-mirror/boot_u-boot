@@ -296,36 +296,30 @@ int write_ubi_vol(char* ubi_vol_name, uint32_t load_addr, uint32_t file_size)
 static int prepare_mmc_flash(char *part_name, uint32_t *offset,
 				uint32_t *part_size, uint32_t* file_size)
 {
-	int ret;
+	int ret = 0;
 	struct disk_partition disk_info = {0};
 	struct blk_desc *blk_dev;
 
 	blk_dev = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
-	if (blk_dev != NULL) {
+	if (!blk_dev)
+		return -ENXIO;
 
-		if (strncmp(GPT_PART_NAME,
-				(const char *)part_name,
-				sizeof(GPT_PART_NAME))  == 0) {
-			*file_size = *file_size / blk_dev->blksz;
-			*offset = 0;
-			*part_size = (ulong) *file_size;
-		}
-		else if (strncmp(GPT_BACKUP_PART_NAME,
-				(const char *)part_name,
-				sizeof(GPT_BACKUP_PART_NAME)) == 0) {
-			*file_size = *file_size / blk_dev->blksz;
-			*offset = (ulong) blk_dev->lba - *file_size;
-			*part_size = (ulong) *file_size;
-		}
-		else
-		{
-			ret = part_get_info_efi_by_name(
-					part_name, &disk_info);
-			if (ret)
-				return ret;
-			*offset = (ulong)disk_info.start;
-			*part_size = (ulong)disk_info.size;
-		}
+	if (strncmp(GPT_PART_NAME, (const char *)part_name,
+			sizeof(GPT_PART_NAME))  == 0) {
+		*file_size = *file_size / blk_dev->blksz;
+		*offset = 0;
+		*part_size = (ulong) *file_size;
+	} else if (strncmp(GPT_BACKUP_PART_NAME, (const char *)part_name,
+			sizeof(GPT_BACKUP_PART_NAME)) == 0) {
+		*file_size = *file_size / blk_dev->blksz;
+		*offset = (ulong) blk_dev->lba - *file_size;
+		*part_size = (ulong) *file_size;
+	} else	{
+		ret = part_get_info_efi_by_name(part_name, &disk_info);
+		if (ret)
+			return ret;
+		*offset = (ulong)disk_info.start;
+		*part_size = (ulong)disk_info.size;
 	}
 	return ret;
 }
@@ -365,7 +359,7 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 	uint32_t offset, part_size, adj_size;
 	uint32_t load_addr = 0;
 	uint32_t file_size = 0;
-	uint32_t size_block, start_block, file_size_cpy;
+	uint32_t size_block, start_block, file_size_cpy = 0;
 	char *part_name = NULL, *filesize, *loadaddr;
 	int flash_type = -1;
 	int ret = CMD_RET_FAILURE;
@@ -379,6 +373,8 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *nand = get_nand_dev_by_index(0);
+	if (!nand)
+		return -ENODEV;
 #endif
 	if (strcmp(argv[0], "flash") == 0)
 		flash_cmd = CMD_FLASH;
