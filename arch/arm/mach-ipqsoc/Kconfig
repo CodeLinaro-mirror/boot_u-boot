@@ -104,6 +104,7 @@ config IPQ_DEFAULTS
 	select IPQ_SECURE
 	select VERSION_ROLLBACK_PARTITION_INFO
 	select LZMA
+	imply IPQ_SMP_CMD_SUPPORT
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -206,6 +207,11 @@ config IPQ_MAX_PCIE
 	depends on PCI
 	default 3 if TARGET_IPQ5332
 	default 4 if TARGET_IPQ9574
+
+config IPQ_SMP_CMD_SUPPORT
+	bool "IPQ SMP command support"
+	depends on ARCH_32BIT_SUPPORT
+	default n
 
 choice
 	prompt "IPQ board select"

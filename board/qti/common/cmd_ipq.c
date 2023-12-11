@@ -25,6 +25,32 @@
 
 #include "ipq_board.h"
 
+#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#include <cli.h>
+#include <console.h>
+
+DECLARE_GLOBAL_DATA_PTR;
+
+#define SECONDARY_CORE_STACKSZ	(8 * 1024)
+#define CPU_POWER_DOWN		(1 << 16)
+
+struct cpu_entry_arg {
+	void *stack_ptr;
+	volatile void *gd_ptr;
+	void *arg_ptr;
+	int  cpu_up;
+	int cmd_complete;
+	int cmd_result;
+	void *stack_top_ptr;
+};
+
+extern void secondary_cpu_init(void);
+extern void *global_core_array;
+
+struct cpu_entry_arg core[CFG_NR_CPUS - 1];
+
+#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT */
+
 #define PRINT_BUF_LEN		0x400
 #define MDT_SIZE		0x1B88
 /* Region for loading test application */
@@ -1120,3 +1146,165 @@ U_BOOT_CMD(
 	"uart read - read strings from second UART\n"
 	"uart write - write strings to second UART\n"
 );
+
+#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+asmlinkage void secondary_core_entry(char *argv, int *cmd_complete,
+					int *cmd_result)
+{
+	dcache_enable();
+
+	*cmd_result = cli_simple_run_command(argv, 0);
+	*cmd_complete = 1;
+
+	bring_secondary_core_down(CPU_POWER_DOWN);
+}
+
+static void console_silent_enable(void)
+{
+	gd->flags |= GD_FLG_SILENT | GD_FLG_DISABLE_CONSOLE;
+}
+
+static void console_silent_disable(void)
+{
+	gd->flags &= ~(GD_FLG_SILENT | GD_FLG_DISABLE_CONSOLE);
+}
+
+int do_runmulticore(struct cmd_tbl *cmdtp,
+			   int flag, int argc, char *const argv[])
+{
+	int ret = CMD_RET_SUCCESS;
+	int i, j, delay = 0, core_status = 0, core_on_status = 0;
+	uint8_t *ptr = NULL;
+
+	if ((argc <= 1) || (argc > 4)) {
+		ret = CMD_RET_USAGE;
+		goto exit;
+	}
+
+	for (i = 1; i < argc; i++) {
+		if (!strncmp("runmulticore", argv[i],
+			sizeof("runmulticore") - 1)) {
+			printf("Restricted command 'runmulticore' for "
+				"secondary core\n");
+			ret = CMD_RET_USAGE;
+			goto exit;
+		}
+	}
+
+	dcache_disable();
+
+	/* Setting up stack for secondary cores */
+	memset(core, 0, sizeof(core));
+
+	global_core_array = core;
+
+	for (i = 1; i < argc; i++) {
+		ptr = malloc_cache_aligned(SECONDARY_CORE_STACKSZ);
+		if (!ptr) {
+			j = i - 1;
+			while (j >= 0) {
+				if (core[i - 1].stack_ptr != NULL) {
+					free(core[i - 1].stack_ptr);
+					core[i - 1].stack_ptr = NULL;
+				}
+				j--;
+			}
+			printf("Memory allocation failure\n");
+			ret = CMD_RET_FAILURE;
+			goto exit;
+		}
+		/* 0xf0 is the padding length */
+		core[i - 1].stack_top_ptr = ptr;
+		core[i - 1].stack_ptr = (ptr + (SECONDARY_CORE_STACKSZ) - 0xf0);
+
+		core[i - 1].cpu_up = 0;
+		core[i - 1].cmd_complete = 0;
+		core[i - 1].cmd_result = -1;
+		core[i - 1].gd_ptr = gd;
+		core[i - 1].arg_ptr = argv[i];
+	}
+
+	dcache_enable();
+
+	/* Bringing up the secondary cores */
+	for (i = 1; i < argc; i++) {
+		printf("Scheduling Core %d\n", i);
+		delay = 0;
+		console_silent_enable();
+		ret = bring_secondary_core_up(i, (uint32_t)secondary_cpu_init,
+				(uintptr_t)&core[i - 1]);
+		if (ret) {
+			panic("Some problem to getting core %d up\n", i);
+		}
+
+		while ((delay < 5) && (!(core[i - 1].cpu_up))) {
+			mdelay(1000);
+			delay++;
+		}
+		if (!(core[i - 1].cpu_up)) {
+			panic("Can't bringup core %d\n",i);
+		}
+		console_silent_disable();
+
+		core_status |= (BIT(i - 1));
+		core_on_status |= (BIT(i - 1));
+	}
+
+	/* Waiting for secondary cores to complete the task */
+	while (core_status) {
+		for (i = 1; i < argc; i++) {
+			if ((core_status & (BIT(i - 1))) &&
+					(core[i - 1].cmd_complete)) {
+				printf("Command on core %d is %s\n", i,
+					core[i - 1].cmd_complete ?
+					((core[i - 1].cmd_result == -1) ?
+					"FAIL" : "PASS"):
+					"INCOMPLETE");
+				core_status &= (~BIT((i - 1)));
+			}
+		}
+		if (ctrlc()) {
+			run_command("reset", 0);
+		}
+	}
+
+	/* Waiting for cores to powerdown */
+	delay = 0;
+	while (core_on_status) {
+		for (i = 1; i < argc; i++) {
+			if (core_on_status & (BIT(i - 1))) {
+				if (is_secondary_core_off(i) == 1) {
+					printf("core %d powered off\n", i);
+					core_on_status &= (~BIT((i - 1)));
+				}
+			}
+		}
+		mdelay(1000);
+		delay++;
+		if (delay > 5)
+			panic("Some cores can't be powered off\n");
+	}
+
+	/* Free up all the stack */
+	for (i = 1; i < argc; i++) {
+		free(core[i - 1].stack_top_ptr);
+	}
+
+	printf("Status:\n");
+	for (i = 1; i < argc; i++) {
+		printf("Core %d: %s\n", i,
+				core[i - 1].cmd_complete ?
+				((core[i - 1].cmd_result == -1) ?
+				 "FAIL" : "PASS"): "INCOMPLETE");
+	}
+
+exit:
+	invalidate_dcache_all();
+	dcache_enable();
+	return ret;
+}
+
+U_BOOT_CMD(runmulticore, 4, 0, do_runmulticore,
+	   "Enable and schedule secondary cores",
+	   "runmulticore <\"command to core1\"> [core2 core3 ...]");
+#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT */

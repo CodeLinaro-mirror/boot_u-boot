@@ -103,3 +103,7 @@ extern uint32_t g_load_addr;
 #error "###: CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR"
 #endif
 #endif
+
+#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#define CFG_NR_CPUS				4
+#endif
