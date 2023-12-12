@@ -227,6 +227,57 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 }
 
 /*
+ * smem_getpart_from_offset - retreive partition start and size for given offset
+ * belongs to.
+ * @part_name: offset for which part start and size needed
+ * @start: location where the start offset is to be stored
+ * @size: location where the size is to be stored
+ *
+ * Returns 0 at success or -ENOENT otherwise.
+ */
+int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size)
+{
+	unsigned i;
+	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
+	struct smem_ptn *p;
+	uint32_t bsize;
+#ifdef CONFIG_IPQ_NAND
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+#endif
+
+	if (!ptable)
+		return -ENODEV;
+
+	for (i = 0; i < ptable->len; i++) {
+		p = &ptable->parts[i];
+		bsize = get_part_block_size(p, sfi);
+		*start = p->start;
+
+		if (p->size == (~0u)) {
+		/*
+		 * Partition size is 'till end of device', calculate
+		 * appropriately
+		 */
+#ifdef CONFIG_IPQ_NAND
+			*size = (mtd->size / bsize) - p->start;
+#else
+			*size = 0;
+			bsize = bsize;
+#endif
+		} else {
+			*size = p->size;
+		}
+		*start = *start * bsize;
+		*size = *size * bsize;
+		if (*start <= offset && *start + *size > offset) {
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+/*
  * This function should only be used when sfi->flash_type is
  * SMEM_BOOT_SPI_FLASH
  * retrieve the which_flash flag based on partition name.
@@ -679,9 +730,30 @@ __weak void board_update_RFA_settings(void)
 	return;
 }
 
+#ifdef CONFIG_IPQ_MMC
+static void init_mmc(void)
+{
+	struct mmc *mmc;
+	mmc = find_mmc_device(0);
+	if (!mmc) {
+		printf("no mmc device at slot 0\n");
+		return;
+	}
+
+	if (mmc_init(mmc))
+		printf("mmc init failed\n");
+
+	return;
+}
+#endif
+
 int board_late_init(void)
 {
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
+
+#ifdef CONFIG_IPQ_MMC
+	init_mmc();
+#endif
 	if (sfi->flash_type != SMEM_BOOT_MMC_FLASH) {
 		get_kernel_fs_part_details();
 	}

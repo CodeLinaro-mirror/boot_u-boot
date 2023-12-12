@@ -82,7 +82,8 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dump_level = FULLDUMP,
 		.split_bin_sz = SZ_1G,
 		.is_aligned_access = false,
-		.compression_support = true
+		.compression_support = true,
+		.dumptoflash_support = false
 	},
 	{
 		.name = "IMEM.BIN",
@@ -91,16 +92,8 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dump_level = FULLDUMP,
 		.split_bin_sz = 0,
 		.is_aligned_access = false,
-		.compression_support = false
-	},
-	{
-		.name = "UNAME.BIN",
-		.start_addr = 0x0,
-		.size = 0xBAD0FF5E,
-		.dump_level = MINIDUMP,
-		.split_bin_sz = 0,
-		.is_aligned_access = false,
-		.compression_support = false
+		.compression_support = false,
+		.dumptoflash_support = false
 	},
 	{
 		.name = "CPU_INFO.BIN",
@@ -109,7 +102,18 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dump_level = MINIDUMP,
 		.split_bin_sz = 0,
 		.is_aligned_access = false,
-		.compression_support = false
+		.compression_support = false,
+		.dumptoflash_support = true
+	},
+	{
+		.name = "UNAME.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = true
 	},
 	{
 		.name = "DMESG.BIN",
@@ -118,7 +122,8 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dump_level = MINIDUMP,
 		.split_bin_sz = 0,
 		.is_aligned_access = false,
-		.compression_support = false
+		.compression_support = false,
+		.dumptoflash_support = false
 	},
 	{
 		.name = "PT.BIN",
@@ -127,7 +132,8 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dump_level = MINIDUMP,
 		.split_bin_sz = 0,
 		.is_aligned_access = false,
-		.compression_support = false
+		.compression_support = false,
+		.dumptoflash_support = false
 	},
 	{
 		.name = "WLAN_MOD.BIN",
@@ -136,7 +142,8 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dump_level = MINIDUMP,
 		.split_bin_sz = 0,
 		.is_aligned_access = false,
-		.compression_support = false
+		.compression_support = false,
+		.dumptoflash_support = false
 	},
 };
 
