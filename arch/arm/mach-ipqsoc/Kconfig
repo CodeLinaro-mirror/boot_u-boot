@@ -94,6 +94,7 @@ config IPQ_DEFAULTS
 	select BOARD_TYPES
 	select IPQ_SECURE
 	select VERSION_ROLLBACK_PARTITION_INFO
+	select LZMA
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -261,6 +262,7 @@ config TARGET_DEVSOC
 	select SMEM_VERSION_C
 	select SCM
 	select OF_BOARD_SETUP
+	select LZMA
 	select PINCTRL_QTI
 	select CLK_QTI
 	select BOARD_LATE_INIT
