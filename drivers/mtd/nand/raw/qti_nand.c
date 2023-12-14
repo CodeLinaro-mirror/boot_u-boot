@@ -2993,7 +2993,7 @@ error:
 static int qti_alloc_status_buff(struct qcom_nand_controller *nandc,
 		struct mtd_info *mtd)
 {
-	uint32_t size;
+	uint32_t size = 0;
 
 	GET_STATUS_BUFF_ALLOC_SIZE(mtd->writesize, size);
 
@@ -3726,7 +3726,7 @@ static bool IsEven(int num)
 
 static int qti_find_most_appropriate_phase(u8 *phase_table, int phase_count)
 {
-	int cnt = 0, i;
+	unsigned int cnt = 0, i;
 	int phase = 0x0;
 	u8 phase_ranges[TOTAL_NUM_PHASE] = {'\0'};
 
@@ -3735,7 +3735,7 @@ static int qti_find_most_appropriate_phase(u8 *phase_table, int phase_count)
 	 * if all 7 phase passed so return middle phase i.e 4
 	 */
 	phase_count -= 2;
-	for (i = 0; i < phase_count; i++) {
+	for (i = 0; (i >= 0) && (i < phase_count); i++) {
 		if ((phase_table[i] + 1 == phase_table[i + 1]) &&
 				(phase_table[i + 1] + 1 == phase_table[i + 2]))
 		{
@@ -4201,7 +4201,7 @@ static int qti_nand_probe(struct udevice *device)
 	buf += mtd->oobsize;
 
 	/* Register with MTD subsystem. */
-	ret = nand_register(0, mtd);
+	ret = nand_register((int)0, mtd);
 	if (ret < 0) {
 		printf("qti_nand: failed to register with MTD subsystem\n");
 		goto err_reg;
@@ -4283,6 +4283,11 @@ int qti_nand_deinit(void)
 	int ret = 0;
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
+
+	if(!mtd) {
+		printf("%s: mtd device not available\n", __func__);
+		return -ENOMEM;
+	}
 
 	if (run_command("ubi exit", 0) != CMD_RET_SUCCESS)
 		return CMD_RET_FAILURE;

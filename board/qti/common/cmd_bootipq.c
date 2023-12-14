@@ -215,11 +215,12 @@ int set_nand_bootargs(void)
 
 int set_bootargs(void)
 {
-	char *fit_bootargs, *strings = env_get("bootargs");
+	char *fit_bootargs =  NULL;
+	char *strings = env_get("bootargs");
 	int len, ret = CMD_RET_SUCCESS;
 	char * cmd_line;
 #ifdef CONFIG_MMC
-	bool gpt_flag;
+	bool gpt_flag = true;
 	char runcmd[MAX_BOOT_ARGS_SIZE];
 	int active_part = get_rootfs_active_partition();
 
@@ -243,10 +244,21 @@ int set_bootargs(void)
 	if (ret)
 		return ret;
 
+	if(!strings) {
+		printf("%s: bootargs not available\n", __func__);
+		return -ENXIO;
+	}
+
 	cmd_line = malloc(CONFIG_SYS_CBSIZE);
+	if(!cmd_line) {
+		printf("%s: Memory allocation failed\n", __func__);
+		return -ENOMEM;
+	}
+
 
 	memset(cmd_line, 0, CONFIG_SYS_CBSIZE);
-	fit_bootargs = (char *)fdt_getprop((void *)boot_info.load_address, 0, FIT_BOOTARGS_PROP, &len);
+	fit_bootargs = (char *)fdt_getprop((void *)boot_info.load_address, 0,
+						FIT_BOOTARGS_PROP, &len);
 	if ((fit_bootargs != NULL) && len) {
 		if ((strlen(strings) + len) > CONFIG_SYS_CBSIZE) {
 			ret = CMD_RET_FAILURE;
@@ -256,6 +268,12 @@ int set_bootargs(void)
 					" %s rootwait", fit_bootargs);
 		}
 	} else {
+		fit_bootargs = env_get("fsbootargs");
+		if(!fit_bootargs) {
+			printf("%s: bootargs not available\n", __func__);
+			return -ENXIO;
+		}
+
 		memcpy(cmd_line, strings, strlen(strings));
 		len = snprintf(cmd_line + strlen(strings), CONFIG_SYS_CBSIZE,
 			" %s rootwait", env_get("fsbootargs"));
@@ -570,6 +588,13 @@ static int boot_nand(void)
 						CONFIG_SF_DEFAULT_CS,
 						CONFIG_SF_DEFAULT_SPEED,
 						CONFIG_SF_DEFAULT_MODE);
+
+			if(!boot_info.flash) {
+				printf("%s: Failed to probe spi flash\n",
+								__func__);
+				return -EIO;
+			}
+
 			if(secure_boot) {
 #ifdef CONFIG_IPQ_ELF_AUTH
 
