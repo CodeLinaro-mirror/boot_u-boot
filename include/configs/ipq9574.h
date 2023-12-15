@@ -9,6 +9,7 @@
 #ifndef __ASSEMBLY__
 #include <compiler.h>
 extern uint32_t g_board_machid;
+extern uint32_t g_load_addr;
 #endif
 
 /*
@@ -57,6 +58,7 @@ extern uint32_t g_board_machid;
 #define CONFIG_SYS_NONCACHED_MEMORY		(1 << 20)
 
 #define CONFIG_MACH_TYPE			(g_board_machid)
+#define CFG_CUSTOM_LOAD_ADDR			(g_load_addr)
 
 #define PHY_ANEG_TIMEOUT			100
 #define FDT_HIGH 				0x48500000
