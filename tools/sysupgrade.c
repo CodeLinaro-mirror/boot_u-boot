@@ -785,6 +785,11 @@ int get_ubi_volume_id(char *vol_name)
 	FILE *fp;
 
 	fp = fopen(ubi_vol_count, "r");
+	if (fp == NULL) {
+		printf("Error finding volumes count\n");
+		return 0;
+	}
+
 	if (fgets(current_ubi_volumes_count, sizeof(current_ubi_volumes_count), fp) == NULL) {
 		printf(" Failed to get ubi volumes count \n");
 		return 0;
@@ -796,6 +801,10 @@ int get_ubi_volume_id(char *vol_name)
 	{
 		snprintf(ubi_vol, sizeof(ubi_vol), "%s%d%s", prefix, i, suffix);
 		fp = fopen(ubi_vol, "r");
+		if (fp == NULL) {
+			printf("Error opening ubi volumes count\n");
+			return 0;
+		}
 		if (fgets(ubi_vol_name, sizeof(ubi_vol_name), fp) == NULL) {
 			printf(" Failed to get ubi volume name \n");
 			return 0;
@@ -1498,6 +1507,11 @@ char *create_xor_ipad_opad(char *f_xor, unsigned long long *xor_buffer)
 	unsigned long long sw_id, sw_id_be;
 
 	file = mkdtemp(f_xor);
+	if (file == NULL) {
+		printf("Error creating directory\n");
+		return 0;
+	}
+
 	fd = open(file, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		perror(file);
@@ -1642,6 +1656,11 @@ int is_component_authenticated(char *src, char *sig, char *cert)
 	}
 
 	pub_file = mkdtemp(pub_key);
+	if (pub_file == NULL) {
+		printf("Error getting public key\n");
+		return 0;
+	}
+
 	snprintf(command, sizeof(command),
 		"openssl x509 -in cert -pubkey -inform DER -noout > %s", pub_file);
 	retval = system(command);
