@@ -69,6 +69,11 @@ config CAPIN_CAPOUT_SUPPORT
 	bool "Update RFA register based on Caldata"
 	default n
 
+config MMC_FLASH_PARTITION_WRITE_PROTECT
+	bool "This enable wrtie protect in EMMC flash type"
+	depends on IPQ_MMC
+	default y
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
