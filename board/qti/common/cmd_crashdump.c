@@ -637,7 +637,7 @@ static int find_usb_dev_for_crashdump(uint8_t *dev_idx, uint8_t *part_idx)
 					bdev->devnum, pidx);
 			ret = blk_get_device_part_str("usb", dev_str,
 					&bdesc, &dpart_info, 1);
-			if ((ret < 0) && !bdesc)
+			if ((ret < 0) || !bdesc)
 				continue;
 
 			if (fat_set_blk_dev(bdesc, &dpart_info) == 0) {
