@@ -886,7 +886,7 @@ static int do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	uint32_t img_addr;
 	uint32_t img_size;
-	int ret;
+	int ret = 0;
 	scm_param param;
 
 	/* at least two arguments should be there */

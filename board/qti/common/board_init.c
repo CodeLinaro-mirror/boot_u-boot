@@ -248,6 +248,8 @@ int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size)
 	uint32_t bsize;
 #ifdef CONFIG_IPQ_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
 #endif
 
 	if (!ptable)
