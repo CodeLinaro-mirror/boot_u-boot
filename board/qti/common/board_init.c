@@ -81,6 +81,7 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 #endif
 
 uint32_t g_board_machid;
+uint32_t g_load_addr;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 
 struct udevice *smem;
@@ -577,6 +578,12 @@ int board_init(void)
 	gd->board_type = board_type;
 	update_board_type();
 #endif
+	if(SZ_256M == gd->ram_size && CONFIG_SYS_LOAD_ADDR > SZ_256M) {
+		g_load_addr = CFG_SYS_SDRAM_BASE + SZ_64M;
+	} else {
+		g_load_addr = CONFIG_SYS_LOAD_ADDR;
+	}
+
 	return 0;
 }
 
@@ -730,6 +737,9 @@ void setup_board_default_env(void)
 
 	env_set_ulong("soc_version_major", ipq_socinfo.soc_version_major);
 	env_set_ulong("soc_version_minor", ipq_socinfo.soc_version_minor);
+#ifdef CFG_CUSTOM_LOAD_ADDR
+	env_set_hex("loadaddr", CFG_CUSTOM_LOAD_ADDR);
+#endif
 }
 
 __weak void board_update_RFA_settings(void)

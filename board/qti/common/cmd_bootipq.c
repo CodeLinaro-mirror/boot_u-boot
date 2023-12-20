@@ -85,12 +85,7 @@ typedef struct boot_info_t{
 	const char *config;
 } boot_info_t;
 
-static boot_info_t boot_info = {
-#ifdef CONFIG_IPQ_SPI_NOR
-	.flash		= NULL,
-#endif
-	.load_address	= CONFIG_SYS_LOAD_ADDR
-	};
+static boot_info_t boot_info;
 
 #ifdef CONFIG_MMC
 static struct mmc *__init_mmc_dev(int dev, bool force_init,
@@ -1021,7 +1016,7 @@ int image_authentication(void)
 		/* Rootfs's header and certificate at end of kernel image,
 		 * copy from there and pack with rootfs image and
 		 * authenticate rootfs */
-		if (authenticate_rootfs(CONFIG_SYS_LOAD_ADDR, kernel_img_info)
+		if (authenticate_rootfs(boot_info.load_address, kernel_img_info)
 			!= CMD_RET_SUCCESS) {
 			printf("Rootfs image authentication failed\n");
 			BUG();
@@ -1122,6 +1117,12 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (argc == 2 && strncmp(argv[1], "debug", 5) == 0)
 		boot_info.debug = 1;
+
+#ifdef CFG_CUSTOM_LOAD_ADDR
+	boot_info.load_address = CFG_CUSTOM_LOAD_ADDR;
+#else
+	boot_info.load_address = CONFIG_SYS_LOAD_ADDR;
+#endif
 
 	for(state_sequence_ptr = state_sequence, state = 1;
 					*state_sequence_ptr;
