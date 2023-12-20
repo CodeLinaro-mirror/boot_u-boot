@@ -70,16 +70,31 @@ typedef void (*fdt_fixup_t)(void *blob);
  */
 static void parse_fdt_fixup(char* buf, void *blob)
 {
-	int nodeoff, value, ret, num_values, i;
+	int nodeoff, value, num_values, i;
 	char *node, *property, *node_value, *sliced_string;
 	bool if_string = true, bit32 = true;
 	u32 *values32;
 	u64 *values64;
+	int ret = 0;
 
 	/* env is split into <node>%<property>%<node_value>. '%' is separator*/
 	node = strsep(&buf, "%");
+	if(!node) {
+		ret = EINVAL;
+	}
+
 	property = strsep(&buf, "%");
+	if(!property) {
+		ret = EINVAL;
+	}
+
 	node_value = strsep(&buf, "%");
+	if(!node_value) {
+		ret = EINVAL;
+	}
+
+	if(ret == EINVAL)
+		goto arg_err;
 
 	debug("node: %s  property: %s  node_value: %s\n", node,
 			property, node_value);
@@ -105,7 +120,8 @@ static void parse_fdt_fixup(char* buf, void *blob)
 		/* handle property deletes */
 		ret = fdt_delprop(blob, nodeoff, node_value);
 		if (ret) {
-			printf("%s: unable to delete %s\n", __func__, node_value);
+			printf("%s: unable to delete %s\n",
+				__func__, node_value);
 			return;
 		}
 	} else if (!strncmp(property, "32", strlen("32")) ||
@@ -119,48 +135,95 @@ static void parse_fdt_fixup(char* buf, void *blob)
 		 * memory nodes
 		 */
 		sliced_string = strsep(&property, "?");
-		if (simple_strtoul(sliced_string, NULL, 10) == 64)
-			bit32 = false;
+		if(sliced_string) {
 
-		/* get the number of array values */
-		sliced_string = strsep(&property, "?");
-		num_values = simple_strtoul(sliced_string, NULL, 10);
+			if (simple_strtoul(sliced_string, NULL, 10) == 64)
+				bit32 = false;
 
-		if (bit32 == true) {
-			values32 = malloc(num_values * sizeof(u32));
+			/* get the number of array values */
+			sliced_string = strsep(&property, "?");
+			if(sliced_string) {
+				num_values = simple_strtoul(sliced_string,
+								NULL, 10);
 
-			for (i = 0; i < num_values; i++)  {
-				sliced_string = strsep(&node_value, "?");
-				values32[i] =  cpu_to_fdt32(simple_strtoul(
-							sliced_string,
-							NULL, 10));
-			}
+				if (bit32 == true) {
+					values32 = malloc(num_values * \
+								sizeof(u32));
+					if(!values32) {
+						printf("%s: Unable to allocate"
+							" memory\n", __func__);
+						return;
+					}
 
-			ret = fdt_setprop(blob, nodeoff, property, values32,
-					num_values * sizeof(u32));
-			if (ret) {
-				printf("%s: failed to set prop %s\n",
-						__func__, property);
-				return;
+					for (i = 0; i < num_values; i++)  {
+						sliced_string = strsep(
+							&node_value, "?");
+						if(!sliced_string) {
+							ret = -EINVAL;
+							goto arg_err;
+						}
+
+						values32[i] =  cpu_to_fdt32(
+								simple_strtoul(
+								sliced_string,
+								NULL, 10));
+					}
+
+					ret = fdt_setprop(blob, nodeoff,
+							property, values32,
+							num_values * \
+								sizeof(u32));
+					if (ret) {
+						printf("%s: failed to set"
+								" prop %s\n",
+								__func__,
+								property);
+						return;
+					}
+				} else {
+					values64 = malloc(num_values * \
+								sizeof(u64));
+					if(!values64) {
+						printf("%s: Unable to"
+							" allocate memory\n",
+							__func__);
+						return;
+					}
+
+					for (i = 0; i < num_values; i++)  {
+						sliced_string = strsep(
+								&node_value,
+									"?");
+						if(!sliced_string) {
+							ret = -EINVAL;
+							goto arg_err;
+						}
+
+						values64[i] = cpu_to_fdt64(
+								simple_strtoul(
+								sliced_string,
+								NULL, 10));
+					}
+
+					ret = fdt_setprop(blob, nodeoff,
+							property, values64,
+							num_values * \
+								sizeof(u64));
+					if (ret) {
+						printf("%s: failed to"
+							" set prop %s\n",
+							__func__,
+							property);
+						return;
+					}
+				}
+			} else {
+				ret = EINVAL;
 			}
 		} else {
-			values64 = malloc(num_values * sizeof(u64));
-
-			for (i = 0; i < num_values; i++)  {
-				sliced_string = strsep(&node_value, "?");
-				values64[i] =  cpu_to_fdt64(simple_strtoul(
-							sliced_string,
-							NULL, 10));
-			}
-
-			ret = fdt_setprop(blob, nodeoff, property, values64,
-					num_values * sizeof(u64));
-			if (ret) {
-				printf("%s: failed to set prop %s\n",
-						__func__, property);
-				return;
-			}
+			ret = EINVAL;
 		}
+
 	} else if (!if_string) {
 		/* handle 32bit integer value patching */
 		ret = fdt_setprop_u32(blob, nodeoff, property, value);
@@ -182,6 +245,12 @@ static void parse_fdt_fixup(char* buf, void *blob)
 			return;
 		}
 	}
+
+
+arg_err:
+	if(ret == EINVAL)
+		printf("%s: invalid string\n", __func__);
+	return;
 }
 
 /* check parse_fdt_fixup for detailed explanation */
@@ -259,7 +328,6 @@ __weak void fdt_fixup_flash(void *blob)
 __weak void ipq_fdt_fixup_socinfo(void *blob)
 {
 	uint32_t cpu_type;
-	uint32_t soc_version_major, soc_version_minor;
 	int nodeoff, ret;
 	socinfo_t *ipq_socinfo = get_socinfo();
 
@@ -277,17 +345,17 @@ __weak void ipq_fdt_fixup_socinfo(void *blob)
 
 	ret = fdt_setprop(blob, nodeoff, "soc_version_major",
 			 (void*) &ipq_socinfo->soc_version_major,
-			  sizeof(soc_version_major));
+			  sizeof(ipq_socinfo->soc_version_major));
 	if (ret)
 		printf("%s: cannot set soc_version_major %d\n",
-		       __func__, soc_version_major);
+		       __func__, ipq_socinfo->soc_version_major);
 
 	ret = fdt_setprop(blob, nodeoff, "soc_version_minor",
 			  (void*)&ipq_socinfo->soc_version_minor,
-			  sizeof(soc_version_minor));
+			  sizeof(ipq_socinfo->soc_version_minor));
 	if (ret)
 		printf("%s: cannot set soc_version_minor %d\n",
-		       __func__, soc_version_minor);
+		       __func__, ipq_socinfo->soc_version_minor);
 	return;
 }
 
@@ -303,6 +371,11 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 	struct smem_ptable *ptable = get_ipq_part_table_info();
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if(!mtd) {
+		printf("%s: mtd device not found\n", __func__);
+		return;
+	}
+
 #endif
 
 	ret = snprintf(part, len, "%s:", mtdid);
