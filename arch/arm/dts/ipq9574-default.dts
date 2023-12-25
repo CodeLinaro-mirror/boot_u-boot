@@ -12,6 +12,7 @@
 
 	aliases {
 		console = &blsp1_uart2_console;
+		uart2 = &blsp1_uart3_additional;
 		sdhci = &mmc;
 	};
 
@@ -83,6 +84,15 @@
 				};
 			};
 
+			serial_pinmux2: uart2 {
+				data {
+					pins = "GPIO_17", "GPIO_18";
+					function = "blsp1_uart2";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+			};
+
 			blsp1_spi_pinmux: blsp1_spi_pins {
 				blsp0_spi_clk {
 					pins = "GPIO_11";
@@ -119,6 +129,12 @@
 		blsp1_uart2_console: serial@78B1000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial_pinmux>;
+			status = "okay";
+		};
+
+		blsp1_uart3_additional: serial@78B2000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&serial_pinmux2>;
 			status = "okay";
 		};
 

@@ -110,6 +110,17 @@
 			u-boot,dm-pre-reloc;
 		};
 
+		blsp1_uart3_additional: serial@78B2000 {
+			compatible = "qcom,msm-uartdm-v1.4";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x78B2000 0x200>;
+			clock = <&gcc GCC_BLSP1_UART3_APPS_CLK>,
+				<&gcc GCC_BLSP1_AHB_CLK>;
+			bit-rate = <0xFF>;
+			status = "okay";
+		};
+
 		blsp1_spi: spi@78b5000 {
 			compatible = "qcom,spi-qup-v2.2.1";
 			#address-cells = <1>;

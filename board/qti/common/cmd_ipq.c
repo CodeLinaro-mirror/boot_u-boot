@@ -21,6 +21,7 @@
 #include <asm/io.h>
 #include <linux/iopoll.h>
 #endif
+#include <serial.h>
 
 #include "ipq_board.h"
 
@@ -34,6 +35,8 @@
 #define XPU_TEST_ID		0x80100004
 
 static int tzt_loaded;
+
+struct udevice *dev;
 
 struct xpu_tzt {
 	uint64_t test_id;
@@ -1018,3 +1021,102 @@ U_BOOT_CMD(dpr_execute, 3, 0, do_dpr,
                 "dpr_execute [fileaddr] [filesize] - Processing dpr\n");
 #endif /* CONFIG_DPR_VER_2_0 */
 #endif /* CONFIG_DPR_VER_1_0 or CONFIG_DPR_VER_2_0 */
+
+static void uart_read_data(struct udevice *dev)
+{
+	struct dm_serial_ops *ops = serial_get_ops(dev);
+	int val = 0;
+
+	if (ops == NULL)
+		return;
+
+	for(;;) {
+		do {
+			val = ops->getc(dev);
+			if (val == -EAGAIN)
+				schedule();
+		} while (val == -EAGAIN);
+
+		if (val == 0x03)
+			break;
+		else
+			serial_putc(val);
+	}
+}
+
+static void uart_write_data(struct udevice *dev, const char *str)
+{
+	struct dm_serial_ops *ops = serial_get_ops(dev);
+	int ret = 0;
+
+	if(ops == NULL)
+		return;
+
+	while (*str != '\0') {
+		do {
+			ret = ops->putc(dev, *str);
+		} while (ret == -EAGAIN);
+
+		++str;
+	}
+}
+
+static int do_uart(struct cmd_tbl *cmdtp, int flag, int argc,
+			char *const argv[])
+{
+	int ret = CMD_RET_USAGE;
+	char node_name[8] = {0};
+	int node, id = CONFIG_SECONDARY_UART_INDEX;
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	if ((strncmp(argv[1], "start", 5) == 0) && (argc == 2)) {
+		printf("starting secondary UART %d...", id);
+		snprintf(node_name, sizeof(node_name), "uart%d", id);
+		node = fdt_path_offset(gd->fdt_blob, node_name);
+		/*
+		 * allow probe after reloc
+		 */
+		gd->flags &= ~GD_FLG_RELOC;
+		uclass_get_device_by_of_offset(UCLASS_SERIAL, node, &dev);
+		gd->flags |= GD_FLG_RELOC;
+		if (dev == NULL) {
+			printf(" No device found \n");
+			ret = CMD_RET_FAILURE;
+		} else {
+			printf(" Success \n");
+			ret = CMD_RET_SUCCESS;
+		}
+	}
+
+	if ((strcmp(argv[1], "read") == 0) && (argc == 2)) {
+		if (dev != NULL) {
+			uart_read_data(dev);
+			ret = CMD_RET_SUCCESS;
+		} else {
+			printf(" No device found... do start!!!\n");
+			ret = CMD_RET_FAILURE;
+		}
+	}
+
+	if ((strcmp(argv[1], "write") == 0) && (argc == 3)) {
+		if (dev != NULL) {
+			uart_write_data(dev, argv[2]);
+			ret = CMD_RET_SUCCESS;
+		} else {
+			printf(" No device found... do start!!!\n");
+			ret = CMD_RET_FAILURE;
+		}
+	}
+
+	return ret;
+}
+
+U_BOOT_CMD(
+	uart,	3,	0,	do_uart,
+	"UART sub-system cli",
+	"start - initialize secondary uart\n"
+	"uart read - read strings from second UART\n"
+	"uart write - write strings to second UART\n"
+);
