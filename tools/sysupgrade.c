@@ -1036,7 +1036,7 @@ int extract_rootfs_binary(char *filename)
 	}
 
 	int offset = 0,dead_off = sb.st_size;
-	while ( offset <= sb.st_size)
+	while (offset <= (sb.st_size - 3))
 	{
 		if ((fp[offset] == 0xde) && (fp[offset+1] == 0xad) && (fp[offset+2] == 0xc0) && (fp[offset+3] == 0xde)) {
 			dead_off=offset;
@@ -1587,6 +1587,7 @@ int generate_hash(char *cert, char *sw_file, char *hw_file)
 	printf("sw_id=%s\thw_id=%s\t", sw_id_str, hw_id_str);
 	printf("oem_id=%s\toem_model_id=%s\n", oem_id_str, oem_model_id_str);
 
+	sw_id_str[16] = '\0';
 	generate_swid_ipad(sw_id_str, &swid_xor_ipad);
 	tmp = create_xor_ipad_opad(f_sw_xor, &swid_xor_ipad);
 	if (tmp == NULL) {
@@ -1598,6 +1599,7 @@ int generate_hash(char *cert, char *sw_file, char *hw_file)
 	}
 	strlcpy(sw_file, tmp, 32);
 
+	hw_id_str[16] = '\0';
 	generate_hwid_opad(hw_id_str, oem_id_str, oem_model_id_str, &hwid_xor_opad);
 	tmp = create_xor_ipad_opad(f_hw_xor, &hwid_xor_opad);
 	if (tmp == NULL) {
