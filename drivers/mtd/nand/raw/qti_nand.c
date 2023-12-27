@@ -138,6 +138,7 @@ struct nand_flash_dev qti_nand_flash_ids[] = {
 	};
 
 extern int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
+int qti_nand_deinit(struct udevice *device);
 
 static int qti_read_page(struct mtd_info *mtd, uint32_t page,
 				enum nand_cfg_value cfg_mode,
@@ -4201,7 +4202,7 @@ static int qti_nand_probe(struct udevice *device)
 	buf += mtd->oobsize;
 
 	/* Register with MTD subsystem. */
-	ret = nand_register((int)0, mtd);
+	ret = nand_register(dev_seq(device), mtd);
 	if (ret < 0) {
 		printf("qti_nand: failed to register with MTD subsystem\n");
 		goto err_reg;
@@ -4275,17 +4276,25 @@ U_BOOT_DRIVER(qti_nand) = {
 	.id = UCLASS_MTD,
 	.of_match = qti_ver_ids,
 	.probe = qti_nand_probe,
+	.remove = qti_nand_deinit,
 	.priv_auto = sizeof(struct qcom_nand_controller),
 };
 
-int qti_nand_deinit(void)
+int qti_nand_deinit(struct udevice *device)
 {
 	int ret = 0;
-	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
+	struct mtd_info *mtd = NULL;
+	struct qcom_nand_controller *nandc = NULL;
 
+	mtd = get_nand_dev_by_index(dev_seq(device));
 	if(!mtd) {
 		printf("%s: mtd device not available\n", __func__);
+		return -ENOMEM;
+	}
+
+	nandc = MTD_QTI_NAND_DEV(mtd);
+	if(!nandc) {
+		printf("%s: nand controller not available\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -4299,7 +4308,10 @@ int qti_nand_deinit(void)
 	nandc->cfg0 = 0;
 	nandc->cfg1 = 0;
 	nandc->ecc_bch_cfg = 0;
-	free(nandc->buffers);
+	nandc->qti_cmd_desc_fifo ? free(nandc->qti_cmd_desc_fifo) : NULL;
+	nandc->status_buff ? free(nandc->status_buff) : NULL;
+	nandc->buffers ? free(nandc->buffers) : NULL;
+
 	return ret;
 }
 

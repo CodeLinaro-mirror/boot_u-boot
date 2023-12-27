@@ -271,7 +271,7 @@ int set_bootargs(void)
 
 		memcpy(cmd_line, strings, strlen(strings));
 		len = snprintf(cmd_line + strlen(strings), CONFIG_SYS_CBSIZE,
-			" %s rootwait", env_get("fsbootargs"));
+			" %s rootwait", fit_bootargs);
 		if (len >= CONFIG_SYS_CBSIZE)
 			ret = CMD_RET_FAILURE;
 	}
