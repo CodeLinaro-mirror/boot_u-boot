@@ -279,6 +279,7 @@ config TARGET_DEVSOC
 	select DMA
 	select DMA_CHANNELS
 	select BOARD_TYPES
+	select IPQ_FLUTILS
 	help
 	  Support for IPQ DEVSoC.
 
