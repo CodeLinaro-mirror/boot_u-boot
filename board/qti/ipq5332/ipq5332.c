@@ -340,7 +340,12 @@ void board_update_RFA_settings(void)
 	param.len = 1;
 	param.get_ret = 1;
 
-	ipq_scm_call(&param);
+	ret = ipq_scm_call(&param);
+	if (ret) {
+		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0"
+			"read failed, ret : %d", ret);
+		return;
+	}
 
 	reg_val = param.res.result[0];
 
