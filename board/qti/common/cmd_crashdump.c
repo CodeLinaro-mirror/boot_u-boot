@@ -633,7 +633,7 @@ static int find_usb_dev_for_crashdump(uint8_t *dev_idx, uint8_t *part_idx)
 				pidx++) {
 			struct blk_desc *bdesc = NULL;
 
-			snprintf(dev_str, sizeof(dev_str), "%d:%d",
+			snprintf(dev_str, sizeof(dev_str), "%x:%x",
 					bdev->devnum, pidx);
 			ret = blk_get_device_part_str("usb", dev_str,
 					&bdesc, &dpart_info, 1);
