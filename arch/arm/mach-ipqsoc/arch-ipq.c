@@ -60,6 +60,7 @@ void flush_cache(unsigned long start, unsigned long size)
 }
 
 #ifdef CONFIG_OF_SEPARATE
+#ifdef CONFIG_MULTI_DTB_FIT_NO_COMPRESSION
 int calc_fdt_blob_size(void)
 {
 	int size = 0;
@@ -82,13 +83,16 @@ int calc_fdt_blob_size(void)
 
 	return size;
 }
+#endif /* CONFIG_MULTI_DTB_FIT_NO_COMPRESSION */
 #endif /* CONFIG_OF_SEPARATE */
 
 int mach_cpu_init(void)
 {
 	gd->flags |= GD_FLG_SKIP_RELOC;
 #ifdef CONFIG_OF_SEPARATE
+#ifdef CONFIG_MULTI_DTB_FIT_NO_COMPRESSION
 	gd->mon_len += calc_fdt_blob_size();
+#endif /* CONFIG_MULTI_DTB_FIT_NO_COMPRESSION */
 #endif
 	return 0;
 }
