@@ -55,8 +55,6 @@ extern uint32_t g_load_addr;
 #define KERNEL_START_ADDR			CFG_SYS_SDRAM_BASE
 #define BOOT_PARAMS_ADDR                    	(CFG_SYS_SDRAM_BASE + 0x100)
 
-#define CONFIG_SYS_NONCACHED_MEMORY		(1 << 20)
-
 #define CONFIG_MACH_TYPE			(g_board_machid)
 #define CFG_CUSTOM_LOAD_ADDR			(g_load_addr)
 
