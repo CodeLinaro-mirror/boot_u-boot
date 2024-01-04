@@ -74,6 +74,10 @@ config MMC_FLASH_PARTITION_WRITE_PROTECT
 	depends on IPQ_MMC
 	default y
 
+config SECONDARY_UART_INDEX
+	int "Access secondary UART via cli"
+	default 2
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
