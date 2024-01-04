@@ -36,7 +36,7 @@ static const struct bcr_regs sdc_regs = {
 	.D = SDCC1_APPS_D,
 };
 
-static const struct bcr_regs uart1_regs = {
+static const struct bcr_regs uart0_regs = {
 	.cfg_rcgr = BLSP1_UART_APPS_CFG_RCGR(0),
 	.cmd_rcgr = BLSP1_UART_APPS_CMD_RCGR(0),
 	.M = BLSP1_UART_APPS_M(0),
@@ -44,20 +44,12 @@ static const struct bcr_regs uart1_regs = {
 	.D = BLSP1_UART_APPS_D(0),
 };
 
-static const struct bcr_regs uart2_regs = {
+static const struct bcr_regs uart1_regs = {
 	.cfg_rcgr = BLSP1_UART_APPS_CFG_RCGR(1),
 	.cmd_rcgr = BLSP1_UART_APPS_CMD_RCGR(1),
 	.M = BLSP1_UART_APPS_M(1),
 	.N = BLSP1_UART_APPS_N(1),
 	.D = BLSP1_UART_APPS_D(1),
-};
-
-static const struct bcr_regs uart3_regs = {
-	.cfg_rcgr = BLSP1_UART_APPS_CFG_RCGR(2),
-	.cmd_rcgr = BLSP1_UART_APPS_CMD_RCGR(2),
-	.M = BLSP1_UART_APPS_M(2),
-	.N = BLSP1_UART_APPS_N(2),
-	.D = BLSP1_UART_APPS_D(2),
 };
 
 static const struct bcr_regs qup1_spi_regs = {
@@ -292,17 +284,12 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 
 	case GCC_BLSP1_UART0_APPS_CLK:
 		/* UART: 115200 */
-		clk_rcg_set_rate_mnd(priv->base, &uart1_regs, 0, 36, 15625,
+		clk_rcg_set_rate_mnd(priv->base, &uart0_regs, 0, 36, 15625,
 				     SDCC1_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
 	case GCC_BLSP1_UART1_APPS_CLK:
 		/* UART: 115200 */
-		clk_rcg_set_rate_mnd(priv->base, &uart2_regs, 0, 36, 15625,
-				     SDCC1_SRC_SEL_GPLL0_OUT_MAIN);
-		break;
-	case GCC_BLSP1_UART2_APPS_CLK:
-		/* UART: 115200 */
-		clk_rcg_set_rate_mnd(priv->base, &uart3_regs, 0, 36, 15625,
+		clk_rcg_set_rate_mnd(priv->base, &uart1_regs, 0, 36, 15625,
 				     SDCC1_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
 	case GCC_SDCC1_APPS_CLK:
@@ -691,7 +678,12 @@ int msm_enable(struct clk *clk)
 	case GCC_USB0_PIPE_CLK:
 		clk_enable_cbc(priv->base + GCC_USB0_PIPE_CBCR);
 		break;
-
+	case GCC_BLSP1_UART0_APPS_CLK:
+		clk_enable_cbc(priv->base + BLSP1_UART_APPS_CBCR(0));
+		break;
+	case GCC_BLSP1_UART1_APPS_CLK:
+		clk_enable_cbc(priv->base + BLSP1_UART_APPS_CBCR(1));
+		break;
 	/*
 	 * NSS controlled clock
 	 */

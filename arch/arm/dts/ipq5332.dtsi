@@ -98,7 +98,7 @@
 			status = "okay";
 		};
 
-		blsp1_uart1: serial@78af000 {
+		blsp1_uart0_console: serial@78af000 {
 			compatible = "qcom,msm-uartdm-v1.4";
 			#address-cells = <1>;
 			#size-cells = <1>;

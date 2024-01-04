@@ -9,7 +9,7 @@
 	config_name = "config@default";
 
 	aliases {
-		console = &blsp1_uart1;
+		console = &blsp1_uart0_console;
 		sdhci = &mmc;
 	};
 
@@ -133,7 +133,7 @@
 			status = "okay";
 		};
 
-		blsp1_uart1: serial@78af000 {
+		blsp1_uart0_console: serial@78af000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&serial_pinmux>;
 			status = "okay";
