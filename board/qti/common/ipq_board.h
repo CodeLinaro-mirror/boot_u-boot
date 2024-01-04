@@ -477,4 +477,7 @@ void board_nand_init(void);
 #endif
 int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 			size_t size);
+int bring_secondary_core_up(unsigned int cpuid, unsigned int entry, unsigned int arg);
+void bring_secondary_core_down(unsigned int state);
+int is_secondary_core_off(unsigned int cpuid);
 #endif

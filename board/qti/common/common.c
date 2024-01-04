@@ -16,6 +16,7 @@
 #ifdef CONFIG_CMD_UBI
 #include <ubi_uboot.h>
 #endif
+#include <linux/psci.h>
 
 #include "ipq_board.h"
 
@@ -321,4 +322,40 @@ U_BOOT_CMD(
 	"MMC write protect",
 	"mmc_protect start_blk cnt_blk\n"
 );
+#endif
+
+#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+static int qti_invoke_psci_fn_smc
+		(unsigned long function_id, unsigned long arg0,
+		 unsigned long arg1, unsigned long arg2)
+{
+	struct arm_smccc_res res;
+	arm_smccc_smc(function_id, arg0, arg1, arg2, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+int is_secondary_core_off(unsigned int cpuid)
+{
+	return qti_invoke_psci_fn_smc(PSCI_0_2_FN_AFFINITY_INFO, cpuid, 0, 0);
+}
+
+void bring_secondary_core_down(unsigned int state)
+{
+	qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_OFF, state, 0, 0);
+}
+
+int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
+				unsigned int arg)
+{
+	int ret;
+	ret = qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, cpuid, entry, arg);
+	if (ret) {
+		printf("Enabling CPU%d via psci failed! (ret : %d)\n",
+								cpuid, ret);
+		return CMD_RET_FAILURE;
+	}
+
+	printf("Enabled CPU%d via psci successfully!\n", cpuid);
+	return CMD_RET_SUCCESS;
+}
 #endif
