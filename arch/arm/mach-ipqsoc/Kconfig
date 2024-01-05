@@ -78,6 +78,11 @@ config SECONDARY_UART_INDEX
 	int "Access secondary UART via cli"
 	default 2
 
+config NOR_BLK_SIZE
+	int "Block size for SPI Nor BLK device"
+	depends on NOR_BLK
+	default 4096
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
