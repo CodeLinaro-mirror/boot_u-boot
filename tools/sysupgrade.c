@@ -1542,7 +1542,7 @@ char *read_file(char *file_name, size_t *file_size)
 
 	memset(&st, 0, sizeof(struct stat));
 	fstat(fd, &st);
-	buffer = malloc(st.st_size * sizeof(buffer));
+	buffer = malloc(st.st_size * sizeof(char));
 	if (buffer == NULL) {
 		close(fd);
 		return NULL;
