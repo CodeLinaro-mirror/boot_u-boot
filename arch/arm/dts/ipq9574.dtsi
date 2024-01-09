@@ -139,8 +139,10 @@
 			reg = <0x078B5000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP0_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP0_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -151,8 +153,10 @@
 			reg = <0x078B6000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -163,8 +167,10 @@
 			reg = <0x078B7000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -175,8 +181,10 @@
 			reg = <0x078B8000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP3_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP3_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -187,8 +195,10 @@
 			reg = <0x078B9000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP4_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP4_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -199,8 +209,10 @@
 			reg = <0x078BA000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP5_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP5_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
