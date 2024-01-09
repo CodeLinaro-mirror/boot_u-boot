@@ -22,6 +22,7 @@
 #include <bootm.h>
 #include <mach/ipq_scm.h>
 #include <linux/bug.h>
+#include <asm/io.h>
 #ifdef CONFIG_IPQ_SPI_NOR
 #include <spi.h>
 #include <spi_flash.h>
@@ -949,6 +950,15 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 }
 #endif
 
+static int check_rootfs_authentication(void)
+{
+#ifdef ROOTFS_AUTH_FUSE
+	return (readl(ROOTFS_AUTH_FUSE) & 0x20);
+#else
+	return 0;
+#endif
+}
+
 int image_authentication(void)
 {
 	int ret;
@@ -1016,7 +1026,7 @@ int image_authentication(void)
 	memset((void *) (uintptr_t)kernel_img_info.kernel_load_addr,  0,
 		img_info.img_offset);
 #endif
-	if (env_get("rootfs_auth")) {
+	if (check_rootfs_authentication()) {
 #ifdef CONFIG_IPQ_ELF_AUTH
 		if (authenticate_rootfs_elf(img_info.img_load_addr +
 			img_info.img_size) != CMD_RET_SUCCESS) {

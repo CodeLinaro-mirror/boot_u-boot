@@ -81,4 +81,9 @@ typedef enum {
 #define PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1		0xC5D4484
 #define QFPROM_RAW_FEATURE_CONFIG_ROW0_LSB	0xA0018
 
+/*
+ * Rootfs authentication fuse
+ */
+#define ROOTFS_AUTH_FUSE	0xA6044
+
 #endif /* _IPQ5332_H_ */

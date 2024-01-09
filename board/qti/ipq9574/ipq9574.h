@@ -85,4 +85,9 @@ typedef enum {
 #define STATUS_OK			"status%?okay"
 #define STATUS_DISABLED			"status%?disabled"
 
+/*
+ * Rootfs authentication fuse
+ */
+#define ROOTFS_AUTH_FUSE	0xA6044
+
 #endif /* _IPQ9574_H_ */
