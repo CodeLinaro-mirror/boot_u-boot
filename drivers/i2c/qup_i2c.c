@@ -206,6 +206,32 @@ static int qup_i2c_change_state(struct qup_i2c_priv *qup, u32 state)
 }
 
 /*
+ * Check whether the values in the OUTPUT FIFO are shifted out.
+ */
+static int check_write_done(struct qup_i2c_priv *qup)
+{
+	unsigned long count = TOUT_CNT;
+	u32 val, status_flag;
+	int ret = 0;
+
+	do {
+		val = readl(qup->base + QUP_OPERATIONAL);
+		status_flag = val & BIT(4);
+
+		if (!count) {
+			printf("%s, timeout\n", __func__);
+			ret = -ETIMEDOUT;
+			break;
+		}
+
+		count--;
+		udelay(10);
+	} while (status_flag);
+
+	return ret;
+}
+
+/*
  * Function to check wheather Input or Output FIFO
  * has data to be serviced
  */
@@ -374,6 +400,11 @@ static int qup_i2c_blsp_write(struct qup_i2c_priv *qup, unsigned int addr,
 
 	ret = qup_i2c_check_fifo_status(qup, QUP_OPERATIONAL,
 						QUP_MX_OUTPUT_DONE);
+	if (ret)
+		return ret;
+
+	mdelay(2);
+	ret = check_write_done(qup);
 	if (ret)
 		return ret;
 
