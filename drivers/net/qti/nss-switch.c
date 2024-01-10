@@ -2839,6 +2839,10 @@ static int ipq_eth_probe(struct udevice *dev)
 
 			ppe_port_mux_set(priv->ppe.base, port);
 			++phy_no;
+		} else if (port->phy_id == QCA8x8x_SWITCH_TYPE) {
+			port->uniphy_mode = port->cur_uniphy_mode =
+						PORT_WRAPPER_SGMII_PLUS;
+			ppe_uniphy_mode_set(port);
 		}
 #endif
 
