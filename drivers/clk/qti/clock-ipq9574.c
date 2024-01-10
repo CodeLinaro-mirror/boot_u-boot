@@ -434,6 +434,18 @@ int msm_set_parent(struct clk *clk, struct clk* parent)
 
 ulong msm_get_rate(struct clk *clk)
 {
+	switch (clk->id) {
+
+	case GCC_BLSP1_QUP0_I2C_APPS_CLK:
+	case GCC_BLSP1_QUP1_I2C_APPS_CLK:
+	case GCC_BLSP1_QUP2_I2C_APPS_CLK:
+	case GCC_BLSP1_QUP3_I2C_APPS_CLK:
+	case GCC_BLSP1_QUP4_I2C_APPS_CLK:
+	case GCC_BLSP1_QUP5_I2C_APPS_CLK:
+		clk->rate = CLK_50_MHZ;
+		break;
+	}
+
 	return (ulong)clk->rate;
 }
 
