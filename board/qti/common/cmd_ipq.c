@@ -13,8 +13,8 @@
 #include <cpu_func.h>
 #include <linux/bug.h>
 #include <linux/arm-smccc.h>
-#ifdef CONFIG_IPQ_QCN9224_FUSING
 #include <dm.h>
+#ifdef CONFIG_IPQ_QCN9224_FUSING
 #include <init.h>
 #include <pci.h>
 #include <dt-bindings/pci/pci.h>
