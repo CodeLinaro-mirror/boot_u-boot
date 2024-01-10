@@ -103,11 +103,6 @@ void lowlevel_init(void)
 	return;
 }
 
-int ft_board_setup(void *blob, struct bd_info *bd)
-{
-	return 0;
-}
-
 #ifdef CONFIG_ARM64
 /*
  * Set XN (PTE_BLOCK_PXN | PTE_BLOCK_UXN)bit for all dram regions

@@ -287,10 +287,16 @@ __weak void fdt_fixup_flash(void *blob)
 {
 #ifdef CONFIG_MMC
 	uint32_t flash_type = SMEM_BOOT_NO_FLASH;
-	int nand_nodeoff = fdt_path_offset(blob, LINUX_6_1_NAND_DTS_NODE);
-	int mmc_nodeoff = fdt_path_offset(blob, LINUX_6_1_MMC_DTS_NODE);
+	int nand_nodeoff = -EINVAL;
+	int mmc_nodeoff = -EINVAL;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
+#ifdef LINUX_6_x_NAND_DTS_NODE
+	nand_nodeoff = fdt_path_offset(blob, LINUX_6_x_NAND_DTS_NODE);
+#endif
+#ifdef LINUX_6_x_MMC_DTS_NODE
+	mmc_nodeoff = fdt_path_offset(blob, LINUX_6_x_MMC_DTS_NODE);
+#endif
 	if (sfi->flash_secondary_type == SMEM_BOOT_MMC_FLASH)
 		flash_type = SMEM_BOOT_NORPLUSEMMC;
 	else if (sfi->flash_secondary_type == SMEM_BOOT_QSPI_NAND_FLASH)
@@ -301,24 +307,35 @@ __weak void fdt_fixup_flash(void *blob)
 	if (flash_type == SMEM_BOOT_NORPLUSEMMC ||
 		flash_type == SMEM_BOOT_MMC_FLASH ) {
 		if ((nand_nodeoff > 0) && (mmc_nodeoff > 0)) {
-			parse_fdt_fixup(LINUX_6_1_MMC_DTS_NODE"%"STATUS_OK,
+#ifdef LINUX_6_x_MMC_DTS_NODE
+			parse_fdt_fixup(LINUX_6_x_MMC_DTS_NODE"%"STATUS_OK,
 					blob);
+#endif
+#ifdef LINUX_6_x_NAND_DTS_NODE
 			parse_fdt_fixup(
-				LINUX_6_1_NAND_DTS_NODE"%"STATUS_DISABLED,
+				LINUX_6_x_NAND_DTS_NODE"%"STATUS_DISABLED,
 				blob);
+#endif
 		} else {
+#ifdef LINUX_5_4_NAND_DTS_NODE
 			nand_nodeoff = fdt_path_offset(blob,
 					LINUX_5_4_NAND_DTS_NODE);
+#endif
+#ifdef LINUX_5_4_MMC_DTS_NODE
 			mmc_nodeoff = fdt_path_offset(blob,
 					LINUX_5_4_MMC_DTS_NODE);
+#endif
 			if ((nand_nodeoff <= 0) || (mmc_nodeoff <= 0))
 				return;
-
+#ifdef LINUX_5_4_MMC_DTS_NODE
 			parse_fdt_fixup(LINUX_5_4_MMC_DTS_NODE"%"STATUS_OK,
 					blob);
+#endif
+#ifdef LINUX_5_4_NAND_DTS_NODE
 			parse_fdt_fixup(
 				LINUX_5_4_NAND_DTS_NODE"%"STATUS_DISABLED,
 				blob);
+#endif
 		}
 	}
 #endif
@@ -537,14 +554,18 @@ static void ipq_fdt_fixup_qti_nand(void *blob)
 	}
 
 	training_offset =  sfi->flash_block_size * start_blocks;
-	if (fdt_path_offset(blob, LINUX_6_1_NAND_DTS_NODE) > 0)
+#ifdef LINUX_6_x_NAND_DTS_NODE
+	if (fdt_path_offset(blob, LINUX_6_x_NAND_DTS_NODE) > 0)
 		snprintf(fixup_cfg, sizeof(fixup_cfg), "%s%s%lld",
-				LINUX_6_1_NAND_DTS_NODE,
+				LINUX_6_x_NAND_DTS_NODE,
 				"%qcom,training_offset%", training_offset);
-	else if (fdt_path_offset(blob, LINUX_5_4_NAND_DTS_NODE) > 0)
+#endif
+#ifdef LINUX_5_4_NAND_DTS_NODE
+	if (fdt_path_offset(blob, LINUX_5_4_NAND_DTS_NODE) > 0)
 		snprintf(fixup_cfg, sizeof(fixup_cfg), "%s%s%lld",
 				LINUX_5_4_NAND_DTS_NODE,
 				"%qcom,training_offset%", training_offset);
+#endif
 
 	if (fixup_cfg[0] != 0)
 		parse_fdt_fixup(fixup_cfg, blob);
@@ -556,15 +577,27 @@ static void ipq_fdt_fixup_usb_dev_mode(void *blob)
 	const char *usb_cfg = env_get("usb_mode");
 	if (!usb_cfg)
 		return;
-
 	if (!strncmp(usb_cfg, "peripheral", sizeof("peripheral"))) {
-		if (fdt_path_offset(blob, LINUX_6_1_USB_DTS_NODE) > 0) {
-			parse_fdt_fixup(LINUX_6_1_USB_DR_MODE_FIXUP, blob);
-			parse_fdt_fixup(LINUX_6_1_USB_MAX_SPEED_FIXUP, blob);
-		} else if (fdt_path_offset(blob, LINUX_5_4_USB_DTS_NODE) > 0) {
-			parse_fdt_fixup(LINUX_5_4_USB_DR_MODE_FIXUP, blob);
-			parse_fdt_fixup(LINUX_5_4_USB_MAX_SPEED_FIXUP, blob);
+#ifdef LINUX_6_x_USB_DTS_NODE
+		if (fdt_path_offset(blob, LINUX_6_x_USB_DTS_NODE) > 0) {
+#ifdef LINUX_6_x_USB_DR_MODE_FIXUP
+			parse_fdt_fixup(LINUX_6_x_USB_DR_MODE_FIXUP, blob);
+#endif
+#ifdef LINUX_6_x_USB_MAX_SPEED_FIXUP
+			parse_fdt_fixup(LINUX_6_x_USB_MAX_SPEED_FIXUP, blob);
+#endif
 		}
+#endif
+#ifdef LINUX_5_4_USB_DTS_NODE
+		if (fdt_path_offset(blob, LINUX_5_4_USB_DTS_NODE) > 0) {
+#ifdef LINUX_5_4_USB_DR_MODE_FIXUP
+			parse_fdt_fixup(LINUX_5_4_USB_DR_MODE_FIXUP, blob);
+#endif
+#ifdef LINUX_5_4_USB_MAX_SPEED_FIXUP
+			parse_fdt_fixup(LINUX_5_4_USB_MAX_SPEED_FIXUP, blob);
+#endif
+		}
+#endif
 	}
 }
 
@@ -587,7 +620,11 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 	}
 
 	/* Reserve only the TZ and SMEM memory region and free the rest */
+#ifdef LINUX_RSVD_MEM_DTS_NODE
 	parentoff = fdt_path_offset(blob, LINUX_RSVD_MEM_DTS_NODE);
+#else
+	parentoff = -1;
+#endif
 	if (parentoff >= 0) {
 		for (i = 0; del_node[i]; i++) {
 			nodeoff = fdt_subnode_offset(blob, parentoff,
