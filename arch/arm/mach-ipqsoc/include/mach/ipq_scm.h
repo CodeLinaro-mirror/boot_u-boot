@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2010-2015,2019 The Linux Foundation. All rights reserved.
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __IPQ_SCM_H
@@ -104,6 +104,11 @@ struct qcom_scm_res {
 #define QCOM_SCM_SVC_EXTERNAL		0x03	/* External Image loading */
 #define QCOM_LOAD_TZTESTEXEC_IMG_ID_CMD	0x00
 
+#define QCOM_SCM_CMD_AES_256_ENC	0x07
+#define QCOM_SCM_CMD_AES_256_DEC	0x08
+#define QCOM_SCM_CMD_AES_256_GEN_KEY	0x09
+#define QCOM_SCM_SVC_CRYPTO		0x0A
+
 /* scm_arg*/
 #define SCM_VAL				0x00
 #define SCM_READ_OP			0x01
@@ -146,7 +151,10 @@ enum scm_type {
 	SCM_XPU_LOG_BUFFER,
 	SCM_XPU_SEC_TEST_1,
 	SCM_TZT_REGION_NOTIFICATION,
-	SCM_TZT_TESTEXEC_IMG
+	SCM_TZT_TESTEXEC_IMG,
+	SCM_AES_256_GEN_KEY,
+	SCM_AES_256_ENC,
+	SCM_AES_256_DEC
 };
 
 typedef struct {
