@@ -98,7 +98,7 @@
 			status = "okay";
 		};
 
-		blsp1_uart1: serial@78af000 {
+		blsp1_uart0_console: serial@78af000 {
 			compatible = "qcom,msm-uartdm-v1.4";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -108,6 +108,17 @@
 			bit-rate = <0xFF>;
 			status = "okay";
 			u-boot,dm-pre-reloc;
+		};
+
+		blsp1_uart1_additional: serial@78b0000 {
+			compatible = "qcom,msm-uartdm-v1.4";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x78b0000 0x200>;
+			clock = <&gcc GCC_BLSP1_UART1_APPS_CLK>,
+				<&gcc GCC_BLSP1_AHB_CLK>;
+			bit-rate = <0xFF>;
+			status = "okay";
 		};
 
 		blsp1_spi: spi@78b5000 {
@@ -128,8 +139,10 @@
 			reg = <0x078B5000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP0_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP0_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -140,8 +153,10 @@
 			reg = <0x078B6000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -152,8 +167,10 @@
 			reg = <0x078B7000 0x600>;
 			clocks = <&gcc GCC_BLSP1_AHB_CLK>,
 				 <&gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
-			clock-names = "iface", "core";
+			clock-names = "core", "iface";
 			clock-frequency  = <400000>;
+			assigned-clocks = <&gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
+			assigned-clock-rates = <50000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";

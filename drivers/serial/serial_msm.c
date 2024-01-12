@@ -4,6 +4,8 @@
  *
  * (C) Copyright 2015 Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
  *
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  * UART will work in Data Mover mode.
  * Based on Linux driver.
  */
@@ -58,6 +60,8 @@
 #define MSM_BOOT_UART_DM_CMD_RESET_RX 0x10
 #define MSM_BOOT_UART_DM_CMD_RESET_TX 0x20
 
+#define MSM_MAX_CLK_INFO		0x2
+
 DECLARE_GLOBAL_DATA_PTR;
 
 struct msm_serial_data {
@@ -65,6 +69,11 @@ struct msm_serial_data {
 	unsigned chars_cnt; /* number of buffered chars */
 	uint32_t chars_buf; /* buffered chars */
 	uint32_t clk_bit_rate; /* data mover mode bit rate register value */
+};
+
+struct msm_serial_clk {
+	uint32_t phandle; /* phandle */
+	uint32_t clk_id; /* Clock config id*/
 };
 
 static int msm_serial_fetch(struct udevice *dev)
@@ -166,34 +175,47 @@ static int msm_uart_clk_init(struct udevice *dev)
 {
 	uint clk_rate = fdtdec_get_uint(gd->fdt_blob, dev_of_offset(dev),
 					"clock-frequency", 115200);
-	uint clkd[2]; /* clk_id and clk_no */
-	int clk_offset;
+	struct msm_serial_clk clk_info[MSM_MAX_CLK_INFO] = {0};
+	uint *clkd = (uint *)&clk_info;
+	int clk_offset, count, i, ret;
 	struct udevice *clk_dev;
 	struct clk clk;
-	int ret;
 
-	ret = fdtdec_get_int_array(gd->fdt_blob, dev_of_offset(dev), "clock",
-				   clkd, 2);
-	if (ret)
-		return ret;
+	count = fdtdec_get_int_array_count(gd->fdt_blob, dev_of_offset(dev),
+						"clock", clkd,
+						MSM_MAX_CLK_INFO * 2);
+	if (count == -FDT_ERR_NOTFOUND)
+		return count;
 
-	clk_offset = fdt_node_offset_by_phandle(gd->fdt_blob, clkd[0]);
-	if (clk_offset < 0)
-		return clk_offset;
 
-	ret = uclass_get_device_by_of_offset(UCLASS_CLK, clk_offset, &clk_dev);
-	if (ret)
-		return ret;
+	for (i = 0; i < count / 2; ++i) {
+		clk_offset = fdt_node_offset_by_phandle(gd->fdt_blob,
+					clk_info[i].phandle);
+		if (clk_offset < 0)
+			return clk_offset;
 
-	clk.id = clkd[1];
-	ret = clk_request(clk_dev, &clk);
-	if (ret < 0)
-		return ret;
+		ret = uclass_get_device_by_of_offset(UCLASS_CLK, clk_offset,
+							&clk_dev);
+		if (ret)
+			return ret;
 
-	ret = clk_set_rate(&clk, clk_rate);
-	clk_free(&clk);
-	if (ret < 0)
-		return ret;
+		clk.id = clk_info[i].clk_id;
+		ret = clk_request(clk_dev, &clk);
+		if (ret < 0)
+			return ret;
+
+		if (i == 0) {
+			/*
+			 * set rate only for index 0
+			 */
+			ret = clk_set_rate(&clk, clk_rate);
+			if (ret < 0)
+				return ret;
+		}
+
+		clk_enable(&clk);
+		clk_free(&clk);
+	}
 
 	return 0;
 }

@@ -97,6 +97,9 @@
 #define GCC_SNOC_USB_CLK				85
 #define GCC_ANOC_USB_AXI_CLK				86
 #define GCC_USB0_PHY_CFG_AHB_CLK			87
+#define GCC_BLSP1_UART3_APPS_CLK			88
+#define GCC_BLSP1_UART4_APPS_CLK			89
+#define GCC_BLSP1_UART5_APPS_CLK			90
 
 /* NSS controlled clock IDs */
 #define NSS_CC_CFG_CLK					100

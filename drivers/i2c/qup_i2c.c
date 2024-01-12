@@ -372,6 +372,11 @@ static int qup_i2c_blsp_write(struct qup_i2c_priv *qup, unsigned int addr,
 		return ret;
 	writel(QUP_OUT_SVC_FLAG, qup->base + QUP_OPERATIONAL);
 
+	ret = qup_i2c_check_fifo_status(qup, QUP_OPERATIONAL,
+						QUP_MX_OUTPUT_DONE);
+	if (ret)
+		return ret;
+
 	ret = qup_i2c_change_state(qup, QUP_PAUSE_STATE);
 	return ret;
 }

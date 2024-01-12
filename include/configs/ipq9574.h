@@ -9,34 +9,39 @@
 #ifndef __ASSEMBLY__
 #include <compiler.h>
 extern uint32_t g_board_machid;
+extern uint32_t g_load_addr;
 #endif
 
 /*
  * Memory layout
-	         _____________________
+ *
+   4000_0000-->	 _____________________  DRAM Base
 	        |		      |
-	        |	STACK	      |
+	        |		      |
+	        |		      |
+   4A00_0000--> |_____________________|
+	        |                     |
+	        |    STACK - 502KB    |
 	        |_____________________|
 	        |		      |
-	        |         GD          |
+	        |      Global Data    |
 	        |_____________________|
 	        |		      |
-	        |         BD          |
-	        |_____________________|
+	        |      Board Data     |
+   4A08_0000--> |_____________________|
 	        |		      |
-	        |      NONCACHED      |
-	        |      32bit - 2MB    |
-	        |      64bit - 3MB    |
-	        |_____________________|
+	        |    HEAP - 1792KB    |
+	        |      (inc. ENV)     |
+   4A24_0000--> |_____________________|
 	        |		      |
-	        |  HEAP + ENV - 2MB   |
-	        |_____________________|
+                |    TEXT - 1792KB    |
+   4A40_0000--> |_____________________|
 	        |		      |
-                |     TEXT - 2MB      |
-   4A30_0000--> |_____________________|
+	        | NONCACHED MEM - 1MB |
+   4A50_0000--> |_____________________|
 	        |                     |
 	        |                     |
-   4000_0000--> |_____________________| DRAM BASE
+   8000_0000--> |_____________________| DRAM End
 */
 
 #define CONFIG_HAS_CUSTOM_SYS_INIT_SP_ADDR
@@ -54,9 +59,8 @@ extern uint32_t g_board_machid;
 #define KERNEL_START_ADDR			CFG_SYS_SDRAM_BASE
 #define BOOT_PARAMS_ADDR                    	(CFG_SYS_SDRAM_BASE + 0x100)
 
-#define CONFIG_SYS_NONCACHED_MEMORY		(1 << 20)
-
 #define CONFIG_MACH_TYPE			(g_board_machid)
+#define CFG_CUSTOM_LOAD_ADDR			(g_load_addr)
 
 #define PHY_ANEG_TIMEOUT			100
 #define FDT_HIGH 				0x48500000
@@ -73,3 +77,34 @@ extern uint32_t g_board_machid;
 #define ROOT_FS_PART_NAME			"rootfs"
 
 #define CONFIG_ROOTFS_LOAD_ADDR		CFG_SYS_SDRAM_BASE + (32 << 20)
+
+#define NONCACHED_MEM_REGION_ADDR		((IPQ9574_UBOOT_END_ADDRESS + \
+						SZ_1M - 1) & ~(SZ_1M - 1))
+#define NONCACHED_MEM_REGION_SIZE		SZ_1M
+
+/*
+ * Refer above memory layout,
+ * Non-Cached Memory should not begin at above 0x4A400000 since upcoming
+ * memory regions are being used in the other boot components
+ */
+#if (NONCACHED_MEM_REGION_ADDR > 0x4A400000)
+#error "###: Text Segment overlaps with the Non-Cached Region"
+#endif
+
+#ifdef CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR
+/*
+ * CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR - memory used to decompress multi dtb
+ * NONCACHED_MEM_REGION_ADDR - Non-Cached memory region
+ * both uses same address space. So both should be same.
+ *
+ * Change in CONFIG_TEXT_BASE or CONFIG_TEXT_SIZE various affect this macro.
+ * So, according define the CONFIG_TEXT_BASE and CONFIG_TEXT_SIZE macros.
+ */
+#if (CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR)
+#error "###: CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR"
+#endif
+#endif
+
+#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#define CFG_NR_CPUS				4
+#endif

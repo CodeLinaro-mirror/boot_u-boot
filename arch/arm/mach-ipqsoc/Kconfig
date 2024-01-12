@@ -47,7 +47,7 @@ config RAM_PART_NAME_LENGTH
 
 config TEXT_SIZE
 	hex "Define Size of u-boot text size in DDR region"
-	default 0x200000
+	default 0x1C0000
 
 config IPQ_ELF_AUTH
 	bool "IPQSOC elf image authentication"
@@ -68,6 +68,20 @@ config DPR_VER_2_0
 config CAPIN_CAPOUT_SUPPORT
 	bool "Update RFA register based on Caldata"
 	default n
+
+config MMC_FLASH_PARTITION_WRITE_PROTECT
+	bool "This enable wrtie protect in EMMC flash type"
+	depends on IPQ_MMC
+	default y
+
+config SECONDARY_UART_INDEX
+	int "Access secondary UART via cli"
+	default 2
+
+config NOR_BLK_SIZE
+	int "Block size for SPI Nor BLK device"
+	depends on NOR_BLK
+	default 4096
 
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
@@ -95,6 +109,7 @@ config IPQ_DEFAULTS
 	select IPQ_SECURE
 	select VERSION_ROLLBACK_PARTITION_INFO
 	select LZMA
+	imply IPQ_SMP_CMD_SUPPORT
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -198,6 +213,11 @@ config IPQ_MAX_PCIE
 	default 3 if TARGET_IPQ5332
 	default 4 if TARGET_IPQ9574
 
+config IPQ_SMP_CMD_SUPPORT
+	bool "IPQ SMP command support"
+	depends on ARCH_32BIT_SUPPORT
+	default n
+
 choice
 	prompt "IPQ board select"
 
@@ -274,6 +294,7 @@ config TARGET_DEVSOC
 	select DMA
 	select DMA_CHANNELS
 	select BOARD_TYPES
+	select IPQ_FLUTILS
 	help
 	  Support for IPQ DEVSoC.
 

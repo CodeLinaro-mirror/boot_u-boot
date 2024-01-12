@@ -75,7 +75,13 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#if CONFIG_MMC
+int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
+		      unsigned int cnt_blk, int set_clr);
+#endif
+
 uint32_t g_board_machid;
+uint32_t g_load_addr;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 
 struct udevice *smem;
@@ -243,6 +249,8 @@ int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size)
 	uint32_t bsize;
 #ifdef CONFIG_IPQ_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
 #endif
 
 	if (!ptable)
@@ -570,6 +578,12 @@ int board_init(void)
 	gd->board_type = board_type;
 	update_board_type();
 #endif
+	if(SZ_256M == gd->ram_size && CONFIG_SYS_LOAD_ADDR > SZ_256M) {
+		g_load_addr = CFG_SYS_SDRAM_BASE + SZ_64M;
+	} else {
+		g_load_addr = CONFIG_SYS_LOAD_ADDR;
+	}
+
 	return 0;
 }
 
@@ -723,6 +737,9 @@ void setup_board_default_env(void)
 
 	env_set_ulong("soc_version_major", ipq_socinfo.soc_version_major);
 	env_set_ulong("soc_version_minor", ipq_socinfo.soc_version_minor);
+#ifdef CFG_CUSTOM_LOAD_ADDR
+	env_set_hex("loadaddr", CFG_CUSTOM_LOAD_ADDR);
+#endif
 }
 
 __weak void board_update_RFA_settings(void)
@@ -745,6 +762,130 @@ static void init_mmc(void)
 
 	return;
 }
+#endif
+
+
+#ifdef CONFIG_MMC
+gpt_entry* get_gpt_entry(struct blk_desc *dev_desc, gpt_header *gpt_head)
+{
+	int ret = -1;
+	gpt_entry *l_gpt_pte = NULL;
+
+	/* This function validates AND fills in the GPT header and PTE */
+	ret = gpt_verify_headers(dev_desc, gpt_head, &l_gpt_pte);
+	if(ret) {
+		if(gpt_repair_headers(dev_desc)) {
+			printf("%s: Error recovering GPT\n", __func__);
+			goto out;
+		}
+		ret = gpt_verify_headers(dev_desc, gpt_head, &l_gpt_pte);
+		if(ret) {
+			printf("%s: fiailed to verify GPT\n", __func__);
+			goto out;
+		}
+	}
+
+out:
+	if(ret || !l_gpt_pte)
+		return NULL;
+	else
+		return l_gpt_pte;
+}
+
+static inline int is_readonly(gpt_entry *p)
+{
+	/* bit 60 of gpt attribute denotes read-only flag */
+	if (p->attributes.raw & ((unsigned long long)1 << 60))
+		return 1;
+	return 0;
+}
+
+#ifdef CONFIG_MMC_FLASH_PARTITION_WRITE_PROTECT
+void board_flash_protect(void)
+{
+	int num_part;
+	int ret;
+	struct mmc *mmc;
+	struct blk_desc *mmc_dev;
+	struct disk_partition info;
+	int curr_device = -1;
+	gpt_entry *gpt_pte = NULL;
+
+	if (curr_device < 0) {
+		if (get_mmc_num() > 0) {
+			curr_device = 0;
+		} else {
+			puts("No MMC device available\n");
+			goto out;
+		}
+	}
+
+	mmc = find_mmc_device(curr_device);
+	if (!mmc) {
+		printf("no mmc device at slot %x\n", curr_device);
+		goto out;
+	}
+
+	mmc_dev = mmc_get_blk_desc(mmc);
+
+	if (mmc_dev != NULL && mmc_dev->type != DEV_TYPE_UNKNOWN) {
+		ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1,
+							mmc_dev->blksz);
+
+		gpt_pte = get_gpt_entry(mmc_dev, gpt_head);
+		if(!gpt_pte) {
+			printf("%s: Failed to get gpt table entry\n", __func__);
+			goto out;
+		}
+
+		num_part = le32_to_cpu(gpt_head->num_partition_entries);
+
+		if (num_part < 0) {
+			printf("Both primary & backup GPT are invalid, "
+					"skipping mmc write protection.\n");
+			goto out;
+		}
+
+		for (uint8_t part = 1; part <= num_part; part++) {
+
+			uint8_t readonly = 0;
+
+			/* "part" argument must be at least 1 */
+			if (part < 1) {
+				log_debug("Invalid Argument(s)\n");
+				goto out;
+			}
+
+			if (part > le32_to_cpu(gpt_head->num_partition_entries)) {
+					log_debug("Invalid partition number "
+							"%d\n", part);
+					goto out;
+					}
+
+			readonly = is_readonly(&gpt_pte[part - 1]);
+
+			ret = part_get_info_efi(mmc_dev, part, &info);
+			if (ret)
+				goto out;
+			if(readonly) {
+				if(!mmc_write_protect(mmc,
+						  info.start,
+						  info.size, 1))
+					printf("\"%s\""
+						"-protected MMC partition\n",
+						info.name);
+				else
+					printf("Write protect failed for "
+							"\"%s\"", info.name);
+			}
+		}
+	}
+out:
+	if(gpt_pte)
+		free(gpt_pte);
+	return;
+}
+#endif
 #endif
 
 int board_late_init(void)
@@ -778,6 +919,10 @@ int board_late_init(void)
 	 * Update RFA register based on caldata
 	 */
 	board_update_RFA_settings();
+#endif
+
+#ifdef CONFIG_MMC_FLASH_PARTITION_WRITE_PROTECT
+	board_flash_protect();
 #endif
 	return 0;
 }
@@ -1378,6 +1523,16 @@ void enable_caches(void)
 	}
 #endif
 	board_cache_init();
+
+#ifndef CONFIG_MULTI_DTB_FIT_NO_COMPRESSION
+	if (gd->new_fdt) {
+		memcpy(gd->new_fdt, gd->fdt_blob, fdt_totalsize(gd->fdt_blob));
+		flush_cache((ulong) gd->new_fdt, ALIGN(
+					fdt_totalsize(gd->fdt_blob),
+					ARCH_DMA_MINALIGN));
+		gd->fdt_blob = gd->new_fdt;
+	}
+#endif
 }
 
 static int do_aqloadfw(struct cmd_tbl *cmdtp, int flag, int argc,

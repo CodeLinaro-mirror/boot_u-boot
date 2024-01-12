@@ -446,7 +446,11 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 			if (argc == 3)
 				load_addr = simple_strtoul(argv[2], NULL, 16);
 			else
+#ifdef CFG_CUSTOM_LOAD_ADDR
+				load_addr = CFG_CUSTOM_LOAD_ADDR;
+#else
 				load_addr = CONFIG_SYS_LOAD_ADDR;
+#endif
 		} else {
 			if (argc != 2)
 				goto usage_err;

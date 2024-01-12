@@ -785,6 +785,11 @@ int get_ubi_volume_id(char *vol_name)
 	FILE *fp;
 
 	fp = fopen(ubi_vol_count, "r");
+	if (fp == NULL) {
+		printf("Error finding volumes count\n");
+		return 0;
+	}
+
 	if (fgets(current_ubi_volumes_count, sizeof(current_ubi_volumes_count), fp) == NULL) {
 		printf(" Failed to get ubi volumes count \n");
 		return 0;
@@ -796,6 +801,10 @@ int get_ubi_volume_id(char *vol_name)
 	{
 		snprintf(ubi_vol, sizeof(ubi_vol), "%s%d%s", prefix, i, suffix);
 		fp = fopen(ubi_vol, "r");
+		if (fp == NULL) {
+			printf("Error opening ubi volumes count\n");
+			return 0;
+		}
 		if (fgets(ubi_vol_name, sizeof(ubi_vol_name), fp) == NULL) {
 			printf(" Failed to get ubi volume name \n");
 			return 0;
@@ -1027,7 +1036,7 @@ int extract_rootfs_binary(char *filename)
 	}
 
 	int offset = 0,dead_off = sb.st_size;
-	while ( offset <= sb.st_size)
+	while (offset <= (sb.st_size - 3))
 	{
 		if ((fp[offset] == 0xde) && (fp[offset+1] == 0xad) && (fp[offset+2] == 0xc0) && (fp[offset+3] == 0xde)) {
 			dead_off=offset;
@@ -1498,6 +1507,11 @@ char *create_xor_ipad_opad(char *f_xor, unsigned long long *xor_buffer)
 	unsigned long long sw_id, sw_id_be;
 
 	file = mkdtemp(f_xor);
+	if (file == NULL) {
+		printf("Error creating directory\n");
+		return 0;
+	}
+
 	fd = open(file, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		perror(file);
@@ -1528,7 +1542,7 @@ char *read_file(char *file_name, size_t *file_size)
 
 	memset(&st, 0, sizeof(struct stat));
 	fstat(fd, &st);
-	buffer = malloc(st.st_size * sizeof(buffer));
+	buffer = malloc(st.st_size * sizeof(char));
 	if (buffer == NULL) {
 		close(fd);
 		return NULL;
@@ -1573,6 +1587,7 @@ int generate_hash(char *cert, char *sw_file, char *hw_file)
 	printf("sw_id=%s\thw_id=%s\t", sw_id_str, hw_id_str);
 	printf("oem_id=%s\toem_model_id=%s\n", oem_id_str, oem_model_id_str);
 
+	sw_id_str[16] = '\0';
 	generate_swid_ipad(sw_id_str, &swid_xor_ipad);
 	tmp = create_xor_ipad_opad(f_sw_xor, &swid_xor_ipad);
 	if (tmp == NULL) {
@@ -1584,6 +1599,7 @@ int generate_hash(char *cert, char *sw_file, char *hw_file)
 	}
 	strlcpy(sw_file, tmp, 32);
 
+	hw_id_str[16] = '\0';
 	generate_hwid_opad(hw_id_str, oem_id_str, oem_model_id_str, &hwid_xor_opad);
 	tmp = create_xor_ipad_opad(f_hw_xor, &hwid_xor_opad);
 	if (tmp == NULL) {
@@ -1642,6 +1658,11 @@ int is_component_authenticated(char *src, char *sig, char *cert)
 	}
 
 	pub_file = mkdtemp(pub_key);
+	if (pub_file == NULL) {
+		printf("Error getting public key\n");
+		return 0;
+	}
+
 	snprintf(command, sizeof(command),
 		"openssl x509 -in cert -pubkey -inform DER -noout > %s", pub_file);
 	retval = system(command);

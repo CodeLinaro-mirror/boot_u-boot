@@ -234,6 +234,13 @@ SECTIONS
 		. = . + 0x1000;
 	}
 
+#ifdef NONCACHED_MEM_REGION_ADDR
+	. = NONCACHED_MEM_REGION_ADDR;
+	.noncached_mem : {
+		. = . + NONCACHED_MEM_REGION_SIZE;
+	}
+#endif
+
 	/DISCARD/ : { *(.dynsym) }
 	/DISCARD/ : { *(.dynstr*) }
 	/DISCARD/ : { *(.dynamic*) }

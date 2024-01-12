@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
-// Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+// Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
 
 #include <asm/gpio.h>
 #include <asm/io.h>
@@ -12,6 +12,10 @@
 #include <cpu_func.h>
 #include <spi.h>
 #include <misc.h>
+#if defined(CONFIG_NOR_BLK)
+#include <blk.h>
+#include <part.h>
+#endif
 #ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
 #include <geni_se.h>
 #endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
@@ -901,6 +905,10 @@ static int qupv3_spi_probe(struct udevice *dev)
 {
 	struct qupv3_spi_priv *priv = dev_get_priv(dev);
 	int ret;
+#if defined(CONFIG_NOR_BLK)
+	struct blk_desc *bdesc;
+	struct udevice *bdev;
+#endif
 
 	priv->base = dev_read_addr(dev);
 	if (priv->base == FDT_ADDR_T_NONE)
@@ -932,6 +940,20 @@ static int qupv3_spi_probe(struct udevice *dev)
 	if (ret)
 		return -EIO;
 
+#if defined(CONFIG_NOR_BLK)
+	if (dev_read_bool(dev, "nor-blk-enable")) {
+		ret = blk_create_devicef(dev, "nor_blk", "blk", UCLASS_SPI,
+						dev_seq(dev),
+						CONFIG_NOR_BLK_SIZE, 0, &bdev);
+		if (ret) {
+			printf("Cannot create Nor block device\n");
+		} else {
+			bdesc = dev_get_uclass_plat(bdev);
+			bdesc->removable = 1;
+			bdesc->part_type = PART_TYPE_EFI;
+		}
+	}
+#endif
 	return 0;
 }
 

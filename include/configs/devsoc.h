@@ -9,6 +9,7 @@
 #ifndef __ASSEMBLY__
 #include <compiler.h>
 extern uint32_t g_board_machid;
+extern uint32_t g_load_addr;
 #endif
 
 /*
@@ -62,6 +63,7 @@ extern uint32_t g_board_machid;
 #define BOOT_PARAMS_ADDR                    	(KERNEL_START_ADDR + 0x100)
 
 #define CONFIG_MACH_TYPE			(g_board_machid)
+#define CFG_CUSTOM_LOAD_ADDR			(g_load_addr)
 
 #define PHY_ANEG_TIMEOUT			100
 #define FDT_HIGH				0x88500000
