@@ -295,6 +295,7 @@ config TARGET_DEVSOC
 	select DMA_CHANNELS
 	select BOARD_TYPES
 	select IPQ_FLUTILS
+	select IPQ_FDT_FIXUP
 	help
 	  Support for IPQ DEVSoC.
 

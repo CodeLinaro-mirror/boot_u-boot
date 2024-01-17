@@ -33,4 +33,12 @@ typedef enum {
 /* MACH IDs for various RDPs */
 #define MACH_TYPE_DEVSOC_EMU			0x8050001
 
+/* DT Fixup nodes */
+#define LINUX_6_x_NAND_DTS_NODE		"/soc@0/nand@79b0000/"
+#define LINUX_6_x_MMC_DTS_NODE		"/soc@0/mmc@7804000/"
+
+#define LINUX_RSVD_MEM_DTS_NODE		"/reserved-memory/"
+#define STATUS_OK			"status%?okay"
+#define STATUS_DISABLED			"status%?disabled"
+
 #endif /* _DEVSOC_H_ */
