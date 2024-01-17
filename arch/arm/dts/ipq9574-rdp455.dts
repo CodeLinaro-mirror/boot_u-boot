@@ -8,7 +8,9 @@
 #include "ipq9574-default.dts"
 
 / {
-	config_name = "config@al02-c12","config@rdp455", "config-rdp455";
+	/* config_name will be patched via fdt fixup for rdp455.
+	*  Please refer to the board file.
+	*/
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {
