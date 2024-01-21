@@ -281,6 +281,11 @@ int ipq_scm_call(scm_param *param)
 		break;
 	}
 
+	/*
+	 *flush dcache
+	 */
+	flush_dcache_all();
+
 	ret = qcom_scm_call(&desc, param->get_ret ? &res : NULL);
 
 	if(param->get_ret)
