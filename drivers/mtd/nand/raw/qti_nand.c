@@ -4054,10 +4054,16 @@ static int qti_nand_probe(struct udevice *device)
 		return ret;
 
 	buf_size = 0;
-	buf_size += sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE + CONFIG_SYS_CACHELINE_SIZE;
-	buf_size += sizeof(struct bam_desc) * QTI_BAM_DATA_FIFO_SIZE + CONFIG_SYS_CACHELINE_SIZE;
-	buf_size += sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE + CONFIG_SYS_CACHELINE_SIZE;
-	buf_size += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT + CONFIG_SYS_CACHELINE_SIZE;
+	buf_size += sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE
+						+ CONFIG_SYS_CACHELINE_SIZE;
+	buf_size += sizeof(struct bam_desc) * QTI_BAM_DATA_FIFO_SIZE
+						+ CONFIG_SYS_CACHELINE_SIZE;
+	buf_size += sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE
+						+ CONFIG_SYS_CACHELINE_SIZE;
+	buf_size += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT
+						+ CONFIG_SYS_CACHELINE_SIZE;
+	buf_size += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT
+						+ CONFIG_SYS_CACHELINE_SIZE;
 	val = sizeof(uint32_t) * QTI_NAND_MAX_CWS_IN_PAGE;
 	buf_size += _roundup(val); /* cache allignment */
 	buf_size += _roundup(4); /* cache allignment */
@@ -4070,16 +4076,24 @@ static int qti_nand_probe(struct udevice *device)
 	}
 
 	nandc->qti_cmd_desc_fifo = (struct bam_desc*)buff;
-	buff += sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE + CONFIG_SYS_CACHELINE_SIZE;
+	buff += sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE
+						+ CONFIG_SYS_CACHELINE_SIZE;
 
 	nandc->qti_data_desc_fifo = (struct bam_desc*)buff;
-	buff += sizeof(struct bam_desc) * QTI_BAM_DATA_FIFO_SIZE + CONFIG_SYS_CACHELINE_SIZE;
+	buff += sizeof(struct bam_desc) * QTI_BAM_DATA_FIFO_SIZE
+						+ CONFIG_SYS_CACHELINE_SIZE;
 
 	nandc->qti_status_desc_fifo = (struct bam_desc*)buff;
-	buff += sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE + CONFIG_SYS_CACHELINE_SIZE;
+	buff += sizeof(struct bam_desc) * QTI_BAM_STATUS_FIFO_SIZE
+						+ CONFIG_SYS_CACHELINE_SIZE;
 
 	nandc->ce_array = (struct cmd_element*)buff;
-	buff += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT + CONFIG_SYS_CACHELINE_SIZE;
+	buff += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT
+						+ CONFIG_SYS_CACHELINE_SIZE;
+
+	nandc->ce_read_array = (struct cmd_element*)buff;
+	buff += sizeof(struct cmd_element) * QTI_MAX_NO_CMD_ELEMENT
+						+ CONFIG_SYS_CACHELINE_SIZE;
 
 	nandc->nandc_buffer = (uint32_t*)buff;
 	buff += _roundup(val);
