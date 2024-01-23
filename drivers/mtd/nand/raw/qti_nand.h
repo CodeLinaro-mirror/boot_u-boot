@@ -706,7 +706,7 @@ struct qcom_nand_controller {
 	const struct target_varient_info *varient_info;
 	struct nand_ecclayout fake_ecc_layout;
 	struct cmd_element *ce_array;
-	struct cmd_element ce_read_array[20];
+	struct cmd_element *ce_read_array;
 	uint16_t timing_mode_support;
 	struct read_stats stats[QTI_NAND_MAX_CWS_IN_PAGE];
 	struct clk clk;
