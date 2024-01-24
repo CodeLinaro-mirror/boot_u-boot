@@ -23,15 +23,26 @@
 #include "../devsoc/devsoc.h"
 #endif
 
+#ifndef IPQ_NAND_FLASH_VALID_BIT
+#define IPQ_NAND_FLASH_VALID_BIT	3
+#endif
+#define	CFG_IPQ_NAND_PART		BIT(IPQ_NAND_FLASH_VALID_BIT)
+
 #define __str_fmt(x)		"%-" #x "s"
 #define _str_fmt(x)		__str_fmt(x)
 #define smem_ptn_name_fmt	_str_fmt(SMEM_PTN_NAME_MAX)
+#ifndef IPQ_ETH_FW_PART_NAME
 #define IPQ_ETH_FW_PART_NAME	"0:ETHPHYFW"
+#endif
+#ifndef IPQ_ETH_FW_PART_SIZE
 #define IPQ_ETH_FW_PART_SIZE	0x80000
+#endif
 #define BOARD_DTS_MAX_NAMELEN	30
 
 #ifdef CONFIG_SMEM_VERSION_C
 #define part_which_flash(p)    (((p)->attr & 0xff000000) >> 24)
+
+int gpt_find_which_flash(gpt_entry *p);
 
 struct ram_partition_entry
 {
@@ -161,6 +172,7 @@ enum {
 	SMEM_BOOT_NORPLUSNAND     = 7,
 	SMEM_BOOT_NORPLUSEMMC     = 8,
 	SMEM_BOOT_QSPI_NAND_FLASH  = 11,
+	SMEM_BOOT_NORGPT_FLASH     = 12,
 };
 
 struct version_entry
@@ -251,6 +263,13 @@ typedef struct
 
 } ipq_smem_bootconfig_info_t;
 
+#if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
+typedef struct {
+	gpt_entry *gpt_pte;
+	int ncount;
+} gpt_pte_info_t;
+#endif
+
 typedef struct {
 	uint32_t		flash_type;
 	uint32_t		flash_index;
@@ -262,7 +281,12 @@ typedef struct {
 	ipq_part_entry_t	hlos;
 	ipq_part_entry_t	rootfs;
 	ipq_part_entry_t	dtb;
+	ipq_part_entry_t	training;
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
+#if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
+	gpt_pte_info_t mmc_gpt_pte;
+	gpt_pte_info_t nor_gpt_pte;
+#endif
 } ipq_smem_flash_info_t;
 
 struct smem_ptn {
@@ -387,6 +411,25 @@ typedef struct {
 extern crashdump_infos_t *board_dumpinfo;
 extern uint8_t *board_dump_entries;
 
+#if IS_ENABLED(CONFIG_MMC) || IS_ENABLED(CONFIG_NOR_BLK)
+/* BLK part info */
+typedef struct {
+	struct disk_partition *info;
+	struct blk_desc *desc;
+	char *name;
+	int flash_type;
+	int devnum;
+	int isnand;
+} blkpart_info_t;
+#endif
+
+#define BLK_PART_GET_INFO_S(_ptr, _name, _info, _fl)		\
+	do {							\
+		(&(_ptr))->name = _name;			\
+		(&(_ptr))->info = _info;			\
+		(&(_ptr))->flash_type = _fl;			\
+		(&(_ptr))->devnum = 0;				\
+	} while(0)
 /*
  * QCN9224 fusing
  */
@@ -455,7 +498,7 @@ extern uint8_t *board_dump_entries;
  * Function declaration
  */
 unsigned int get_which_flash_param(char *part_name);
-int get_current_board_flash_config(void);
+int get_current_board_flash_config(int flash_type);
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void);
 socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
@@ -464,9 +507,10 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size);
 int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size);
 unsigned int get_rootfs_active_partition(void);
 int mibib_ptable_init(unsigned int* addr);
-void get_kernel_fs_part_details(void);
-#ifdef CONFIG_MMC
-int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
+void get_kernel_fs_part_details(int flash_type);
+#if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
+int ipq_part_get_info_by_name(blkpart_info_t *blkpart);
+gpt_entry* get_gpt_entry(struct blk_desc *dev_desc);
 #endif
 #ifdef CONFIG_CMD_UBI
 int init_ubi_part(void);
@@ -477,14 +521,17 @@ long long ubi_get_volume_size(char *volume);
 int is_atf_enbled(void);
 int is_secure_boot(void);
 uint8_t * get_boot_mode(void);
-#if CONFIG_IS_ENABLED(NAND_QTI)
+#ifdef CONFIG_CMD_NAND
 void board_nand_init(void);
+int ipq_get_training_part_info(uint32_t *offset, uint32_t *size);
 #endif
 int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
-			size_t size);
-int bring_secondary_core_up(unsigned int cpuid, unsigned int entry, unsigned int arg);
+			size_t size, uint32_t fl_type);
+int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
+				unsigned int arg);
 void bring_secondary_core_down(unsigned int state);
 int is_secondary_core_off(unsigned int cpuid);
 uint64_t smem_get_flash_size(uint8_t flash_type);
 bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize);
 #endif
+struct spi_flash *ipq_spi_probe(void);

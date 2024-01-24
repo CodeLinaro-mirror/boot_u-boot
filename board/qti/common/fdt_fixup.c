@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2015-2017, 2020 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <common.h>
@@ -15,10 +15,25 @@
 #include <mtd_node.h>
 #include <linux/mtd/mtd.h>
 #include <nand.h>
-
+#include <memalign.h>
+#include <linux/ctype.h>
+#ifdef CONFIG_IPQ_SPI_NOR
+#include <spi.h>
+#include <spi_flash.h>
+#endif
 #include "ipq_board.h"
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#ifndef NAND_MTDIDS
+#define NAND_MTDIDS		"nand0=nand0"
+#endif
+#ifndef NOR_MTDIDS
+#define NOR_MTDIDS		"nor0=spi0.0"
+#endif
+#ifndef NORPLUSNAND_MTDIDS
+#define NORPLUSNAND_MTDIDS	"nand0=nand0,nor0=spi0.0"
+#endif
 
 typedef void (*fdt_fixup_t)(void *blob);
 
@@ -286,24 +301,15 @@ static void ipq_fdt_fixup(void *blob)
 __weak void fdt_fixup_flash(void *blob)
 {
 #ifdef CONFIG_MMC
-	uint32_t flash_type = SMEM_BOOT_NO_FLASH;
+	uint32_t flash_type = gd->board_type & FLASH_TYPE_MASK;
 	int nand_nodeoff = -EINVAL;
 	int mmc_nodeoff = -EINVAL;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-
 #ifdef LINUX_6_x_NAND_DTS_NODE
 	nand_nodeoff = fdt_path_offset(blob, LINUX_6_x_NAND_DTS_NODE);
 #endif
 #ifdef LINUX_6_x_MMC_DTS_NODE
 	mmc_nodeoff = fdt_path_offset(blob, LINUX_6_x_MMC_DTS_NODE);
 #endif
-	if (sfi->flash_secondary_type == SMEM_BOOT_MMC_FLASH)
-		flash_type = SMEM_BOOT_NORPLUSEMMC;
-	else if (sfi->flash_secondary_type == SMEM_BOOT_QSPI_NAND_FLASH)
-		flash_type = SMEM_BOOT_NORPLUSNAND;
-	else
-		flash_type = sfi->flash_type;
-
 	if (flash_type == SMEM_BOOT_NORPLUSEMMC ||
 		flash_type == SMEM_BOOT_MMC_FLASH ) {
 		if ((nand_nodeoff > 0) && (mmc_nodeoff > 0)) {
@@ -376,41 +382,116 @@ __weak void ipq_fdt_fixup_socinfo(void *blob)
 	return;
 }
 
+#if defined(CONFIG_EFI_PARTITION)
+void ipq_memcpy16(u16 *src, u8 *dst, int size)
+{
+	for (int i = 0; i < size; ++i)
+		dst[i] = src[i] & 0xFF;
+}
+
+int validate_and_copy(gpt_entry *pte, struct smem_ptn *p)
+{
+	u8 *guid;
+
+	if (!pte || !p)
+		return 1;
+
+	guid = pte->partition_type_guid.b;
+
+	while (*guid != '\0') {
+		if ((*guid - 0) != 0)
+			break;
+		++guid;
+	}
+
+	if (*guid == '\0')
+		return 1;
+
+	p->start = (lbaint_t)le64_to_cpu(pte->starting_lba);
+
+	p->size = (lbaint_t)le64_to_cpu(pte->ending_lba) + 1 - p->start;
+
+	ipq_memcpy16(pte->partition_name, p->name, SMEM_PTN_NAME_MAX);
+
+	return 0;
+}
+#endif
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	int i, ret;
+	int i, ret, ncount;
 	int device_id = 0;
 	char *part = mtdid, *unit;
 	int init = 0;
 	uint32_t bsize;
 	struct smem_ptable *ptable = get_ipq_part_table_info();
+	struct smem_ptn *p;
+	loff_t psize;
+	int isnand =  0;
+#if defined(CONFIG_NOR_BLK)
+	struct smem_ptn sp;
+	struct blk_desc *dev;
+#if defined(CONFIG_EFI_PARTITION)
+	gpt_entry *gpt_pte;
+#endif
+#endif
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 	if(!mtd) {
 		printf("%s: mtd device not found\n", __func__);
 		return;
 	}
-
 #endif
+#if defined(CONFIG_NOR_BLK)
+	dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
+	if (!dev) {
+		printf("No such device \n");
+		return;
+	}
+#if defined(CONFIG_EFI_PARTITION)
+	gpt_pte = get_gpt_entry(dev);
+	if(!gpt_pte) {
+		printf("Failed to get gpt table entry\n");
+		return;
+	}
 
+	ncount = sfi->nor_gpt_pte.ncount;
+#endif
+	bsize = dev->blksz;
+#endif
 	ret = snprintf(part, len, "%s:", mtdid);
 	part += ret;
 	len -= ret;
 
-	for (i = 0; i < ptable->len && len > 0; i++) {
-		struct smem_ptn *p = &ptable->parts[i];
-		loff_t psize;
-		bsize = get_part_block_size(p, sfi);
+	if (sfi->flash_type != SMEM_BOOT_NORGPT_FLASH)
+		ncount = ptable->len;
 
-		if (part_which_flash(p) && init == 0) {
+	for (i = 0; i < ncount && len > 0; i++) {
+#if defined(CONFIG_NOR_BLK)
+		if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+#if defined(CONFIG_EFI_PARTITION)
+			if (validate_and_copy(&gpt_pte[i], &sp))
+				continue;
+			isnand = gpt_find_which_flash(&gpt_pte[i]);
+#endif
+			p = &sp;
+		} else
+#endif
+		{
+			p = &ptable->parts[i];
+			bsize = get_part_block_size(p, sfi);
+			isnand = part_which_flash(p);
+		}
+
+		if (isnand && init == 0) {
 			device_id = 0;
 			ret = snprintf(part, len, ";nand%d:", device_id);
 			part += ret;
 			len -= ret;
 			init = 1;
 		}
+
 		if (p->size == (~0u)) {
 			/*
 			 * Partition size is 'till end of device', calculate
@@ -424,11 +505,21 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 		} else {
 			psize =  ((loff_t)p->size) * bsize;
 		}
-
+#if defined(CONFIG_NOR_BLK)
+		if (isnand) {
+			if (((((loff_t)p->start) * bsize) + psize) >
+				smem_get_flash_size(1))
+				continue;
+		} else {
+			if (((((loff_t)p->start) * bsize) + psize) >
+				smem_get_flash_size(0))
+				continue;
+		}
+#else
 		if (is_smem_part_exceed_flash_size(p,
 				((((loff_t)p->start) * bsize) + psize)))
 			continue;
-
+#endif
 		if ((psize > SZ_1M) && (((psize & (SZ_1M - 1)) == 0))) {
 			psize /= SZ_1M;
 			unit = "M@";
@@ -455,8 +546,16 @@ static int ipq_fdt_fixup_spi_nor_params(void *blob,
 		const struct node_info *node_info, int node_info_size)
 {
         int ret, nodeoff = -1;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
         uint32_t val, i;
+#if defined(CONFIG_NOR_BLK)
+	struct spi_flash *flash = ipq_spi_probe();
+	if (flash == NULL) {
+		printf("Spi nor not found \n");
+		return -1;
+	}
+#else
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+#endif
 
 	for (i = 0; i < node_info_size; i++) {
 		if (node_info[i].type != MTD_DEV_TYPE_NOR)
@@ -473,55 +572,85 @@ static int ipq_fdt_fixup_spi_nor_params(void *blob,
 		return nodeoff;
 	}
 
-        val = cpu_to_fdt32(sfi->flash_block_size);
-        ret = fdt_setprop(blob, nodeoff, "sector-size",
+#if defined(CONFIG_NOR_BLK)
+	val = cpu_to_fdt32(flash->sector_size);
+#else
+	val = cpu_to_fdt32(sfi->flash_block_size);
+#endif
+	ret = fdt_setprop(blob, nodeoff, "sector-size",
 			&val, sizeof(uint32_t));
-        if (ret) {
-                printf("fdt-fixup: unable to set sector size(%d)\n", ret);
-                return ret;
-        }
+	if (ret) {
+		printf("fdt-fixup: unable to set sector size(%d)\n", ret);
+		return ret;
+	}
 
-        if (sfi->flash_density != 0) {
-                val = cpu_to_fdt32(sfi->flash_density);
-                ret = fdt_setprop(blob, nodeoff, "density",
+#if defined(CONFIG_NOR_BLK)
+	val = cpu_to_fdt32(flash->size);
+#else
+	val = cpu_to_fdt32(sfi->flash_density);
+#endif
+
+	if (val != 0) {
+		ret = fdt_setprop(blob, nodeoff, "density",
 				&val, sizeof(uint32_t));
-                if (ret) {
-                        printf("fdt-fixup: unable to set density(%d)\n", ret);
-                        return ret;
-                }
-        }
+		if (ret) {
+			printf("fdt-fixup: unable to set density(%d)\n", ret);
+			return ret;
+		}
+	}
 
-        return 0;
+	return 0;
+}
+
+static int ipq_set_mtdids(uint32_t flash_type)
+{
+	if (strlen(CONFIG_MTDIDS_DEFAULT))
+		return 0;
+
+	switch (flash_type) {
+	case SMEM_BOOT_QSPI_NAND_FLASH:
+		return env_set("mtdids", NAND_MTDIDS);
+	case SMEM_BOOT_SPI_FLASH:
+	case SMEM_BOOT_NORGPT_FLASH:
+		return env_set("mtdids", NOR_MTDIDS);
+	case SMEM_BOOT_NORPLUSNAND:
+		return env_set("mtdids", NORPLUSNAND_MTDIDS);
+	default:
+		printf("Invalid flash type\n");
+	}
+
+	return -1;
 }
 
 static void ipq_fdt_fixup_mtdparts(void *blob)
 {
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	uint32_t flash_type = gd->board_type & FLASH_TYPE_MASK;
 	char *parts;
 	char parts_str[4096];
-	char mtdids[256];
 	char *mtdparts = NULL;
 	int len = sizeof(parts_str);
 
-	if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
+	if (ipq_set_mtdids(flash_type)) {
+		printf("Failed to set mtdids\n");
+		return;
+	}
+
+	switch (flash_type) {
+	case SMEM_BOOT_QSPI_NAND_FLASH:
 		snprintf(parts_str, sizeof(parts_str), "mtdparts=nand0");
-	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
+		break;
+	case SMEM_BOOT_SPI_FLASH:
+	case SMEM_BOOT_NORGPT_FLASH:
 		/* NOR density & sector-size fix-up */
 		ipq_fdt_fixup_spi_nor_params(blob, fnodes, *fnode_entires);
 		snprintf(parts_str, sizeof(parts_str), "mtdparts=spi0.0");
-
-		if ((sfi->flash_secondary_type == SMEM_BOOT_NAND_FLASH) ||
-			(sfi->flash_secondary_type ==
-			 SMEM_BOOT_QSPI_NAND_FLASH)) {
-			snprintf(mtdids, sizeof(mtdids),
-					"nand0=nand0,nor0=spi0.0");
-		} else {
-			snprintf(mtdids, sizeof(mtdids), "nor0=spi0.0");
-		}
-
-		env_set("mtdids", mtdids);
-	} else {
+		break;
+	case SMEM_BOOT_NORPLUSNAND:
+		/* NOR density & sector-size fix-up */
+		ipq_fdt_fixup_spi_nor_params(blob, fnodes, *fnode_entires);
+		snprintf(parts_str, sizeof(parts_str), "mtdparts=spi0.0");
+		break;
+	default:
 		printf("mtdpart fixup failed\n");
 	}
 
@@ -547,17 +676,16 @@ static void ipq_fdt_fixup_qti_nand(void *blob)
 {
 	int ret;
 	char fixup_cfg[128] = { 0 };
+	uint32_t offset, size;
 	loff_t training_offset;
-	u32 start_blocks, size_blocks;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
-	ret = smem_getpart("0:TRAINING", &start_blocks, &size_blocks);
-	if (ret < 0) {
+	ret = ipq_get_training_part_info(&offset, &size);
+	if (ret) {
 		printf("Serial Training part offset not found.\n");
 		return;
 	}
 
-	training_offset =  sfi->flash_block_size * start_blocks;
+	training_offset = (loff_t)offset;
 #ifdef LINUX_6_x_NAND_DTS_NODE
 	if (fdt_path_offset(blob, LINUX_6_x_NAND_DTS_NODE) > 0)
 		snprintf(fixup_cfg, sizeof(fixup_cfg), "%s%s%lld",

@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2015-2017, 2020 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <common.h>
@@ -54,6 +54,11 @@
 #define PRIMARY_PARTITION	1
 #define SECONDARY_PARTITION	2
 
+#ifndef IPQ_NAND_BOOTARGS
+#define IPQ_NAND_BOOTARGS	"ubi.mtd=rootfs root=mtd:ubi_rootfs "	\
+				"rootfstype=squashfs"
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 typedef struct {
@@ -87,6 +92,10 @@ typedef struct boot_info_t{
 } boot_info_t;
 
 static boot_info_t boot_info;
+
+#ifdef CONFIG_IPQ_NAND
+extern int ubi_volume_read(char *volume, char *buf, size_t size);
+#endif
 
 #ifdef CONFIG_MMC
 static struct mmc *__init_mmc_dev(int dev, bool force_init,
@@ -145,11 +154,15 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 {
 	int ret;
 	struct disk_partition disk_info;
+	blkpart_info_t  bpart_info;
+
+	BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
+				SMEM_BOOT_MMC_FLASH);
 
 	if (buflen <= 0 || buflen > MAX_BOOT_ARGS_SIZE)
 		return -EINVAL;
 
-	ret = part_get_info_efi_by_name(part_name, &disk_info);
+	ret = ipq_part_get_info_by_name(&bpart_info);
 	if (ret) {
 		printf("bootipq: unsupported partition name %s\n",part_name);
 		return -EINVAL;
@@ -167,49 +180,6 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 	return 0;
 }
 #endif
-
-#ifdef CONFIG_IPQ_NAND
-/*
- * Set the root device and bootargs for mounting root filesystem.
- */
-int set_nand_bootargs(void)
-{
-	char *bootargs;
-	char mtdids[256];
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-
-	if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
-		bootargs = "ubi.mtd=rootfs root=mtd:ubi_rootfs "
-			"rootfstype=squashfs";
-		if (env_get("fsbootargs") == NULL)
-			env_set("fsbootargs", bootargs);
-
-		snprintf(mtdids, sizeof(mtdids), "nand0=nand0");
-
-	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
-		if (get_which_flash_param("rootfs") ||
-			((sfi->flash_secondary_type == SMEM_BOOT_NAND_FLASH) ||
-			 (sfi->flash_secondary_type ==
-			  SMEM_BOOT_QSPI_NAND_FLASH))) {
-			bootargs = "ubi.mtd=rootfs root=mtd:ubi_rootfs "
-				"rootfstype=squashfs";
-
-			snprintf(mtdids, sizeof(mtdids),
-				"nand0=nand0,nor0=spi0.0");
-
-			if (env_get("fsbootargs") == NULL)
-				env_set("fsbootargs", bootargs);
-		}
-	}else {
-		printf("bootipq: unsupported boot flash type\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-#endif
-
 int set_bootargs(void)
 {
 	char *fit_bootargs =  NULL;
@@ -234,9 +204,9 @@ int set_bootargs(void)
 	else
 		ret  = set_mmc_bootargs(runcmd, "rootfs",
 				MAX_BOOT_ARGS_SIZE, gpt_flag );
-
 #elif CONFIG_IPQ_NAND
-	ret = set_nand_bootargs();
+	if (env_get("fsbootargs") == NULL)
+		ret = env_set("fsbootargs", IPQ_NAND_BOOTARGS);
 #endif
 	if (ret)
 		return ret;
@@ -343,7 +313,10 @@ static int boot_mmc(void)
 	int secure_boot = (gd->board_type & SECURE_BOARD) &&
 				!(gd->board_type & ATF_ENABLED);
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	blkpart_info_t  bpart_info;
 
+	BLK_PART_GET_INFO_S(bpart_info, NULL, &disk_info,
+					SMEM_BOOT_MMC_FLASH);
 	if (curr_device < 0) {
 		if (get_mmc_num() > 0) {
 			curr_device = 0;
@@ -357,28 +330,16 @@ static int boot_mmc(void)
 	if (!mmc)
 		return CMD_RET_FAILURE;
 
-	if (sfi->ipq_smem_bootconfig_info != NULL) {
-		if (active_part) {
-			ret = part_get_info_efi_by_name("0:HLOS_1",
-				&disk_info);
-
-			if(boot_info.debug)
-				printf("[debug]Reading 0:HLOS_1\n");
-
-		} else {
-			ret = part_get_info_efi_by_name("0:HLOS",
-				&disk_info);
-
-			if(boot_info.debug)
-				printf("[debug]Reading 0:HLOS\n");
-		}
+	if ((sfi->ipq_smem_bootconfig_info != NULL) && (active_part)) {
+		bpart_info.name = "0:HLOS_1";
 	} else {
-		ret = part_get_info_efi_by_name("0:HLOS", &disk_info);
-
-		if(boot_info.debug)
-			printf("[debug]Reading 0:HLOS\n");
+		bpart_info.name = "0:HLOS";
 	}
 
+	if(boot_info.debug)
+		printf("[debug]Reading %s\n", bpart_info.name);
+
+	ret = ipq_part_get_info_by_name(&bpart_info);
 	if (ret == 0) {
 		if(secure_boot) {
 #ifdef CONFIG_IPQ_ELF_AUTH
@@ -386,18 +347,19 @@ static int boot_mmc(void)
 			blk = (uint32_t) disk_info.start;
 			cnt = (uintptr_t)ELF_HDR_PLUS_PHDR_SIZE;
 
-			printf("\nMMC read: dev # %d, block # %d, count %d ... ",
-				curr_device, blk, cnt);
+			printf("\nMMC read: dev # %d, block # %d, "
+				"count %d ... ", curr_device, blk, cnt);
 
 			n = blk_dread(mmc_get_blk_desc(mmc), blk, cnt, addr);
-			printf("%d blocks read: %s\n",
-					n,
-					(n == cnt) ? "OK" : "ERROR");
+
+			printf("%d blocks read: %s\n", n,
+				(n == cnt) ? "OK" : "ERROR");
 
 			if (n != cnt)
 				return CMD_RET_FAILURE;
 
-			if (parse_elf_image_phdr(&img_info, boot_info.load_address))
+			if (parse_elf_image_phdr(&img_info,
+				boot_info.load_address))
 				return CMD_RET_FAILURE;
 
 			boot_info.load_address = img_info.img_load_addr;
@@ -416,9 +378,7 @@ static int boot_mmc(void)
 			curr_device, blk, cnt);
 
 		n = blk_dread(mmc_get_blk_desc(mmc), blk, cnt, addr);
-		printf("%d blocks read: %s\n",
-				n,
-				(n == cnt) ? "OK" : "ERROR");
+		printf("%d blocks read: %s\n", n, (n == cnt) ? "OK" : "ERROR");
 
 		if (n != cnt)
 			return CMD_RET_FAILURE;
@@ -428,206 +388,111 @@ static int boot_mmc(void)
 					boot_info.load_address);
 
 		return CMD_RET_SUCCESS;
-
 	}
-
 	return CMD_RET_FAILURE;
 }
 #endif
 
-#ifdef CONFIG_NAND_QTI
+#ifdef CONFIG_IPQ_NAND
 static int boot_nand(void)
 {
 	int ret;
-	char runcmd[MAX_BOOT_ARGS_SIZE];
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	int secure_boot = (gd->board_type & SECURE_BOARD) &&
 				!(gd->board_type & ATF_ENABLED);
 
-	/*
-	 * The kernel is in seperate partition
-	 */
 	if (sfi->rootfs.offset == 0xBAD0FF5E) {
 		printf(" bad offset of hlos");
-		return -1;
+		return CMD_RET_FAILURE;
+	}
+	/*
+	 * init ubi
+	 */
+	ret = init_ubi_part();
+	if (ret) {
+		printf(" Ubi error %d\n", ret);
+		return CMD_RET_FAILURE;
 	}
 
-	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
-
-		char *msmparts = NULL;
-		char buff[MAX_BOOT_ARGS_SIZE];
-		msmparts = env_get("msmparts");
-		if(msmparts) {
-			strlcpy(buff, ",", 1);
-			strlcat(buff, msmparts, strlen(msmparts)+2);
-		}
-
-		snprintf(runcmd, sizeof(runcmd),
-			"mtdparts=nand0:"
-			"0x%llx@0x%llx(fs)%s",
-			sfi->rootfs.size, sfi->rootfs.offset,
-			msmparts ? buff : "");
-
-		env_set("mtdparts", runcmd);
-		env_set("mtdids", "nand0=nand0");
-
-		snprintf(runcmd, sizeof(runcmd),
-			"ubi part fs && ");
-
-		ret = run_command(runcmd, 0);
-
-		if (ret != CMD_RET_SUCCESS)
+#ifdef CONFIG_IPQ_ELF_AUTH
+	if(secure_boot) {
+		ret = ubi_volume_read("kernel", (char *)boot_info.load_address,
+					(uintptr_t)ELF_HDR_PLUS_PHDR_SIZE);
+		if(ret)
 			return CMD_RET_FAILURE;
 
-		if(secure_boot) {
-#ifdef CONFIG_IPQ_ELF_AUTH
-			snprintf(runcmd, sizeof(runcmd),
-			"ubi read 0x%lx kernel 0x%lx ",
-			boot_info.load_address, (uintptr_t)ELF_HDR_PLUS_PHDR_SIZE);
-
-			if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-				return CMD_RET_FAILURE;
-
-			if (parse_elf_image_phdr(&img_info, boot_info.load_address))
-				return CMD_RET_FAILURE;
-
-			boot_info.load_address = img_info.img_load_addr;
-			boot_info.load_address -= img_info.img_offset;
-#endif
-		}
-
-		boot_info.size = ubi_get_volume_size("kernel");
-
-		if(boot_info.size < 0)
-			BUG();
-
-		snprintf(runcmd, sizeof(runcmd),
-			 "ubi read 0x%lx kernel && ", boot_info.load_address);
-
-		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+		if (parse_elf_image_phdr(&img_info, boot_info.load_address))
 			return CMD_RET_FAILURE;
 
-		if(boot_info.debug)
-			printf("[debug]loaded kernel @ 0x%lx\n",
-					boot_info.load_address);
-
-	} else if ((sfi->flash_type == SMEM_BOOT_SPI_FLASH) &&
-			(sfi->rootfs.offset != 0xBAD0FF5E) &&
-			(sfi->flash_secondary_type ==
-			 SMEM_BOOT_QSPI_NAND_FLASH)) {
-		if (get_which_flash_param("rootfs")) {
-
-			char *msmparts = NULL;
-			char buff[MAX_BOOT_ARGS_SIZE];
-
-			msmparts = env_get("msmparts");
-
-			if(msmparts) {
-				strlcpy(buff, ",", 1);
-				strlcat(buff, msmparts, strlen(msmparts)+2);
-			}
-
-			snprintf(runcmd, sizeof(runcmd),
-				"mtdparts=nand0:"
-				"0x%llx@0x%llx(fs)%s",
-				sfi->rootfs.size, sfi->rootfs.offset,
-				msmparts ? buff :"");
-
-			env_set("mtdparts", runcmd);
-			env_set("mtdids", "nand0=nand0,nor0=spi0.0");
-
-			snprintf(runcmd, sizeof(runcmd),
-				"nand device 0 && "
-				"ubi part fs && ");
-
-			if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-				return CMD_RET_FAILURE;
-
-			if(secure_boot) {
-#ifdef CONFIG_IPQ_ELF_AUTH
-				snprintf(runcmd, sizeof(runcmd),
-				"ubi read 0x%lx kernel 0x%lx ",
-				boot_info.load_address, (uintptr_t)ELF_HDR_PLUS_PHDR_SIZE);
-
-				if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-					return CMD_RET_FAILURE;
-
-				if (parse_elf_image_phdr(&img_info, boot_info.load_address))
-					return CMD_RET_FAILURE;
-
-				boot_info.load_address = img_info.img_load_addr;
-				boot_info.load_address -=	img_info.img_offset;
+		boot_info.load_address = img_info.img_load_addr;
+		boot_info.load_address -= img_info.img_offset;
+	}
 #endif
-			}
+	boot_info.size = ubi_get_volume_size("kernel");
 
-			boot_info.size = ubi_get_volume_size("kernel");
+	if(boot_info.size < 0)
+		BUG();
 
-			if(boot_info.size < 0)
-				BUG();
+	ret = ubi_volume_read("kernel", (char *)boot_info.load_address, 0);
+	if(ret)
+		return CMD_RET_FAILURE;
 
-			snprintf(runcmd, sizeof(runcmd),
-				 "ubi read 0x%lx kernel && ", boot_info.load_address);
+	if(boot_info.debug)
+		printf("[debug]loaded kernel @ 0x%lx\n",
+				boot_info.load_address);
 
-			if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-				return CMD_RET_FAILURE;
-
-			if(boot_info.debug)
-				printf("[debug]loaded kernel @ 0x%lx\n",
-						boot_info.load_address);
-
-		} else {
-			/*
-			 * Kernel is in a separate partition
-			 */
+	return CMD_RET_SUCCESS;
+}
+#endif
 #ifdef CONFIG_IPQ_SPI_NOR
-			boot_info.flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS,
-						CONFIG_SF_DEFAULT_CS,
-						CONFIG_SF_DEFAULT_SPEED,
-						CONFIG_SF_DEFAULT_MODE);
-
-			if(!boot_info.flash) {
-				printf("%s: Failed to probe spi flash\n",
-								__func__);
-				return -EIO;
-			}
-
-			if(secure_boot) {
+static int boot_nor(void)
+{
+	int ret;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 #ifdef CONFIG_IPQ_ELF_AUTH
-
-				ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
-						ELF_HDR_PLUS_PHDR_SIZE,
-						(void *)boot_info.load_address);
-
-				if(ret)
-					return CMD_RET_FAILURE;
-
-				if (parse_elf_image_phdr(&img_info, boot_info.load_address))
-					return CMD_RET_FAILURE;
-
-				boot_info.load_address = img_info.img_load_addr;
-				boot_info.load_address -= img_info.img_offset;
+	int secure_boot = (gd->board_type & SECURE_BOARD) &&
+				!(gd->board_type & ATF_ENABLED);
 #endif
-			}
 
-			boot_info.size = sfi->hlos.size;
-
-			ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
-					sfi->hlos.size,
-					(void*)boot_info.load_address);
-
-			if(ret)
-				return CMD_RET_FAILURE;
-
-			if(boot_info.debug)
-				printf("[debug]loaded kernel @ 0x%lx\n",
-						boot_info.load_address);
-
-#endif
-		}
+	if (sfi->hlos.offset == 0xBAD0FF5E) {
+		printf(" bad offset of hlos");
+		return CMD_RET_FAILURE;
 	}
 
-	return 0;
+	boot_info.flash = ipq_spi_probe();
+	if(!boot_info.flash) {
+		printf("Failed to probe spi flash\n");
+		return CMD_RET_FAILURE;
+	}
+
+#ifdef CONFIG_IPQ_ELF_AUTH
+	if(secure_boot) {
+		ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
+				ELF_HDR_PLUS_PHDR_SIZE,
+				(void *)boot_info.load_address);
+		if(ret)
+			return CMD_RET_FAILURE;
+
+		if (parse_elf_image_phdr(&img_info, boot_info.load_address))
+			return CMD_RET_FAILURE;
+
+		boot_info.load_address = img_info.img_load_addr;
+		boot_info.load_address -= img_info.img_offset;
+	}
+#endif
+	boot_info.size = sfi->hlos.size;
+
+	ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
+			sfi->hlos.size,
+			(void*)boot_info.load_address);
+
+	if(ret)
+		return CMD_RET_FAILURE;
+
+	if(boot_info.debug)
+		printf("[debug]loaded kernel @ 0x%lx\n",
+				boot_info.load_address);
+	return CMD_RET_SUCCESS;
 }
 #endif
 
@@ -726,16 +591,17 @@ exit:
 
 static int copy_rootfs(uint32_t request, uint32_t size)
 {
-	char runcmd[MAX_BOOT_ARGS_SIZE] = {0};
-
-#ifdef CONFIG_MMC
 	int ret;
+#ifdef CONFIG_MMC
 	int curr_device = -1;
 	struct mmc *mmc;
 	uint32_t blk, cnt, n;
 	void *addr;
 	struct disk_partition disk_info;
 	unsigned int active_part = get_rootfs_active_partition();
+	blkpart_info_t  bpart_info;
+
+	BLK_PART_GET_INFO_S(bpart_info, NULL, &disk_info, SMEM_BOOT_MMC_FLASH);
 #endif
 	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
 #ifdef CONFIG_IPQ_SPI_NOR
@@ -744,12 +610,13 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 
 	if (SMEM_BOOT_NORPLUSNAND == flash_type ||
 		SMEM_BOOT_QSPI_NAND_FLASH == flash_type) {
-		snprintf(runcmd, sizeof(runcmd),
-			"ubi read 0x%x ubi_rootfs &&", request);
+#ifdef CONFIG_IPQ_NAND
+		ret = ubi_volume_read("ubi_rootfs", (char *)(uintptr_t)request,
+					0);
+#endif
 #ifdef CONFIG_MMC
 	} else if (flash_type == SMEM_BOOT_MMC_FLASH ||
-			((flash_type == SMEM_BOOT_SPI_FLASH) &&
-			(sfi->rootfs.offset == 0xBAD0FF5E))) {
+			(flash_type == SMEM_BOOT_NORPLUSEMMC)) {
 
 		if (curr_device < 0) {
 			if (get_mmc_num() > 0) {
@@ -766,57 +633,44 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 
 		if (sfi->ipq_smem_bootconfig_info != NULL) {
 			if (active_part) {
-				ret = part_get_info_efi_by_name("rootfs_1",
-					&disk_info);
-
-				if(boot_info.debug)
-					printf("[debug]Reading rootfs_1\n");
-
+				bpart_info.name = "rootfs_1";
 			} else {
-				ret = part_get_info_efi_by_name("rootfs",
-					&disk_info);
-
-				if(boot_info.debug)
-					printf("[debug]Reading rootfs\n");
-			}
+				bpart_info.name = "rootfs";
+						}
 		} else {
-			ret = part_get_info_efi_by_name("rootfs", &disk_info);
-
-			if(boot_info.debug)
-				printf("[debug]Reading rootfs\n");
+			bpart_info.name = "rootfs";
 		}
 
-		if(ret == 0) {
+		if(boot_info.debug)
+			printf("[debug]Reading %s\n", bpart_info.name);
+
+		ret = ipq_part_get_info_by_name(&bpart_info);
+		if (ret == 0) {
 			addr = (void *)(uintptr_t)request;
 			blk = (uint32_t) disk_info.start;
 			cnt = (uintptr_t) (size / disk_info.blksz) + 1;
 
-			printf("\nMMC read: dev # %d, block # %d, count %d ... ",
+			printf("\nMMC read: dev# %d, block# %d, count %d ... ",
 				curr_device, blk, cnt);
 
 			n = blk_dread(mmc_get_blk_desc(mmc), blk, cnt, addr);
-			printf("%d blocks read: %s\n",
-					n,
+			printf("%d blocks read: %s\n", n,
 					(n == cnt) ? "OK" : "ERROR");
-
 			if (n != cnt)
 				return CMD_RET_FAILURE;
-		} else {
-			return CMD_RET_FAILURE;
 		}
 #endif
 	} else {
 #ifdef CONFIG_IPQ_SPI_NOR
-		spi_flash_read(boot_info.flash, sfi->rootfs.offset,
+		ret = spi_flash_read(boot_info.flash, sfi->rootfs.offset,
 					sfi->rootfs.size,
 					(void *) (uintptr_t)request);
 #endif
 	}
 
-	if(runcmd[0])
-	{
-		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-			return CMD_RET_FAILURE;
+	if (ret) {
+		printf("rootfs read failed \n");
+		return CMD_RET_FAILURE;
 	}
 
 	return 0;
@@ -890,7 +744,8 @@ static int authenticate_rootfs(uintptr_t kernel_addr,
 						sizeof(mbn_header_t));
 
 	memset(mbn_ptr,  0,
-		(sizeof(mbn_header_t) + mbn_ptr->signature_size + mbn_ptr->cert_chain_size));
+		(sizeof(mbn_header_t) + mbn_ptr->signature_size +
+			mbn_ptr->cert_chain_size));
 
 	if (ret)
 		return CMD_RET_FAILURE;
@@ -914,7 +769,8 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 	if (parse_elf_image_phdr(&img_info, rootfs_hdr))
 		return CMD_RET_FAILURE;
 
-	memcpy((void *) (uintptr_t)request, (void *) (uintptr_t)rootfs_hdr, img_info.img_offset);
+	memcpy((void *) (uintptr_t)request, (void *) (uintptr_t)rootfs_hdr,
+			img_info.img_offset);
 
 	request += img_info.img_offset;
 
@@ -1057,17 +913,7 @@ int image_authentication(void)
 int read_kernel(void)
 {
 	int ret;
-#ifdef CONFIG_BOARD_TYPES
-	uint8_t flash_type = gd->board_type & FLASH_TYPE_MASK ;
-#else
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	if (sfi->flash_secondary_type == SMEM_BOOT_MMC_FLASH)
-		flash_type = SMEM_BOOT_NORPLUSEMMC;
-	else if (sfi->flash_secondary_type == SMEM_BOOT_QSPI_NAND_FLASH)
-		flash_type = SMEM_BOOT_NORPLUSNAND;
-	else
-		flash_type = sfi->flash_type;
-#endif
+	int flash_type = gd->board_type & FLASH_TYPE_MASK;
 
 	/*
 	 * set fdt_high parameter so that u-boot will not load
@@ -1088,10 +934,16 @@ int read_kernel(void)
 		ret = boot_mmc();
 		break;
 #endif
-#ifdef CONFIG_NAND_QTI
+#ifdef CONFIG_IPQ_NAND
 	case SMEM_BOOT_QSPI_NAND_FLASH:
 	case SMEM_BOOT_NORPLUSNAND:
 		ret = boot_nand();
+		break;
+#endif
+#ifdef CONFIG_IPQ_SPI_NOR
+	case SMEM_BOOT_SPI_FLASH:
+	case SMEM_BOOT_NORGPT_FLASH:
+		ret = boot_nor();
 		break;
 #endif
 	default:
