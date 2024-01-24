@@ -4,6 +4,7 @@
  *
  * Copyright 2014 Freescale Semiconductor, Inc.
  * Copyright 2018, 2021 NXP
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <config.h>
 #include <common.h>
@@ -20,6 +21,13 @@
 
 #define AQUNTIA_10G_CTL		0x20
 #define AQUNTIA_VENDOR_P1	0xc400
+#define AQUNTIA_LINK_STATUS		0xc800
+#define AQUNTIA_SPEED_5G		5
+#define AQUNTIA_SPEED_2_5G		4
+#define AQUNTIA_SPEED_10G		3
+#define AQUNTIA_SPEED_1G		2
+#define AQUNTIA_SPEED_100M		1
+#define AQUNTIA_SPEED_10M		0
 
 #define AQUNTIA_SPEED_LSB_MASK	0x2000
 #define AQUNTIA_SPEED_MSB_MASK	0x40
@@ -552,7 +560,6 @@ int aquantia_config(struct phy_device *phydev)
 
 int aquantia_startup(struct phy_device *phydev)
 {
-	u32 speed;
 	int i = 0;
 	int reg;
 
@@ -582,17 +589,31 @@ int aquantia_startup(struct phy_device *phydev)
 	else
 		phydev->link = 1;
 
-	speed = phy_read(phydev, MDIO_MMD_PMAPMD, MII_BMCR);
-	if (speed & AQUNTIA_SPEED_MSB_MASK) {
-		if (speed & AQUNTIA_SPEED_LSB_MASK)
-			phydev->speed = SPEED_10000;
-		else
-			phydev->speed = SPEED_1000;
-	} else {
-		if (speed & AQUNTIA_SPEED_LSB_MASK)
-			phydev->speed = SPEED_100;
-		else
-			phydev->speed = SPEED_10;
+	reg = phy_read(phydev, MDIO_MMD_AN, AQUNTIA_LINK_STATUS);
+	if (reg & BIT(0))
+		phydev->duplex = DUPLEX_FULL;
+	else
+		phydev->duplex = DUPLEX_HALF;
+
+	switch ((reg >> 1) & 0x7) {
+	case AQUNTIA_SPEED_10G:
+		phydev->speed = SPEED_10000;
+		break;
+	case AQUNTIA_SPEED_5G:
+		phydev->speed = SPEED_5000;
+		break;
+	case AQUNTIA_SPEED_2_5G:
+		phydev->speed = SPEED_2500;
+		break;
+	case AQUNTIA_SPEED_1G:
+		phydev->speed = SPEED_1000;
+		break;
+	case AQUNTIA_SPEED_100M:
+		phydev->speed = SPEED_100;
+		break;
+	default:
+		phydev->speed = SPEED_10;
+		break;
 	}
 
 	return 0;
