@@ -108,3 +108,8 @@ extern uint32_t g_load_addr;
 #ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
 #define CFG_NR_CPUS				4
 #endif
+
+#ifdef CONFIG_NET_RETRY_COUNT
+#undef CONFIG_NET_RETRY_COUNT
+#define CONFIG_NET_RETRY_COUNT			500
+#endif
