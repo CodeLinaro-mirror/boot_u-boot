@@ -120,6 +120,7 @@
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
+				xgmac;
 			};
 
 			phy1: phy@2 {
@@ -128,6 +129,7 @@
 				id = <2>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
+				xgmac;
 			};
 
 			phy2: phy@3 {
@@ -136,6 +138,7 @@
 				id = <3>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
+				xgmac;
 			};
 
 			phy3: phy@4 {
@@ -144,6 +147,7 @@
 				id = <4>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
+				xgmac;
 			};
 
 			phy4: phy@8 {
