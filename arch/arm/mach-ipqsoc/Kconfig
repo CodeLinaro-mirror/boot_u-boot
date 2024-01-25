@@ -110,6 +110,7 @@ config IPQ_DEFAULTS
 	select VERSION_ROLLBACK_PARTITION_INFO
 	select LZMA
 	imply IPQ_SMP_CMD_SUPPORT
+	select CMD_AES_256
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -218,6 +219,15 @@ config IPQ_SMP_CMD_SUPPORT
 	depends on ARCH_32BIT_SUPPORT
 	default n
 
+config CMD_AES_256
+	bool "AES 256 command support"
+	default n
+
+config AES_256_DERIVE_KEY
+	bool "AES 256 derive key support"
+	depends on CMD_AES_256
+	default n
+
 choice
 	prompt "IPQ board select"
 
@@ -239,6 +249,7 @@ config TARGET_IPQ5332
         select IPQ_QCN9224_FUSING
 	select DPR_VER_2_0
 	select CAPIN_CAPOUT_SUPPORT
+	select AES_256_DERIVE_KEY
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -268,6 +279,7 @@ config TARGET_IPQ9574
         select PHY_QTI_QMP_USB3 if IPQ_USB
         select IPQ_QCN9224_FUSING
 	select DPR_VER_1_0
+	select AES_256_DERIVE_KEY
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

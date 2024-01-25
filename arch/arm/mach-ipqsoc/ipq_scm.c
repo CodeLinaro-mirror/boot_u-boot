@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2010,2015,2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <ubi_uboot.h>
@@ -274,6 +274,18 @@ int ipq_scm_call(scm_param *param)
 	case SCM_PHYA0_REGION_RD:
 		desc.svc = QCOM_SCM_PHYA0_SVC_ID;
 		desc.cmd = QCOM_SCM_PHYA0_READ_CMD;
+		break;
+	case SCM_AES_256_GEN_KEY:
+		desc.svc = QCOM_SCM_SVC_CRYPTO;
+		desc.cmd = QCOM_SCM_CMD_AES_256_GEN_KEY;
+		break;
+	case SCM_AES_256_ENC:
+		desc.svc = QCOM_SCM_SVC_CRYPTO;
+		desc.cmd = QCOM_SCM_CMD_AES_256_ENC;
+		break;
+	case SCM_AES_256_DEC:
+		desc.svc = QCOM_SCM_SVC_CRYPTO;
+		desc.cmd = QCOM_SCM_CMD_AES_256_DEC;
 		break;
 	default:
 		printf("Invalid call ID: %d\n", param->type);
