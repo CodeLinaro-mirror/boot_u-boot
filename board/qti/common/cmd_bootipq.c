@@ -341,6 +341,11 @@ int set_bootargs(void)
 	char runcmd[MAX_BOOT_ARGS_SIZE];
 	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
 
+#ifdef CONFIG_SKIP_RESET
+	if(ipq_iscrashed())
+		return 0;
+#endif
+
 	if(flash_type  == SMEM_BOOT_MMC_FLASH)
 		gpt_flag = true;
 	else if( flash_type ==  SMEM_BOOT_NORPLUSEMMC)
@@ -637,6 +642,12 @@ int config_select(void)
 	int len, i, ret;
 	const char *config = env_get("config_name");
 	ulong request;
+
+#ifdef CONFIG_SKIP_RESET
+	if(ipq_iscrashed())
+		return 0;
+#endif
+
 	if(boot_info.debug)
 		printf("[debug]Get Config\n");
 
@@ -1154,6 +1165,11 @@ int read_kernel(void)
 int boot_kernel(void)
 {
 	char boot_cmd[MAX_BOOT_ARGS_SIZE];
+
+#ifdef CONFIG_SKIP_RESET
+	if(ipq_iscrashed())
+		return 0;
+#endif
 
 	if(boot_info.config)
 	{

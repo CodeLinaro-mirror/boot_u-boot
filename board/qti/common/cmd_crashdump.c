@@ -508,7 +508,7 @@ static int ipq_iscrashed_crashdump_disabled(void)
 /**
  * ipq_iscrashed() - to check whether system is in crashdump path or not
  */
-static int ipq_iscrashed(void)
+int ipq_iscrashed(void)
 {
 	u32 dmagic = ipq_read_tcsr_boot_misc();
 	return ((dmagic & DLOAD_MAGIC_COOKIE) ? 1 : 0);
@@ -2353,7 +2353,9 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 	delete_crashdump_table();
 
 reset:
+#ifndef CONFIG_SKIP_RESET
 	reset();
+#endif
 	return;
 }
 
@@ -2462,7 +2464,9 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 		ipq_board_gpio_config(SDX_POWER_CYCLE);
 #endif
 		printf("Crashdump disabled, resetting the board..\n");
+#ifndef CONFIG_SKIP_RESET
 		reset();
+#endif
 	}
 
 	return 0;
