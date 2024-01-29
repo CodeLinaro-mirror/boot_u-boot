@@ -38,7 +38,7 @@ static struct ipq_eth_port_config ipq9574_port_config[] = {
 			CLK_12_5_MHZ,
 			CLK_125_MHZ,
 			-1,
-			CLK_312_5_MHZ
+			CLK_78_125_MHZ,
 		},
 		{
 			XGMAC,
