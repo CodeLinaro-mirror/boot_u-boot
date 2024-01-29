@@ -726,14 +726,13 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 {
 	char runcmd[MAX_BOOT_ARGS_SIZE] = {0};
 
-#ifdef CONFIG_QCA_MMC
+#ifdef CONFIG_MMC
 	int ret;
 	int curr_device = -1;
 	struct mmc *mmc;
 	uint32_t blk, cnt, n;
 	void *addr;
-	block_dev_desc_t *blk_dev;
-	disk_partition_t disk_info;
+	struct disk_partition disk_info;
 	unsigned int active_part = get_rootfs_active_partition();
 #endif
 	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
@@ -745,11 +744,10 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 		SMEM_BOOT_QSPI_NAND_FLASH == flash_type) {
 		snprintf(runcmd, sizeof(runcmd),
 			"ubi read 0x%x ubi_rootfs &&", request);
-#ifdef CONFIG_QCA_MMC
+#ifdef CONFIG_MMC
 	} else if (flash_type == SMEM_BOOT_MMC_FLASH ||
 			((flash_type == SMEM_BOOT_SPI_FLASH) &&
-			(rootfs.offset == 0xBAD0FF5E))) {
-		blk_dev = mmc_get_dev(host->dev_num);
+			(sfi->rootfs.offset == 0xBAD0FF5E))) {
 
 		if (curr_device < 0) {
 			if (get_mmc_num() > 0) {
@@ -761,20 +759,33 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 		}
 
 		mmc = __init_mmc_dev(curr_device, false, MMC_MODES_END);
-
 		if (!mmc)
 			return CMD_RET_FAILURE;
 
-		if (active_part) {
-			ret = get_partition_info_efi_by_name(blk_dev,
-					"rootfs_1", &disk_info);
+		if (sfi->ipq_smem_bootconfig_info != NULL) {
+			if (active_part) {
+				ret = part_get_info_efi_by_name("rootfs_1",
+					&disk_info);
+
+				if(boot_info.debug)
+					printf("[debug]Reading rootfs_1\n");
+
+			} else {
+				ret = part_get_info_efi_by_name("rootfs",
+					&disk_info);
+
+				if(boot_info.debug)
+					printf("[debug]Reading rootfs\n");
+			}
 		} else {
-			ret = get_partition_info_efi_by_name(blk_dev,
-					"rootfs", &disk_info);
+			ret = part_get_info_efi_by_name("rootfs", &disk_info);
+
+			if(boot_info.debug)
+				printf("[debug]Reading rootfs\n");
 		}
 
 		if(ret == 0) {
-			addr = request;
+			addr = (void *)(uintptr_t)request;
 			blk = (uint32_t) disk_info.start;
 			cnt = (uintptr_t) (size / disk_info.blksz) + 1;
 
