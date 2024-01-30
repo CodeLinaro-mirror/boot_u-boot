@@ -71,7 +71,7 @@ config PAGE_SCOPE_MULTI_PAGE_READ
 
 config QSPI_LAYOUT_SWITCH
 	bool "Enalbe layout switch in NAND FLASH"
-	default y
+	default n
 
 endif
 

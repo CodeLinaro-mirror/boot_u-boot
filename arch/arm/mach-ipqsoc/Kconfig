@@ -280,6 +280,7 @@ config TARGET_IPQ9574
         select IPQ_QCN9224_FUSING
 	select DPR_VER_1_0
 	select AES_256_DERIVE_KEY
+	select QSPI_LAYOUT_SWITCH if IPQ_NAND
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
