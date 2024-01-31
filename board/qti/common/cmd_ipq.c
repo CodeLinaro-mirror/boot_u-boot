@@ -1419,6 +1419,11 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 	req_ptr->hw_key_bindings.bindings = simple_strtoul(argv[2], NULL, 16);
 	key_handle = (uintptr_t *)memalign(ARCH_DMA_MINALIGN,
 					sizeof(uint64_t));
+	if (!key_handle) {
+		printf("Error allocating memory for key handle");
+		return -ENOMEM;
+	}
+
 	req_ptr->key = (uintptr_t) key_handle;
 	req_ptr->mixing_key = 0;
 	req_ptr->hw_key_bindings.context_len = context_len;
