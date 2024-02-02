@@ -135,6 +135,8 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct smem_ptable * ptable = get_ipq_part_table_info();
 #ifdef CONFIG_CMD_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	if (!mtd)
+		return -ENODEV;
 #endif
 #ifdef CONFIG_CMD_UBI
 	struct ubi_device *ubi = NULL;
@@ -171,7 +173,7 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	for (i = 0;ptable && i < ptable->len; i++) {
 		struct smem_ptn *p = &ptable->parts[i];
-		loff_t psize = 0;
+		loff_t psize;
 		bsize = get_part_block_size(p, sfi);
 
 		if (p->size == (~0u)) {
@@ -180,19 +182,13 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 			 * appropriately
 			 */
 #ifdef CONFIG_CMD_NAND
-			if (mtd)
-				psize = mtd->size - (((loff_t) p->start)
-								* bsize);
+			psize = mtd->size - (((loff_t)p->start) * bsize);
 #else
 			psize = 0;
 #endif
 		} else {
 			psize = ((loff_t)p->size) * bsize;
 		}
-
-		if (((((loff_t)p->start) * bsize) + psize) >
-			smem_get_flash_size(part_which_flash(p)))
-			continue;
 
 		printf("%3d: " smem_ptn_name_fmt " 0x%08x %#16llx %#16llx\n",
 		       i, p->name, p->attr, ((loff_t)p->start) * bsize, psize);
