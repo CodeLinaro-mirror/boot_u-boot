@@ -12,7 +12,16 @@
 #include <memalign.h>
 #include <bootm.h>
 #include <mach/ipq_scm.h>
+#ifdef CONFIG_IPQ_MMC
 #include <mmc.h>
+#endif
+#ifdef CONFIG_IPQ_SPI_NOR
+#include <spi.h>
+#include <spi_flash.h>
+#endif
+#ifdef CONFIG_CMD_NAND
+#include <nand.h>
+#endif
 #ifdef CONFIG_CMD_UBI
 #include <ubi_uboot.h>
 #endif
@@ -47,8 +56,10 @@ DECLARE_GLOBAL_DATA_PTR;
 #define EXT_CSD_BOOT_WP_B_PERM_WP_EN	(0x04)  /* permanent write-protect */
 
 
+#ifdef CONFIG_IPQ_MMC
 int mmc_send_status(struct mmc *mmc, unsigned int *status);
 int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value);
+#endif
 
 enum atf_status_t {
 	ATF_STATE_DISABLED,
@@ -192,7 +203,7 @@ int is_secure_boot(void)
 	return ret;
 }
 
-#if CONFIG_MMC
+#if CONFIG_IPQ_MMC
 int mmc_send_wp_set_clr(struct mmc *mmc, unsigned int start,
 			unsigned int size, int set_clr)
 {
@@ -359,3 +370,64 @@ int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
 	return CMD_RET_SUCCESS;
 }
 #endif
+
+uint64_t smem_get_flash_size(uint8_t flash_type)
+{
+	uint64_t flash_size = 0;
+
+	switch(flash_type) {
+	case 0: /* SPI_NOR_FLASH */
+#ifdef CONFIG_IPQ_SPI_NOR
+		struct spi_flash *flash = NULL;
+#if CONFIG_IS_ENABLED(DM_SPI_FLASH)
+		struct udevice *spi_dev;
+
+		spi_flash_probe_bus_cs(CONFIG_SF_DEFAULT_BUS,
+					CONFIG_SF_DEFAULT_CS,
+					&spi_dev);
+		flash = dev_get_uclass_priv(spi_dev);
+#else
+		flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS,
+					CONFIG_SF_DEFAULT_CS,
+					CONFIG_SF_DEFAULT_SPEED,
+					CONFIG_SF_DEFAULT_MODE);
+#endif
+		if (flash)
+			flash_size = flash->size;
+#endif
+		break;
+	case 1: /* NAND_FLASH*/
+#ifdef CONFIG_IPQ_NAND
+		struct mtd_info *mtd = get_nand_dev_by_index(0);
+		if (mtd)
+			flash_size = mtd->size;
+#endif
+		break;
+	};
+
+	return flash_size;
+}
+
+bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize)
+{
+	bool ret = false;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	if (!p)
+		goto exit;
+
+	/* NOR and NOR + eMMC */
+	if ((sfi->flash_type == SMEM_BOOT_SPI_FLASH) &&
+		(part_which_flash(p) == 0)) {
+		if (psize > smem_get_flash_size(0))
+			ret = true;
+	/* NAND and NOR + NAND */
+	} else if ((sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
+		((sfi->flash_type == SMEM_BOOT_SPI_FLASH) &&
+		(part_which_flash(p) == 1))) {
+		if (psize > smem_get_flash_size(1))
+			ret = true;
+	}
+
+exit:
+	return ret;
+}
