@@ -446,10 +446,6 @@ extern uint8_t *board_dump_entries;
 
 #define NO_MASK						(0xFFFFFFFF)
 
-#define NAND_FLASH					1
-#define SPI_NOR_FLASH					0
-#define EMMC_FLASH					-1
-
 /*
  * Function declaration
  */
@@ -484,5 +480,4 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 int bring_secondary_core_up(unsigned int cpuid, unsigned int entry, unsigned int arg);
 void bring_secondary_core_down(unsigned int state);
 int is_secondary_core_off(unsigned int cpuid);
-uint64_t smem_get_flash_size(uint8_t flash_type);
 #endif
