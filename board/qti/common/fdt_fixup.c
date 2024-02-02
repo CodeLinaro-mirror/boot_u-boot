@@ -425,6 +425,10 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 			psize =  ((loff_t)p->size) * bsize;
 		}
 
+		if (is_smem_part_exceed_flash_size(p,
+				((((loff_t)p->start) * bsize) + psize)))
+			continue;
+
 		if ((psize > SZ_1M) && (((psize & (SZ_1M - 1)) == 0))) {
 			psize /= SZ_1M;
 			unit = "M@";
