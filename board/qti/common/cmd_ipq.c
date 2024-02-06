@@ -14,6 +14,7 @@
 #include <linux/bug.h>
 #include <linux/arm-smccc.h>
 #include <dm.h>
+#include <dm/device-internal.h>
 #ifdef CONFIG_IPQ_QCN9224_FUSING
 #include <init.h>
 #include <pci.h>
@@ -22,6 +23,11 @@
 #include <linux/iopoll.h>
 #endif
 #include <serial.h>
+#ifdef CONFIG_QSPI_LAYOUT_SWITCH
+#include <nand.h>
+#include <ubi_uboot.h>
+#include <ubifs_uboot.h>
+#endif
 
 #include "ipq_board.h"
 
@@ -1591,3 +1597,61 @@ U_BOOT_CMD(
 #endif /* CONFIG_AES_256_DERIVE_KEY */
 );
 #endif /* CONFIG_CMD_AES_256 */
+
+#ifdef CONFIG_QSPI_LAYOUT_SWITCH
+static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
+			   int argc, char * const argv[])
+{
+	int ret;
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	char *env_layout = NULL;
+#ifdef CONFIG_CMD_UBI
+	struct ubi_device *ubi = NULL;
+#endif
+	if(!mtd) {
+		printf("%s: mtd device not available\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (argc != 2 || (mtd->writesize == 2048 &&
+				!strcmp(argv[1], "sbl")))
+		return CMD_RET_USAGE;
+
+	env_layout = env_get("nand_layout");
+	if(env_layout) {
+		if(!strcmp(argv[1], env_layout)) {
+			printf("Already in %s layout\n", env_layout);
+			return CMD_RET_SUCCESS;
+		}
+	}
+
+	if (!strcmp(argv[1], "sbl") || !strcmp(argv[1], "linux")) {
+		env_set("nand_layout", argv[1]);
+	} else {
+		return CMD_RET_USAGE;
+	}
+
+#ifdef CONFIG_CMD_UBI
+	if (ubifs_is_mounted())
+		cmd_ubifs_umount();
+
+	ubi = ubi_get_device(0);
+	if(ubi) {
+		ubi_exit();
+	}
+#endif
+
+	ret = device_remove(mtd->dev, DM_REMOVE_NORMAL);
+	if (ret)
+		return CMD_RET_FAILURE;
+
+	nand_curr_device = -1;
+	board_nand_init();
+
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(qpic_nand, 2, 1, do_qpic_switch_layout,
+	   "Switch between SBL and Linux kernel page on 4K NAND Flash.",
+	   "qpic_nand (sbl | linux)");
+#endif

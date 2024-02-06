@@ -135,7 +135,14 @@ struct nand_flash_dev qti_nand_flash_ids[] = {
 		SZ_4K, SZ_512, SZ_256K, CHECK_QUAD_CONFIG, 2, 256,
 		NAND_ECC_INFO(8, SZ_512)},
 	{NULL}
-	};
+};
+
+struct nand_flash_dev qpic_nand_flash_ids_2k[] = {
+	{"MX35UF4GE4AD-Z4I SPI NAND 1G 1.8V",
+			{ .id = {0xc2, 0xb7} },
+		SZ_2K, SZ_512, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{NULL}
+};
 
 extern int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
 int qti_nand_deinit(struct udevice *device);
@@ -585,6 +592,7 @@ static void qti_serial_update_dev_params(struct mtd_info *mtd)
 	nandc->timing_mode_support = chip->onfi_timing_mode_default;
 	mtd->ecc_strength = chip->ecc_strength_ds;
 	mtd->bitflip_threshold = DIV_ROUND_UP(mtd->ecc_strength * 3, 4);
+	mtd->size = chip->chipsize;
 	nandc->check_quad_config = (chip->options & CHECK_QUAD_CONFIG);
 	nandc->quad_mode = (chip->options & QUAD_MODE) ? true : false;
 
@@ -3971,6 +3979,11 @@ static int qti_nand_probe(struct udevice *device)
 	uint8_t  write_pipe_grp;
 	uint8_t  cmd_pipe_grp;
 	uint8_t status_pipe_grp;
+#ifdef CONFIG_QSPI_LAYOUT_SWITCH
+	char *env_layout = env_get("nand_layout");
+#endif
+	struct nand_flash_dev *nand_device_list = qti_nand_flash_ids;
+
 
 	/*
 	 * An array holding the fixed pattern to compare with
@@ -4009,6 +4022,7 @@ static int qti_nand_probe(struct udevice *device)
 	};
 
 	mtd->priv = &nandc->nand_chip[0];
+	mtd->dev = device;
 
 	chip = mtd->priv;
 	chip->priv = nandc;
@@ -4026,6 +4040,12 @@ static int qti_nand_probe(struct udevice *device)
 
 	nandc->base = nand_base;
 	ebi2nd_base = nand_base;
+#ifdef CONFIG_QSPI_LAYOUT_SWITCH
+	if(env_layout && !strcmp(env_layout, "sbl")) {
+		nandc->do_serial_training = false;
+		nand_device_list = qpic_nand_flash_ids_2k;
+	}
+#endif
 
 	/* Read the Hardware Version register */
 	nandc->hw_ver = readl(NAND_VERSION);
@@ -4133,7 +4153,7 @@ static int qti_nand_probe(struct udevice *device)
 
 	/* first scan to find the device and get the page size */
 	ret = nand_scan_ident(mtd, CONFIG_SYS_NAND_MAX_CHIPS,
-					qti_nand_flash_ids);
+					nand_device_list);
 	if (ret) {
 		ret = nand_scan_ident(mtd, CONFIG_SYS_NAND_MAX_CHIPS, NULL);
 		if (ret) {
@@ -4226,13 +4246,11 @@ static int qti_nand_probe(struct udevice *device)
 		/* start serial training here */
 		ret = qti_serial_training(mtd);
 	} else {
-		ret = -2;
+		ret = 0;
 		printf("Skipping Serial trainig\n");
 	}
 
 	if (ret) {
-		if (ret != -2)
-			printf("Error in serial training.\n");
 		printf("switch back to 50MHz with \n"
 			"feed back clock bit enabled\n");
 		if ((readl(QTI_NAND_CTRL) & BAM_MODE_EN)) {
@@ -4297,10 +4315,8 @@ U_BOOT_DRIVER(qti_nand) = {
 int qti_nand_deinit(struct udevice *device)
 {
 	int ret = 0;
-	struct mtd_info *mtd = NULL;
 	struct qcom_nand_controller *nandc = NULL;
-
-	mtd = get_nand_dev_by_index(dev_seq(device));
+	struct mtd_info *mtd = get_nand_dev_by_index(dev_seq(device));
 	if(!mtd) {
 		printf("%s: mtd device not available\n", __func__);
 		return -ENOMEM;
@@ -4311,9 +4327,6 @@ int qti_nand_deinit(struct udevice *device)
 		printf("%s: nand controller not available\n", __func__);
 		return -ENOMEM;
 	}
-
-	if (run_command("ubi exit", 0) != CMD_RET_SUCCESS)
-		return CMD_RET_FAILURE;
 
 	ret = del_mtd_device(mtd);
 	if (ret < 0)
