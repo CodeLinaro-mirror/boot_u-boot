@@ -907,6 +907,13 @@ config MDIO_IPQ4019
 	  This driver supports the MDIO interface found in Qualcomm
 	  IPQ40xx series Soc-s.
 
+config MDIO_IPQ_BITBANGMII
+	bool "Qualcomm IPQ Bit-Bang MDIO interface support"
+	depends on DM_MDIO && BITBANGMII && BITBANGMII_MULTI
+	help
+	  This driver supports the MDIO interface found in Qualcomm
+	  IPQ series Soc-s.
+
 config MVMDIO
 	bool "Marvell MDIO interface support"
 	depends on DM_MDIO
