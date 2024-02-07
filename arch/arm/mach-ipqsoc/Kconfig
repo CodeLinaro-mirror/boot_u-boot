@@ -242,6 +242,7 @@ config TARGET_IPQ5332
 	select PHY_QTI_8X8X
 	select PHY_QTI_8081
 	select IPQ_ELF_AUTH
+	select PHY_AQUANTIA
 	imply IPQ_PCIE
 	select PHY if IPQ_USB
         select PHY_QTI_USB_HS_M31 if IPQ_USB
