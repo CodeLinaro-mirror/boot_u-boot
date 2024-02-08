@@ -79,3 +79,5 @@ extern uint32_t g_load_addr;
 #define ROOT_FS_PART_NAME			"rootfs"
 
 #define CONFIG_ROOTFS_LOAD_ADDR			CFG_SYS_SDRAM_BASE + (32 << 20)
+
+#define MTDPARTS_MAXLEN				4096
