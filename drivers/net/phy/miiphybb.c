@@ -5,6 +5,8 @@
  *
  * (C) Copyright 2001
  * Gerald Van Baren, Custom IDEAS, vanbaren@cideas.com.
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -17,6 +19,14 @@
 #include <ppc_asm.tmpl>
 #include <miiphy.h>
 #include <asm/global_data.h>
+
+#define MDIO_C22_CMD_WRITE	(0x1)
+#define MDIO_C22_CMD_READ	(0x2)
+
+#define MDIO_C45_ID		BIT(7)
+#define MDIO_C45_CMD_ADDR	(MDIO_C45_ID | 0x0)
+#define MDIO_C45_CMD_WRITE	(MDIO_C45_ID | 0x1)
+#define MDIO_C45_CMD_READ	(MDIO_C45_ID | 0x3)
 
 #define BB_MII_RELOCATE(v,off) (v += (v?off:0))
 
@@ -152,7 +162,7 @@ static inline struct bb_miiphy_bus *bb_miiphy_getbus(const char *devname)
  * Utility to send the preamble, address, and register (common to read
  * and write).
  */
-static void miiphy_pre(struct bb_miiphy_bus *bus, char read,
+static void miiphy_pre(struct bb_miiphy_bus *bus, unsigned char op,
 		       unsigned char addr, unsigned char reg)
 {
 	int j;
@@ -174,24 +184,37 @@ static void miiphy_pre(struct bb_miiphy_bus *bus, char read,
 		bus->delay(bus);
 	}
 
-	/* send the start bit (01) and the read opcode (10) or write (10) */
+	/* Clause-22:
+	 *	send the start bit (01) and then
+	 *	read opcode (10) or
+	 *	write opcode (01)
+	 *
+	 * Clause-45:
+	 *	send the start bit (00) and then
+	 *	read opcode (11) or
+	 *	write opcode (01) or
+	 *	address opcode (00)
+	 */
 	bus->set_mdc(bus, 0);
 	bus->set_mdio(bus, 0);
 	bus->delay(bus);
 	bus->set_mdc(bus, 1);
 	bus->delay(bus);
 	bus->set_mdc(bus, 0);
-	bus->set_mdio(bus, 1);
+	if (op & MDIO_C45_ID)
+		bus->set_mdio(bus, 0);
+	else
+		bus->set_mdio(bus, 1);
 	bus->delay(bus);
 	bus->set_mdc(bus, 1);
 	bus->delay(bus);
 	bus->set_mdc(bus, 0);
-	bus->set_mdio(bus, read);
+	bus->set_mdio(bus, ((op >> 0x1) & 0x1));
 	bus->delay(bus);
 	bus->set_mdc(bus, 1);
 	bus->delay(bus);
 	bus->set_mdc(bus, 0);
-	bus->set_mdio(bus, !read);
+	bus->set_mdio(bus, (op & 0x1));
 	bus->delay(bus);
 	bus->set_mdc(bus, 1);
 	bus->delay(bus);
@@ -225,6 +248,51 @@ static void miiphy_pre(struct bb_miiphy_bus *bus, char read,
 	}
 }
 
+static void bb_miiphy_cmd(struct bb_miiphy_bus *bus, int addr, int devad,
+			  int reg)
+{
+	int j;
+
+	miiphy_pre (bus, MDIO_C45_CMD_ADDR, addr, devad);
+
+	/* send the turnaround (10) */
+	bus->set_mdc(bus, 0);
+	bus->set_mdio(bus, 1);
+	bus->delay(bus);
+	bus->set_mdc(bus, 1);
+	bus->delay(bus);
+	bus->set_mdc(bus, 0);
+	bus->set_mdio(bus, 0);
+	bus->delay(bus);
+	bus->set_mdc(bus, 1);
+	bus->delay(bus);
+
+	/* write 16 bits of register data, MSB first */
+	for (j = 0; j < 16; j++) {
+		bus->set_mdc(bus, 0);
+		if ((reg & 0x00008000) == 0) {
+			bus->set_mdio(bus, 0);
+		} else {
+			bus->set_mdio(bus, 1);
+		}
+		bus->delay(bus);
+		bus->set_mdc(bus, 1);
+		bus->delay(bus);
+		reg <<= 1;
+	}
+
+	/*
+	 * Tri-state the MDIO line.
+	 */
+	bus->mdio_tristate(bus);
+	bus->set_mdc(bus, 0);
+	bus->delay(bus);
+	bus->set_mdc(bus, 1);
+	bus->delay(bus);
+
+	return;
+}
+
 /*****************************************************************************
  *
  * Read a MII PHY register.
@@ -244,7 +312,12 @@ int bb_miiphy_read(struct mii_dev *miidev, int addr, int devad, int reg)
 		return -1;
 	}
 
-	miiphy_pre (bus, 1, addr, reg);
+	if (devad == MDIO_DEVAD_NONE)
+		miiphy_pre(bus, MDIO_C22_CMD_READ, addr, reg);
+	else {
+		bb_miiphy_cmd(bus, addr, devad, reg);
+		miiphy_pre(bus, MDIO_C45_CMD_READ, addr, devad);
+	}
 
 	/* tri-state our MDIO I/O pin so we can read */
 	bus->set_mdc(bus, 0);
@@ -316,7 +389,12 @@ int bb_miiphy_write(struct mii_dev *miidev, int addr, int devad, int reg,
 		return -1;
 	}
 
-	miiphy_pre (bus, 0, addr, reg);
+	if (devad == MDIO_DEVAD_NONE)
+		miiphy_pre(bus, MDIO_C22_CMD_WRITE, addr, reg);
+	else {
+		bb_miiphy_cmd(bus, addr, devad, reg);
+		miiphy_pre(bus, MDIO_C45_CMD_WRITE, addr, devad);
+	}
 
 	/* send the turnaround (10) */
 	bus->set_mdc(bus, 0);
