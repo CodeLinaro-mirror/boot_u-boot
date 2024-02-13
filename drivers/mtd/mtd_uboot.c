@@ -127,7 +127,10 @@ static void mtd_probe_uclass_spi_nor_devs(void) { }
 
 #if defined(CONFIG_MTD_PARTITIONS)
 
+/* add check for SOC specific MAXLEN if defined */
+#ifndef MTDPARTS_MAXLEN
 #define MTDPARTS_MAXLEN         512
+#endif
 
 static const char *get_mtdparts(void)
 {

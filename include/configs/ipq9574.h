@@ -112,4 +112,6 @@ extern uint32_t g_load_addr;
 #ifdef CONFIG_NET_RETRY_COUNT
 #undef CONFIG_NET_RETRY_COUNT
 #define CONFIG_NET_RETRY_COUNT			500
+
+#define MTDPARTS_MAXLEN				4096
 #endif
