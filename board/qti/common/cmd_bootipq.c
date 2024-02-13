@@ -160,7 +160,8 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 	snprintf(boot_args, MAX_BOOT_ARGS_SIZE, "rootfsname==%s gpt",
 			part_name, (gpt_flag == true)?" gpt" : "");
 #endif
-	env_set("fsbootargs", boot_args);
+	if (env_get("fsbootargs") == NULL)
+		env_set("fsbootargs", boot_args);
 
 	return 0;
 }
