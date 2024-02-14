@@ -92,9 +92,10 @@ memory_size = "default"
 skip_4k_nand = "false"
 atf = "false"
 tiny_16m = "false"
-supported_arch = ["ipq5332", "ipq5332_64"]
+supported_arch = ["devsoc", "devsoc_64", "ipq5332", "ipq5332_64"]
 soc_hw_versions = {}
 soc_hw_versions["ipq5332"] = { 0x201A0100, 0x201A0101 };
+soc_hw_versions["devsoc"] = { 0xE0010100 };
 
 #
 # Python 2.6 and earlier did not have OrderedDict use the backport
