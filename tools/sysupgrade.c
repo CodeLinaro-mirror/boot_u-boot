@@ -25,6 +25,7 @@
 #define VERSION_FILE_BASENAME  "/sys/devices/system/qfprom/qfprom0/"
 #define AUTHENTICATE_FILE	"/sys/devices/system/qfprom/qfprom0/authenticate"
 #define SEC_AUTHENTICATE_FILE  "/sys/sec_upgrade/sec_auth"
+#define ROOTFS_AUTH		"/sys/sec_upgrade/rootfs_auth"
 #define TEMP_KERNEL_PATH	"/tmp/tmp_kernel.bin"
 #define TEMP_ROOTFS_PATH	"/tmp/rootfs_tmp.bin"
 #define TEMP_METADATA_PATH	"/tmp/metadata.bin"
@@ -341,17 +342,25 @@ int is_tz_authentication_enabled(void)
 
 int is_rootfs_auth_enabled(void)
 {
-	char command[36];
-	int retval;
+	FILE *file;
+	char buf[10];
 
-	snprintf(command, sizeof(command),"fw_printenv | grep -q rootfs_auth");
-
-	retval = system(command);
-	if (retval != 0) {
+	file = fopen(ROOTFS_AUTH, "r");
+	if (file == NULL) {
+		printf("Error: Unable to open sysfs file\n");
 		return 0;
 	}
 
-	return 1;
+	while (fgets(buf, sizeof(buf), file) != NULL) {
+		if (!strncmp(buf, "Enabled", 7)) {
+			fclose(file);
+			return 1;
+		}
+	}
+
+	fclose(file);
+
+	return 0;
 }
 
 /**
@@ -1052,7 +1061,7 @@ int extract_rootfs_binary(char *filename)
 	}
 
 	close(ifd);
-	if (!truncate(filename, dead_off)) {
+	if (truncate(filename, dead_off) == -1) {
 		printf(" Failed to extract rootfs \n");
 		return 0;
 	}
