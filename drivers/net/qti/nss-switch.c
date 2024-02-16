@@ -767,6 +767,10 @@ void ppe_port_speed_set(phys_addr_t reg_base, struct port_info *port)
 	case PORT_WRAPPER_SGMII0_RGMII4:
 	case PORT_WRAPPER_PSGMII:
 		break;
+	case PORT_WRAPPER_EMULATION:
+		usxgmii = true;
+		speed = port->mac_speed;
+		break;
 	default:
 		;
 	}
@@ -2313,6 +2317,13 @@ static int ipq_eth_port_set_up(struct ipq_eth_dev *priv,
 		ipq_port_mac_clock_reset(priv->dev, port);
 
 		ppe_port_speed_set(priv->ppe.base, port);
+
+	} else if (priv->emulation) {
+		port->gmac_type = XGMAC;
+		port->mac_speed = mac_speed;
+		port->uniphy_mode = PORT_WRAPPER_EMULATION;
+
+		ppe_port_speed_set(priv->ppe.base, port);
 	}
 fail:
 	return ret;
@@ -2334,7 +2345,7 @@ static int ipq_eth_start(struct udevice *dev)
 
 		port = priv->port[i];
 
-		if (!port || !port->phydev)
+		if ((!port || !port->phydev) && !priv->emulation)
 			continue;
 
 		if (active_port != i && active_port != CONFIG_ETH_MAX_MAC) {
@@ -2369,6 +2380,19 @@ static int ipq_eth_start(struct udevice *dev)
 					duplex = phydev->duplex;
 					speed = phydev->speed;
 				}
+			} else if (priv->emulation) {
+				/*
+				 * Clock rate will be like 1/100 or 1/150
+				 * in the emulation platform. So, configuring
+				 * MAC with higher speed, but in actuall it is
+				 * running with lower PHY speed.
+				 *
+				 * Eg: 10G (MAC) <==> 100M (PHY)
+				 */
+				++linkup;
+				link = 1;
+				duplex = 1;
+				speed = 10000;
 			} else {
 				continue;
 			}
@@ -2735,7 +2759,7 @@ static int ipq_eth_probe(struct udevice *dev)
 	nc_mem_init();
 
 	ret = reset_get_bulk(dev, &resets);
-	if (ret) {
+	if (ret && ret != -ENOENT) {
 		dev_err(dev, "Can't get reset: %d\n", ret);
 		return -ENODEV;
 	}
@@ -2779,6 +2803,12 @@ static int ipq_eth_probe(struct udevice *dev)
 		port = priv->port[i];
 		if (port == NULL)
 			continue;
+
+		if (priv->emulation) {
+			port->isconfigured = true;
+			++configured;
+			continue;
+		}
 
 		port->uniphy_base = priv->uniphy_base +
 					(port->uniphy_id * priv->uniphy_size);
@@ -2903,6 +2933,8 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 	priv->dev = dev;
 	ppe = &priv->ppe;
 
+	priv->emulation = dev_read_bool(dev, "qti,emulation");
+
 	priv->hw.iobase = (phys_addr_t)dev_read_addr_name(dev, "edma_hw");
 	if (priv->hw.iobase == FDT_ADDR_T_NONE) {
 		dev_err(dev, "edma_hw bus address not found\n");
@@ -2917,7 +2949,7 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 
 	priv->uniphy_base = dev_read_addr_size_name(dev, "uniphy_base",
 				(fdt_addr_t *)&priv->uniphy_size);
-	if (priv->uniphy_base == FDT_ADDR_T_NONE) {
+	if ((priv->uniphy_base == FDT_ADDR_T_NONE) && (!priv->emulation)) {
 		dev_err(dev, "uniphy_base bus address not found\n");
 		return -EINVAL;
 	}

@@ -663,6 +663,7 @@ enum port_wrapper_cfg {
         PORT_WRAPPER_10GBASE_R = 7,
         PORT_WRAPPER_SGMII_FIBER = 8,
 	PORT_WRAPPER_UQXGMII = 9,
+	PORT_WRAPPER_EMULATION = 10,
 };
 
 enum {
@@ -1039,4 +1040,5 @@ struct ipq_eth_dev {
 	struct ipq_edma_hw hw;
 	size_t uniphy_size;
 	bool uniphy_50mhz;
+	bool emulation;
 };
