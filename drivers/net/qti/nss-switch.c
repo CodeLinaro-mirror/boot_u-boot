@@ -1270,14 +1270,17 @@ int ipq_edma_alloc_rx_buffer(struct ipq_edma_hw *ehw,
 
 	cons = reg_data & EDMA_RXFILL_CONS_IDX_MASK;
 
+	pr_debug("%s: prod_idx = %d cons_idx  = %d\n", __func__, next, cons);
 	while (1) {
 		counter = next;
 
 		if (++counter == rxfill_ring->count)
 			counter = 0;
 
-		if (counter == cons)
+		if (counter == cons) {
+			pr_debug("%s: counter == cons (%u)\n", __func__, cons);
 			break;
+		}
 
 		/*
 		 * Get RXFILL descriptor
@@ -1346,6 +1349,8 @@ uint32_t ipq_edma_clean_tx(struct ipq_edma_hw *ehw,
 					txcmpl_ring->id));
 	cons_idx = data & EDMA_TXCMPL_CONS_IDX_MASK;
 
+	pr_debug("%s: prod_idx = %d cons_idx = %d\n",
+			__func__, prod_idx, cons_idx);
 	while (cons_idx != prod_idx) {
 
 		txcmpl_desc = EDMA_TXCMPL_DESC(txcmpl_ring, cons_idx);
@@ -1404,9 +1409,10 @@ uint32_t ipq_edma_clean_rx(struct ipq_edma_hw *ehw,
 		EDMA_REG_RXDESC_PROD_IDX(rxdesc_ring->id))
 		& EDMA_RXDESC_PROD_IDX_MASK;
 
-	if (cons_idx == prod_idx) {
-		pr_debug("%s: cons idx = %u, prod idx = %u\n",
+	pr_debug("%s: cons idx = %u, prod idx = %u\n",
 			__func__, cons_idx, prod_idx);
+	if (cons_idx == prod_idx) {
+		pr_debug("%s: cons idx == prod idx (%u)\n",__func__, prod_idx);
 		goto skip;
 	}
 
@@ -1437,6 +1443,8 @@ uint32_t ipq_edma_clean_rx(struct ipq_edma_hw *ehw,
 	}
 
 	cleaned_count++;
+	pr_debug("%s: src_port_num = %d pkt_length = %d cleaned_count = %d\n",
+			__func__, src_port_num, pkt_length, cleaned_count);
 
 	*buff = (void *)(uintptr_t)rxdesc_desc->rdes0;
 
@@ -2444,6 +2452,8 @@ static int ipq_eth_send(struct udevice *dev, void *packet, int length)
 			EDMA_REG_TXDESC_CONS_IDX(txdesc_ring->id));
 
 	hw_next_to_clean = data & EDMA_TXDESC_CONS_IDX_MASK;
+	pr_debug("%s: hw_next_to_use = %d hw_next_to_clean = %d\n",
+			__func__, hw_next_to_use, hw_next_to_clean);
 
 	/*
 	 * Check for available Tx descriptor
@@ -2469,10 +2479,11 @@ static int ipq_eth_send(struct udevice *dev, void *packet, int length)
 	txdesc->tdes7 = 0;
 	skb = (uchar *)((uintptr_t)txdesc->tdes0);
 
-	pr_debug("%s: txdesc->tdes0 (buffer addr) = 0x%lx length = %d "
-			"prod_idx = %d cons_idx = %d\n",
-			__func__, (uintptr_t)txdesc->tdes0, length,
-			hw_next_to_use, hw_next_to_clean);
+	pr_debug("%s: txdesc->tdes0 (buffer addr) = 0x%lx "
+			"txdesc->tdes1 (buffer addr) = 0x%lx length = %d "
+			"prod_idx = %d cons_idx = %d\n", __func__,
+			(uintptr_t)txdesc->tdes0, (uintptr_t)txdesc->tdes1,
+			length,	hw_next_to_use, hw_next_to_clean);
 
 	/* VP 0x0 share vsi 2 with port 1-4 */
 	/* src is 0x2000, dest is 0x0 */
@@ -2582,6 +2593,10 @@ static int ipq_eth_recv(struct udevice *dev, int flags, uchar **packetp)
 
 	if ((rxdesc_intr_status != 0) || (txcmpl_intr_status != 0) ||
 	    (rxfill_intr_status != 0)) {
+		pr_debug("%s: rxdesc_intr_status = %d txcmpl_intr_status = %d"
+				" rxfill_intr_status = %d \n", __func__,
+				rxdesc_intr_status, txcmpl_intr_status,
+				rxfill_intr_status);
 		for (i = 0; i < ehw->rxdesc_rings; i++) {
 			rxdesc_ring = &ehw->rxdesc_ring[i];
 			writel(EDMA_MASK_INT_DISABLE,
