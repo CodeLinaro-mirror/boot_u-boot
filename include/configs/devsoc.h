@@ -14,38 +14,43 @@ extern uint32_t g_load_addr;
 
 /*
  * Memory layout
-   8000_0000-->  _____________________  DRAM BASE
+ *
+   8000_0000-->	 _____________________  DRAM Base
 	        |		      |
 	        |		      |
+	        |		      |
+   8A00_0000--> |_____________________|
+	        |                     |
+	        |    STACK - 502KB    |
 	        |_____________________|
 	        |		      |
-	        |	STACK	      |
+	        |      Global Data    |
 	        |_____________________|
 	        |		      |
-	        |         GD          |
-	        |_____________________|
+	        |      Board Data     |
+   8A08_0000--> |_____________________|
 	        |		      |
-	        |         BD          |
-	        |_____________________|
+	        |    HEAP - 1792KB    |
+	        |      (inc. ENV)     |
+   8A24_0000--> |_____________________|
 	        |		      |
-	        |  HEAP + ENV - 2MB   |
-   8A30_0000--> |_____________________|
+                |    TEXT - 1792KB    |
+   8A40_0000--> |_____________________|
 	        |		      |
-                |     TEXT - 2MB      |
-	        |_____________________|
-	        |        .	      |
-	        |	 .	      |
-	        |	 .	      |
-	        |________.____________| DRAM END
+	        | NONCACHED MEM - 1MB |
+   8A50_0000--> |_____________________|
+	        |                     |
+	        |                     |
+   C000_0000--> |_____________________| DRAM End
 */
 
 #define CONFIG_HAS_CUSTOM_SYS_INIT_SP_ADDR
-#define CONFIG_CUSTOM_SYS_INIT_SP_ADDR         	(CONFIG_TEXT_BASE -	\
-						CONFIG_SYS_MALLOC_LEN - \
-						CONFIG_ENV_SIZE -	\
+#define CONFIG_CUSTOM_SYS_INIT_SP_ADDR         	(CONFIG_TEXT_BASE -\
+						CONFIG_SYS_MALLOC_LEN -\
+						CONFIG_ENV_SIZE -\
 						GENERATED_GBL_DATA_SIZE)
 
-#define CFG_SYS_BAUDRATE_TABLE			{ 115200, 230400, 	\
+#define CFG_SYS_BAUDRATE_TABLE			{ 115200, 230400,	\
 							460800, 921600 }
 
 #define CFG_SYS_HZ_CLOCK			240000
@@ -74,6 +79,7 @@ extern uint32_t g_load_addr;
 #define DEVSOC_DDR_UPPER_SIZE_MAX		(DEVSOC_DDR_SIZE - \
 						(CFG_SYS_SDRAM_BASE - \
 						DEVSOC_UBOOT_END_ADDRESS))
+
 #define DEVSOC_DDR_LOWER_SIZE			(CONFIG_TEXT_BASE - \
 							CFG_SYS_SDRAM_BASE)
 #define ROOT_FS_PART_NAME			"rootfs"
@@ -81,3 +87,39 @@ extern uint32_t g_load_addr;
 #define CONFIG_ROOTFS_LOAD_ADDR			CFG_SYS_SDRAM_BASE + (32 << 20)
 
 #define MTDPARTS_MAXLEN				4096
+
+#define NONCACHED_MEM_REGION_ADDR		((DEVSOC_UBOOT_END_ADDRESS + \
+						SZ_1M - 1) & ~(SZ_1M - 1))
+#define NONCACHED_MEM_REGION_SIZE		SZ_1M
+
+/*
+ * Refer above memory layout,
+ * Non-Cached Memory should not begin at above 0x8A400000 since upcoming
+ * memory regions are being used in the other boot components
+ */
+#if (NONCACHED_MEM_REGION_ADDR > 0x8A400000)
+#error "###: Text Segment overlaps with the Non-Cached Region"
+#endif
+
+#ifdef CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR
+/*
+ * CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR - memory used to decompress multi dtb
+ * NONCACHED_MEM_REGION_ADDR - Non-Cached memory region
+ * both uses same address space. So both should be same.
+ *
+ * Change in CONFIG_TEXT_BASE or CONFIG_TEXT_SIZE various affect this macro.
+ * So, according define the CONFIG_TEXT_BASE and CONFIG_TEXT_SIZE macros.
+ */
+#if (CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR)
+#error "###: CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR"
+#endif
+#endif
+
+#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#define CFG_NR_CPUS				4
+#endif
+
+#ifdef CONFIG_NET_RETRY_COUNT
+#undef CONFIG_NET_RETRY_COUNT
+#define CONFIG_NET_RETRY_COUNT			500
+#endif
