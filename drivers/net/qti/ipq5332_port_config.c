@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "nss-switch.h"
@@ -156,6 +156,7 @@ struct ipq_tdm_config *tdm_config = ipq5322_tdm_config;
 struct ipq_eth_sku *ipq_uniphy = NULL;
 
 struct edma_config ipq_edma_config = {
+	.sw_version		= EDMA_SW_VER_1_ID,
 	.txdesc_ring_start 	= 23,
 	.txdesc_rings 		= 1,
 	.txdesc_ring_end 	= 24,

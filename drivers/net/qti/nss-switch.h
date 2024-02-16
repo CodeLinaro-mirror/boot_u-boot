@@ -2,7 +2,7 @@
  **************************************************************************
  * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -97,6 +97,9 @@
 
 #define CLKOUT_50M_CTRL_OPTION			0x610
 
+#define EDMA_SW_VER_1_ID			0x01
+#define EDMA_SW_VER_2_ID			0x02
+
 /* Number of descriptors in each ring is defined with below macro */
 #define EDMA_TX_RING_SIZE			128
 #define EDMA_RX_RING_SIZE			128
@@ -141,14 +144,18 @@
 #define EDMA_REG_TXDESC_RING_SIZE(n)	(0x100c + (0x1000 * n))
 #define EDMA_REG_TXDESC_CTRL(n)		(0x1010 + (0x1000 * n))
 #define EDMA_REG_TXDESC_BA2(n)		(0x1014 + (0x1000 * n))
+#define EDMA_REG_TXDESC_BA_HIGH(n)	(0x1018 + (0x1000 * n))
+#define EDMA_REG_TXDESC_BA2_HIGH(n)	(0x101c + (0x1000 * n))
 
 #define EDMA_REG_RXFILL_BA(n)		(0x29000 + (0x1000 * n))
 #define EDMA_REG_RXFILL_PROD_IDX(n)	(0x29004 + (0x1000 * n))
 #define EDMA_REG_RXFILL_CONS_IDX(n)	(0x29008 + (0x1000 * n))
 #define EDMA_REG_RXFILL_RING_SIZE(n)	(0x2900c + (0x1000 * n))
+#define EDMA_REG_RXFILL_RING_SIZE_V2(n)	(0x29010 + (0x1000 * n))
 #define EDMA_REG_RXFILL_RING_EN(n)	(0x2901c + (0x1000 * n))
 #define EDMA_REG_RXFILL_INT_STAT(n)	(0x31000 + (0x1000 * n))
 #define EDMA_REG_RXFILL_INT_MASK(n)	(0x31004 + (0x1000 * n))
+#define EDMA_REG_RXFILL_BA_HIGH(n)	(0x29028 + (0x1000 * n))
 
 #define EDMA_REG_RXDESC_BA(n)		(0x39000 + (0x1000 * n))
 #define EDMA_REG_RXDESC_PROD_IDX(n)	(0x39004 + (0x1000 * n))
@@ -160,12 +167,15 @@
 #define EDMA_REG_RXDESC_INT_STAT(n)	(0x59000 + (0x1000 * n))
 #define EDMA_REG_RXDESC_INT_MASK(n)	(0x59004 + (0x1000 * n))
 #define EDMA_REG_RX_INT_CTRL(n)		(0x5900c + (0x1000 * n))
+#define EDMA_REG_RXDESC_BA_HIGH(n)	(0x3902c + (0x1000 * n))
+#define EDMA_REG_RXDESC_BA2_HIGH(n)	(0x39030 + (0x1000 * n))
 
 #define EDMA_REG_TXCMPL_BA(n)		(0x79000 + (0x1000 * n))
 #define EDMA_REG_TXCMPL_PROD_IDX(n)	(0x79004 + (0x1000 * n))
 #define EDMA_REG_TXCMPL_CONS_IDX(n)	(0x79008 + (0x1000 * n))
 #define EDMA_REG_TXCMPL_RING_SIZE(n)	(0x7900c + (0x1000 * n))
 #define EDMA_REG_TXCMPL_CTRL(n)		(0x79014 + (0x1000 * n))
+#define EDMA_REG_TXCMPL_BA_HIGH(n)	(0x7901C + (0x1000 * n))
 
 #define EDMA_REG_TX_INT_STAT(n)		(0x99000 + (0x1000 * n))
 #define EDMA_REG_TX_INT_MASK(n)		(0x99004 + (0x1000 * n))
@@ -235,6 +245,7 @@
  */
 #define EDMA_TXDESC_TX_EN			0x1
 
+#define EDMA_TXDESC_BUF_HI_ADD_MASK		0xFF
 /*
  * EDMA_REG_TXCMPL_PROD_IDX register
  */
@@ -277,6 +288,8 @@
  */
 #define EDMA_RXFILL_INT_MASK			0x1
 
+#define EDMA_RXFILL_BUF_HI_ADD_MASK		0xFF
+
 /*
  * EDMA_REG_RXDESC_PROD_IDX register
  */
@@ -293,6 +306,7 @@
 #define EDMA_RXDESC_RING_SIZE_MASK		0xffff
 #define EDMA_RXDESC_PL_OFFSET_MASK		0x1ff
 #define EDMA_RXDESC_PL_OFFSET_SHIFT		16
+#define EDMA_RXDESC_PL_OFFSET_SHIFT_V2		23
 
 /*
  * EDMA_REG_RXDESC_CTRL register
@@ -675,8 +689,13 @@ enum {
  * RxDesc descriptor
  */
 struct ipq_edma_rxdesc_desc {
-	uint32_t rdes0; /* Contains buffer address */
-	uint32_t rdes1; /* Contains more bit, priority bit, service code */
+	uint32_t rdes0; /* Contains lower 32-bit of buffer address */
+	uint32_t rdes1;
+	/*
+	 * v1: Contains more bit, priority bit, service code
+	 * v2: Contains more bit, priority bit, service code & higher 8-bit of
+	 * buffer address.
+	 */
 	uint32_t rdes2; /* Contains opaque */
 	uint32_t rdes3; /* Contains opaque high bits */
 	uint32_t rdes4; /* Contains destination and source information */
@@ -703,8 +722,12 @@ struct ipq_edma_rx_sec_desc {
  * RxFill descriptor
  */
 struct ipq_edma_rxfill_desc {
-	uint32_t rdes0; /* Contains buffer address */
-	uint32_t rdes1; /* Contains buffer size */
+	uint32_t rdes0; /* Contains Lower 32-bit of buffer address */
+	uint32_t rdes1;
+	/*
+	 * v1: Contains buffer size
+	 * v2: Contains buffer & higher 8-bit of buffer address.
+	 */
 	uint32_t rdes2; /* Contains opaque */
 	uint32_t rdes3; /* Contains opaque high bits */
 };
@@ -713,8 +736,13 @@ struct ipq_edma_rxfill_desc {
  * TxDesc descriptor
  */
 struct ipq_edma_txdesc_desc {
-	uint32_t tdes0; /* Low 32-bit of buffer address */
-	uint32_t tdes1; /* Buffer recycling, PTP tag flag, PRI valid flag */
+	uint32_t tdes0; /* Lower 32-bit of buffer address */
+	uint32_t tdes1;
+	/*
+	 * v1: Buffer recycling, PTP tag flag, PRI valid flag
+	 * v2: Buffer recycling, PTP tag flag, PRI valid flag & higher 8-bit
+	 * of buffer address
+	 */
 	uint32_t tdes2; /* Low 32-bit of opaque value */
 	uint32_t tdes3; /* High 32-bit of opaque value */
 	uint32_t tdes4; /* Source/Destination port info */
@@ -922,6 +950,7 @@ extern struct ipq_eth_sku *ipq_uniphy;
 struct edma_config {
 	struct ipq_eth_port_config *pconfig;
 	uint32_t tdm_ctrl_val;
+	uint32_t sw_version;
 	uint8_t txdesc_ring_start;
 	uint8_t txdesc_rings;
 	uint8_t txdesc_ring_end;
@@ -960,6 +989,7 @@ struct ipq_edma_hw {
 					/* Rx Desc Ring, SW is consumer */
 	struct ipq_edma_rxfill_ring *rxfill_ring;
 					/* Rx Fill Ring, SW is producer */
+	uint32_t sw_version;		/* EDMA SW version */
 	uint32_t rxfill_intr_mask;	/* Rx fill ring interrupt mask */
 	uint32_t rxdesc_intr_mask;	/* Rx Desc ring interrupt mask */
 	uint32_t txcmpl_intr_mask;	/* Tx Cmpl ring interrupt mask */

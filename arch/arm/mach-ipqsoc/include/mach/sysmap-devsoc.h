@@ -1,9 +1,57 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 #ifndef _MACH_SYSMAP_DEVSOC_H
 #define _MACH_SYSMAP_DEVSOC_H
+
+/* NSS clock control registers */
+#define NSS_CC_PPE_SWITCH_IPE_CBCR	(0x00400)
+#define NSS_CC_PPE_SWITCH_CBCR		(0x00410)
+#define NSS_CC_PPE_EDMA_CBCR		(0x0041C)
+#define NSS_CC_PPE_EDMA_CFG_CBCR	(0x00424)
+#define NSS_CC_PORT1_MAC_CBCR		(0x00428)
+#define NSS_CC_PORT2_MAC_CBCR		(0x00430)
+#define NSS_CC_PORT3_MAC_CBCR		(0x00438)
+#define NSS_CC_NSSNOC_PPE_CBCR		(0x00440)
+#define NSS_CC_PORT1_RX_CBCR		(0x004FC)
+#define NSS_CC_PORT1_TX_CBCR		(0x00504)
+#define NSS_CC_PORT2_RX_CBCR		(0x0050C)
+#define NSS_CC_PORT2_TX_CBCR		(0x00514)
+#define NSS_CC_PORT3_RX_CBCR		(0x0051C)
+#define NSS_CC_PORT3_TX_CBCR		(0x00524)
+#define NSS_CC_UNIPHY_PORT1_RX_CBCR	(0x0057C)
+#define NSS_CC_UNIPHY_PORT1_TX_CBCR	(0x00580)
+#define NSS_CC_UNIPHY_PORT2_RX_CBCR	(0x00584)
+#define NSS_CC_UNIPHY_PORT2_TX_CBCR	(0x00588)
+#define NSS_CC_UNIPHY_PORT3_RX_CBCR	(0x0058C)
+#define NSS_CC_UNIPHY_PORT3_TX_CBCR	(0x00590)
+#define NSS_CC_CE_APB_CBCR		(0x005E8)
+#define NSS_CC_CE_AXI_CBCR		(0x005EC)
+#define NSS_CC_NSSNOC_CE_APB_CBCR	(0x005F4)
+#define NSS_CC_NSSNOC_CE_AXI_CBCR	(0x005F8)
+#define NSS_CC_NSS_CSR_CBCR		(0x006B0)
+#define NSS_CC_NSSNOC_NSS_CSR_CBCR	(0x006B4)
+
+#define NSS_CC_PPE_CMD_RCGR		(0x003EC)
+#define NSS_CC_PPE_CFG_RCGR		(0x003F0)
+#define NSS_CC_CE_CMD_RCGR		(0x005E0)
+#define NSS_CC_CE_CFG_RCGR		(0x005E4)
+#define NSS_CC_CFG_CMD_RCGR		(0x006A8)
+#define NSS_CC_CFG_CFG_RCGR		(0x006AC)
+
+#define NSS_CC_PPE_SRC_SEL_CMN_PLL_NSS_CLK_375M		(6 << 8)
+#define NSS_CC_PPE_SRC_SEL_GCC_GPLL0_OUT_AUX		(2 << 8)
+
+#define CLK_1_25_MHZ			(1250000UL)
+#define CLK_2_5_MHZ			(2500000UL)
+#define CLK_12_5_MHZ			(12500000UL)
+#define CLK_25_MHZ			(25000000UL)
+#define CLK_78_125_MHZ			(78125000UL)
+#define CLK_50_MHZ			(50000000UL)
+#define CLK_125_MHZ			(125000000UL)
+#define CLK_156_25_MHZ			(156250000UL)
+#define CLK_312_5_MHZ			(312500000UL)
 
 #endif

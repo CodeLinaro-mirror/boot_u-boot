@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-* Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
 */
 
 /dts-v1/;
@@ -58,6 +58,14 @@
 			#size-cells = <0x0>;
 			#clock-cells = <1>;
 			u-boot,dm-pre-reloc;
+		};
+
+		nss: clock-controller@39B00000 {
+			compatible = "qti,gcc-devsoc";
+			reg = <0x39B00000 0x80000>;
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+			#clock-cells = <1>;
 		};
 
 		reset: gcc-reset@1800000 {
@@ -149,6 +157,82 @@
 			mmc-hs200-1_8v;
 			bus_pwr_off_rst;
 			status = "okay";
+		};
+
+		mdio: mdio@90000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,ipq4019-mdio";
+			reg = <0x90000 0x64>;
+			status = "disabled";
+		};
+
+		eth_switch: nss-switch {
+			compatible = "qti,ipq-nss-switch";
+			reg = <0x3ab00000 0xEF800 0x3A000000 0x1000000>;
+			reg-names = "edma_hw", "ppe_base";
+			assigned-clocks = <&nss NSS_CC_PPE_CLK>,
+					<&nss NSS_CC_CE_CLK>,
+					<&nss NSS_CC_CFG_CLK>;
+			assigned-clock-rates = <375000000>,
+					<375000000>,
+					<100000000>;
+			clocks = <&nss NSS_CC_PPE_SWITCH_CLK>,
+				<&nss NSS_CC_PPE_SWITCH_IPE_CLK>,
+				<&nss NSS_CC_NSSNOC_PPE_CLK>,
+				<&nss NSS_CC_CE_APB_CLK>,
+				<&nss NSS_CC_CE_AXI_CLK>,
+				<&nss NSS_CC_NSSNOC_CE_APB_CLK>,
+				<&nss NSS_CC_NSSNOC_CE_AXI_CLK>,
+				<&nss NSS_CC_NSS_CSR_CLK>,
+				<&nss NSS_CC_NSSNOC_NSS_CSR_CLK>,
+				<&nss NSS_CC_PPE_EDMA_CLK>,
+				<&nss NSS_CC_PPE_EDMA_CFG_CLK>,
+				<&nss NSS_CC_PORT1_MAC_CLK>,
+				<&nss NSS_CC_PORT2_MAC_CLK>,
+				<&nss NSS_CC_PORT3_MAC_CLK>,
+				<&nss NSS_CC_PORT1_RX_CLK>,
+				<&nss NSS_CC_PORT1_TX_CLK>,
+				<&nss NSS_CC_PORT2_RX_CLK>,
+				<&nss NSS_CC_PORT2_TX_CLK>,
+				<&nss NSS_CC_PORT3_RX_CLK>,
+				<&nss NSS_CC_PORT3_TX_CLK>,
+				<&nss NSS_CC_UNIPHY_PORT1_RX_CLK>,
+				<&nss NSS_CC_UNIPHY_PORT1_TX_CLK>,
+				<&nss NSS_CC_UNIPHY_PORT2_RX_CLK>,
+				<&nss NSS_CC_UNIPHY_PORT2_TX_CLK>,
+				<&nss NSS_CC_UNIPHY_PORT3_RX_CLK>,
+				<&nss NSS_CC_UNIPHY_PORT3_TX_CLK>;
+			clock-names = "nss_cc_ppe_switch_clk",
+				"nss_cc_ppe_switch_ipe_clk",
+				"nss_cc_nssnoc_ppe_clk",
+				"nss_cc_ce_ape_clk",
+				"nss_cc_ce_axi_clk",
+				"nss_cc_nssnoc_ce_apb_clk",
+				"nss_cc_nssnoc_ce_axi_clk",
+				"nss_cc_nss_csr_clk",
+				"nss_cc_nssnoc_nss_csr_clk",
+				"nss_cc_ppe_edma_clk",
+				"nss_cc_ppe_edma_cfg_clk",
+				"nss_cc_port1_mac_clk",
+				"nss_cc_port2_mac_clk",
+				"nss_cc_port3_mac_clk",
+				"nss_cc_port1_rx_clk",
+				"nss_cc_port1_tx_clk",
+				"nss_cc_port2_rx_clk",
+				"nss_cc_port2_tx_clk",
+				"nss_cc_port3_rx_clk",
+				"nss_cc_port3_tx_clk",
+				"nss_cc_uniphy_port1_rx_clk",
+				"nss_cc_uniphy_port1_tx_clk",
+				"nss_cc_uniphy_port2_rx_clk",
+				"nss_cc_uniphy_port2_tx_clk",
+				"nss_cc_uniphy_port3_rx_clk",
+				"nss_cc_uniphy_port3_tx_clk";
+			tdm_offset = <0xc000>;
+			tdm_mode = <0>;
+			no_tdm_reg = <126>;
+			status = "disabled";
 		};
 	};
 };
