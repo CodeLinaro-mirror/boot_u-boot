@@ -2310,7 +2310,11 @@ class Pack(object):
                                    flinfo.chipsize, blocksize, chipsize, root_part)
                 self.partitions = mibib_qcn9224.get_parts()
 
+<<<<<<< HEAD   (ee0ba8 Merge "tools: pack: sync pack with the win.coretech.1.0 bran)
                 script.append('if test "$machid" = "8050301" || test "$machid" = "8050501"  || test "$machid" = "8050601" || test "$machid" = "8050701" || test "$machid" = "8050801" || test "$machid" = "8050901" || test "$machid" = "8050a01" || test "$machid" = "8050b01" || test "$machid" = "8050c01" || test "$machid" = "8050d01" || test "$machid" = "8050e01" || test "$machid" = "8050f01" || test "$machid" = "8051001" || test "$machid" = "0x8051101" || test "$machid" = "8051201" || test "$machid" = "8051301" || test "$machid" = "8050002" || test "$machid" = "8050102" || test "$machid" = "8050003" || test "$machid" = "8050004"; then\n', fatal=False)
+=======
+                script.append('if test "$machid" = "8050301" || test "$machid" = "8050501"  || test "$machid" = "8050601" || test "$machid" = "8050701" || test "$machid" = "8050801" || test "$machid" = "8050901" || test "$machid" = "8050a01" || test "$machid" = "8050b01" || test "$machid" = "8050c01" || test "$machid" = "8050d01" || test "$machid" = "8050e01" || test "$machid" = "8050f01" || test "$machid" = "8051001" || test "$machid" = "0x8051101" || test "$machid" = "8051201" || test "$machid" = "8050002" || test "$machid" = "8050102" || test "$machid" = "8050003" || test "$machid" = "8050004"; then\n', fatal=False)
+>>>>>>> CHANGE (1aa1e6 tools: pack: add support for machid 8050003 and 8050004)
                 ret = self.__gen_flash_script(script, flinfo, root, True)
                 if ret == 0:
                     return 0 #Issue in packing al+wkk single-image
@@ -2336,10 +2340,17 @@ class Pack(object):
                 gpt = GPT(part_fname_qcn9224, flinfo.pagesize, flinfo.blocksize, flinfo.chipsize)
                 self.partitions = gpt.get_parts()
 
+<<<<<<< HEAD   (ee0ba8 Merge "tools: pack: sync pack with the win.coretech.1.0 bran)
                 script.append('if test "$machid" = "8050301" || test "$machid" = "8050501"  || test "$machid" = "8050601" || test "$machid" = "8050701" || test "$machid" = "8050801" || test "$machid" = "8050901" || test "$machid" = "8050a01" || test "$machid" = "8050b01" || test "$machid" = "8050c01" || test "$machid" = "8050d01" || test "$machid" = "8050e01" || test "$machid" = "8050f01" || test "$machid" = "8051001" || test "$machid" = "0x8051101" || test "$machid" = "8051201" || test "$machid" = "8051301" || test "$machid" = "8050002" || test "$machid" = "8050102" || test "$machid" = "8050003" || test "$machid" = "8050004"; then\n', fatal=False)
                 ret = self.__gen_flash_script(script, flinfo, root, True)
                 if ret == 0:
                     return 0 #Issue in packing al+wkk single-image
+=======
+                script.append('if test "$machid" = "8050301" || test "$machid" = "8050501"  || test "$machid" = "8050601" || test "$machid" = "8050701" || test "$machid" = "8050801" || test "$machid" = "8050901" || test "$machid" = "8050a01" || test "$machid" = "8050b01" || test "$machid" = "8050c01" || test "$machid" = "8050d01" || test "$machid" = "8050e01" || test "$machid" = "8050f01" || test "$machid" = "8051001" || test "$machid" = "0x8051101" || test "$machid" = "8051201" || test "$machid" = "8050002" || test "$machid" = "8050102" || test "$machid" = "8050003" || test "$machid" = "8050004"; then\n', fatal=False)
+		ret = self.__gen_flash_script(script, flinfo, root, True)
+		if ret == 0:
+			return 0 #Issue in packing al+wkk single-image
+>>>>>>> CHANGE (1aa1e6 tools: pack: add support for machid 8050003 and 8050004)
 
                 script.append('else', fatal=False)
                 self.partitions = {}
