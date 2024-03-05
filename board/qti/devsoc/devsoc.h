@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DEVSOC_H_
@@ -32,6 +32,15 @@ typedef enum {
 
 /* MACH IDs for various RDPs */
 #define MACH_TYPE_DEVSOC_EMU			0x8050001
+
+/* Crashdump Magic registers & values */
+#define TCSR_BOOT_MISC_REG			((u32*)0x195C100)
+
+#define DLOAD_MAGIC_COOKIE			0x10
+#define DLOAD_DISABLED				0x40
+#define DLOAD_ENABLE				BIT(4)
+#define DLOAD_DISABLE				(~BIT(4))
+#define CRASHDUMP_RESET				BIT(11)
 
 /* DT Fixup nodes */
 #define LINUX_6_x_NAND_DTS_NODE		"/soc@0/nand@79b0000/"
