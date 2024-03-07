@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _IPQSMEM_H
