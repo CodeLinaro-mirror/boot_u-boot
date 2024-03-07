@@ -310,6 +310,8 @@ config TARGET_DEVSOC
 	select BOARD_TYPES
 	select IPQ_FLUTILS
 	select IPQ_FDT_FIXUP
+	select IPQ_NET
+	select QTI_NSS_SWITCH
 	help
 	  Support for IPQ DEVSoC.
 

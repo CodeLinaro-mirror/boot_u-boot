@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1355,7 +1355,10 @@ uint32_t ipq_edma_clean_tx(struct ipq_edma_hw *ehw,
 
 		txcmpl_desc = EDMA_TXCMPL_DESC(txcmpl_ring, cons_idx);
 
-		skb = (uchar *)((uintptr_t)txcmpl_desc->tdes0);
+		skb = (uchar *)((uintptr_t)
+				(((uint64_t)(txcmpl_desc->tdes1 &
+				EDMA_TXDESC_BUF_HI_ADD_MASK) << 32) |
+				txcmpl_desc->tdes0));
 
 		if (unlikely(!skb)) {
 			printf("Invalid skb: cons_idx:%u prod_idx:%u\n",
@@ -1446,7 +1449,9 @@ uint32_t ipq_edma_clean_rx(struct ipq_edma_hw *ehw,
 	pr_debug("%s: src_port_num = %d pkt_length = %d cleaned_count = %d\n",
 			__func__, src_port_num, pkt_length, cleaned_count);
 
-	*buff = (void *)(uintptr_t)rxdesc_desc->rdes0;
+	*buff = (void*)((uintptr_t)(((uint64_t)(rxdesc_desc->rdes1 &
+				EDMA_TXDESC_BUF_HI_ADD_MASK) << 32)
+				| rxdesc_desc->rdes0));
 
 next_rx_desc:
 	/*
@@ -1589,7 +1594,13 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		for (j = 0; j < rxfill_ring->count; j++) {
 			rxfill_desc = EDMA_RXFILL_DESC(rxfill_ring, j);
 			rxfill_desc->rdes0 = virt_to_phys(rx_buf);
+#ifdef CONFIG_ARM64
+			rxfill_desc->rdes1 = virt_to_phys((void*)
+					(((uintptr_t)rx_buf) >> 32)) &
+					EDMA_RXFILL_BUF_HI_ADD_MASK;
+#else
 			rxfill_desc->rdes1 = 0;
+#endif
 			rxfill_desc->rdes2 = 0;
 			rxfill_desc->rdes3 = 0;
 			rx_buf += EDMA_RX_BUFF_SIZE;
@@ -1673,7 +1684,13 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		for (j = 0; j < txdesc_ring->count; j++) {
 			txdesc_desc = EDMA_TXDESC_DESC(txdesc_ring, j);
 			txdesc_desc->tdes0 = virt_to_phys(tx_buf);
+#ifdef CONFIG_ARM64
+			txdesc_desc->tdes1 = virt_to_phys((void*)
+					(((uintptr_t)tx_buf)>> 32)) &
+					EDMA_TXDESC_BUF_HI_ADD_MASK;
+#else
 			txdesc_desc->tdes1 = 0;
+#endif
 			txdesc_desc->tdes2 = 0;
 			txdesc_desc->tdes3 = 0;
 			txdesc_desc->tdes4 = 0;
@@ -1862,15 +1879,27 @@ static int ipq_edma_init_rings(struct ipq_edma_hw *ehw)
 static void ipq_edma_configure_txdesc_ring(struct ipq_edma_hw *ehw,
 				struct ipq_edma_txdesc_ring *txdesc_ring)
 {
+	uint64_t base;
 	phys_addr_t reg_base = ehw->iobase;
 	/*
 	 * Configure TXDESC ring
 	 */
+	base = txdesc_ring->dma;
 	writel((uint32_t)(txdesc_ring->dma & EDMA_RING_DMA_MASK),
 		reg_base + EDMA_REG_TXDESC_BA(txdesc_ring->id));
 
+	if (base & (~(uint64_t)EDMA_RING_DMA_MASK))
+		writel((uint8_t)(base >> 32),
+			reg_base + EDMA_REG_TXDESC_BA_HIGH(txdesc_ring->id));
+
+	base = txdesc_ring->sdma;
 	writel((uint32_t)(txdesc_ring->sdma & EDMA_RING_DMA_MASK),
 		reg_base + EDMA_REG_TXDESC_BA2(txdesc_ring->id));
+
+	if (base & (~(uint64_t)EDMA_RING_DMA_MASK))
+		writel((uint8_t)(base >> 32),
+		reg_base + EDMA_REG_TXDESC_BA2_HIGH(txdesc_ring->id));
+
 
 	writel((uint32_t)(txdesc_ring->count & EDMA_TXDESC_RING_SIZE_MASK),
 		reg_base + EDMA_REG_TXDESC_RING_SIZE(txdesc_ring->id));
@@ -1886,12 +1915,18 @@ static void ipq_edma_configure_txdesc_ring(struct ipq_edma_hw *ehw,
 static void ipq_edma_configure_txcmpl_ring(struct ipq_edma_hw *ehw,
 				struct ipq_edma_txcmpl_ring *txcmpl_ring)
 {
+	uint64_t base;
 	phys_addr_t reg_base = ehw->iobase;
 	/*
 	 * Configure TxCmpl ring base address
 	 */
+	base = txcmpl_ring->dma;
 	writel((uint32_t)(txcmpl_ring->dma & EDMA_RING_DMA_MASK),
 		reg_base + EDMA_REG_TXCMPL_BA(txcmpl_ring->id));
+
+	if (base & (~(uint64_t)EDMA_RING_DMA_MASK))
+		writel((uint8_t)(base >> 32),
+		reg_base + EDMA_REG_TXCMPL_BA_HIGH(txcmpl_ring->id));
 
 	writel((uint32_t)(txcmpl_ring->count & EDMA_TXDESC_RING_SIZE_MASK),
 		reg_base + EDMA_REG_TXCMPL_RING_SIZE(txcmpl_ring->id));
@@ -1916,18 +1951,41 @@ static void ipq_edma_configure_rxdesc_ring(struct ipq_edma_hw *ehw,
 {
 	phys_addr_t reg_base = ehw->iobase;
 	uint32_t data;
+	uint64_t base;
 
+	base = rxdesc_ring->dma;
 	writel((uint32_t)(rxdesc_ring->dma & EDMA_RING_DMA_MASK),
 		reg_base + EDMA_REG_RXDESC_BA(rxdesc_ring->id));
 
+	if (base & (~(uint64_t)EDMA_RING_DMA_MASK))
+		writel((uint8_t)(base >> 32),
+			reg_base + EDMA_REG_RXDESC_BA_HIGH(rxdesc_ring->id));
+
+	base = rxdesc_ring->sdma;
 	writel((uint32_t)(rxdesc_ring->sdma & EDMA_RING_DMA_MASK),
 		reg_base + EDMA_REG_RXDESC_BA2(rxdesc_ring->id));
 
-	data = rxdesc_ring->count & EDMA_RXDESC_RING_SIZE_MASK;
-	data |= (ehw->rx_payload_offset & EDMA_RXDESC_PL_OFFSET_MASK) <<
-		EDMA_RXDESC_PL_OFFSET_SHIFT;
+	if (base & (~(uint64_t)EDMA_RING_DMA_MASK))
+		writel((uint8_t)(base >> 32),
+			reg_base + EDMA_REG_RXDESC_BA2_HIGH(rxdesc_ring->id));
 
-	writel(data, reg_base + EDMA_REG_RXDESC_RING_SIZE(rxdesc_ring->id));
+	if (ehw->sw_version == EDMA_SW_VER_2_ID) {
+		data = readl(reg_base +
+				EDMA_REG_RXDESC_FC_THRE(rxdesc_ring->id));
+		data |= (ehw->rx_payload_offset & EDMA_RXDESC_PL_OFFSET_MASK)
+			<< EDMA_RXDESC_PL_OFFSET_SHIFT_V2;
+		writel(data, reg_base +
+				EDMA_REG_RXDESC_FC_THRE(rxdesc_ring->id));
+
+		data = rxdesc_ring->count & EDMA_RXDESC_RING_SIZE_MASK;
+	} else {
+		data = rxdesc_ring->count & EDMA_RXDESC_RING_SIZE_MASK;
+		data |= (ehw->rx_payload_offset & EDMA_RXDESC_PL_OFFSET_MASK)
+			<< EDMA_RXDESC_PL_OFFSET_SHIFT;
+	}
+
+	writel(data, reg_base +	EDMA_REG_RXDESC_RING_SIZE(rxdesc_ring->id));
+
 	/*
 	 * Enable ring. Set ret mode to 'opaque'.
 	 */
@@ -1944,13 +2002,24 @@ static void ipq_edma_configure_rxfill_ring(struct ipq_edma_hw *ehw,
 {
 	phys_addr_t reg_base = ehw->iobase;
 	uint32_t data;
+	uint64_t base;
 
+	base = rxfill_ring->dma;
 	writel((uint32_t)(rxfill_ring->dma & EDMA_RING_DMA_MASK),
 		reg_base + EDMA_REG_RXFILL_BA(rxfill_ring->id));
 
+	if (base & (~(uint64_t)EDMA_RING_DMA_MASK))
+		writel((uint8_t)(base >> 32),
+		reg_base + EDMA_REG_RXFILL_BA_HIGH(rxfill_ring->id));
+
 	data = rxfill_ring->count & EDMA_RXFILL_RING_SIZE_MASK;
 
-	writel(data, reg_base + EDMA_REG_RXFILL_RING_SIZE(rxfill_ring->id));
+	if (ehw->sw_version == EDMA_SW_VER_2_ID)
+		writel(data, reg_base +
+				EDMA_REG_RXFILL_RING_SIZE_V2(rxfill_ring->id));
+	else
+		writel(data, reg_base +
+				EDMA_REG_RXFILL_RING_SIZE(rxfill_ring->id));
 }
 
 /*
@@ -2020,6 +2089,7 @@ int ipq_edma_hw_init(struct udevice *dev, struct ipq_eth_dev *eth)
 	/*
 	 * Setup private data structure
 	 */
+	ehw->sw_version = config->sw_version;
 	ehw->rxfill_intr_mask = EDMA_RXFILL_INT_MASK;
 	ehw->rxdesc_intr_mask = EDMA_RXDESC_INT_MASK_PKT_INT;
 	ehw->txcmpl_intr_mask = EDMA_TX_INT_MASK_PKT_INT;
@@ -2470,14 +2540,15 @@ static int ipq_eth_send(struct udevice *dev, void *packet, int length)
 	 */
 	txdesc = EDMA_TXDESC_DESC(txdesc_ring, hw_next_to_use);
 
-	txdesc->tdes1 = 0;
 	txdesc->tdes2 = 0;
 	txdesc->tdes3 = 0;
 	txdesc->tdes4 = 0;
 	txdesc->tdes5 = 0;
 	txdesc->tdes6 = 0;
 	txdesc->tdes7 = 0;
-	skb = (uchar *)((uintptr_t)txdesc->tdes0);
+	skb = (uchar *)((uintptr_t)(((uint64_t)(txdesc->tdes1 &
+				EDMA_TXDESC_BUF_HI_ADD_MASK) << 32) |
+				txdesc->tdes0));
 
 	pr_debug("%s: txdesc->tdes0 (buffer addr) = 0x%lx "
 			"txdesc->tdes1 (buffer addr) = 0x%lx length = %d "
@@ -2492,6 +2563,8 @@ static int ipq_eth_send(struct udevice *dev, void *packet, int length)
 	 * Set opaque field
 	 */
 	txdesc->tdes2 = cpu_to_le32(txdesc->tdes0);
+	txdesc->tdes3 = (cpu_to_le32(txdesc->tdes1) &
+			EDMA_TXDESC_BUF_HI_ADD_MASK);
 
 	/*
 	 * copy the packet
