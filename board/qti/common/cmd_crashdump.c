@@ -59,15 +59,15 @@
 
 typedef struct {
 	char name[DUMP_NAME_STR_MAX_LEN];
-	uint32_t offset;
-	uint32_t size;
+	uint64_t offset;
+	uint64_t size;
 } memdump_list_info_t;
 
 typedef struct {
 	uint32_t magic1;
 	uint32_t magic2;
 	uint32_t nos_memdumps;
-	uint32_t total_dump_sz;
+	uint64_t total_dump_sz;
 	uint32_t dump_list_info_offset;
 } memdump_hdr_t;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
@@ -120,8 +120,8 @@ enum {
 
 typedef struct {
 	char name[DUMP_NAME_STR_MAX_LEN];
-	uint32_t start_addr;
-	uint32_t size;
+	uint64_t start_addr;
+	uint64_t size;
 	uint8_t is_aligned_access:1;
 	uint8_t compression_support:1;
 	uint8_t dumptoflash_support:1;
@@ -145,8 +145,8 @@ typedef struct {
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
-	uint32_t dump2mem_rsvd_addr;
-	uint32_t dump2mem_curr_addr;
+	uint64_t dump2mem_rsvd_addr;
+	uint64_t dump2mem_curr_addr;
 	memdump_hdr_t memdump_hdr;
 	memdump_list_info_t *memdump_list;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
@@ -222,6 +222,7 @@ static int add_entry_crashdump_table(crashdump_config_t *dump_config,
 {
 	crashdump_infos_int_t *new_entry;
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
 	if (dump_config->dump_to ==  DUMP_TO_FLASH) {
 		if (dump_entry->dumptoflash_support)
 			dump_config->iface_cfg.dump_total_size +=
@@ -229,6 +230,7 @@ static int add_entry_crashdump_table(crashdump_config_t *dump_config,
 		else
 			return 0;
 	}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 	new_entry = malloc(sizeof(crashdump_infos_int_t));
 	if (!new_entry) {
@@ -242,7 +244,7 @@ static int add_entry_crashdump_table(crashdump_config_t *dump_config,
 	dump_config->actual_nos_dumps++;
 
 	if (dump_config->debug)
-		printf("%-20s\t 0x%08X\t 0x%08X\t %-10s\t %-10s\t\n",
+		printf("%-20s\t 0x%010llX\t 0x%010llX\t %-10s\t %-10s\t\n",
 			new_entry->name, new_entry->start_addr,
 			new_entry->size,
 			(new_entry->is_aligned_access ? "true":"false"),
@@ -743,15 +745,15 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
  * &dump_name_prefix - prefix name used for the output dumps
  */
 static int split_bin_dump(crashdump_config_t *dump_config,
-		crashdump_infos_int_t *dump_entry, uint32_t split_size,
-		char dump_name_prefix[DUMP_NAME_STR_MAX_LEN])
+		crashdump_infos_int_t *dump_entry, uint64_t split_size,
+		char dump_name_prefix[DUMP_NAME_STR_MAX_LEN],
+		uint8_t file_no_start)
 {
 	int ret = 0;
-	uint32_t dump_sz = dump_entry->size;
-	uint32_t end_addr = dump_entry->start_addr + dump_sz;
-	uint8_t file_no = (dump_sz / split_size) - 1;
-
-	file_no = (dump_sz % split_size) ? file_no+1 : file_no;
+	uint64_t dump_sz = dump_entry->size;
+	uint64_t end_addr = dump_entry->start_addr + dump_sz;
+	uint8_t file_no = (dump_sz / split_size) + file_no_start -
+				((dump_sz % split_size) ? 0 : 1);
 
 	while (dump_sz > 0) {
 		snprintf(dump_entry->name, sizeof(dump_entry->name),
@@ -786,12 +788,18 @@ static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 	crashdump_infos_int_t dump_entry;
 	crashdump_infos_t *dump_infos = dump_config->dump_infos;
 	char dump_name_prefix[DUMP_NAME_STR_MAX_LEN] = { 0 };
-	uint32_t split_bin_sz = 0;
+	uint64_t split_bin_sz = 0;
+	uint8_t file_no = 0;
+#if (CONFIG_NR_DRAM_BANKS > 1)
+	uint64_t total_dram_sz = gd->ram_size;
+	uint8_t bidx = 0, last_dram_file_no = 0;
+#endif
 
 	for (i=0; i < dump_config->nos_dumps; i++) {
 		if (dump_level != dump_infos[i].dump_level)
 			continue;
 
+		file_no = 0;
 		memset(&dump_entry, 0, sizeof(crashdump_infos_int_t));
 		memcpy(&dump_name_prefix, dump_infos[i].name,
 				(strlen(dump_infos[i].name) - 4));
@@ -826,14 +834,31 @@ static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 				break;
 #endif /* CONFIG_IPQ_MINIDUMP */
 			case FULLDUMP:
+				/* DDR dump */
 				if (!strncmp(dump_infos[i].name,
 						DRAM_DUMP_NAME_PREFIX,
 						strlen(DRAM_DUMP_NAME_PREFIX)))
 				{
+#if (CONFIG_NR_DRAM_BANKS > 1)
+					file_no = last_dram_file_no;
+					if (!total_dram_sz)
+						continue;
+					snprintf(dump_entry.name,
+						sizeof(dump_entry.name),
+						"%s%d.BIN", dump_name_prefix,
+						file_no);
+					dump_entry.start_addr =
+						gd->bd->bi_dram[bidx].start;
+					dump_entry.size = min(total_dram_sz,
+						gd->bd->bi_dram[bidx].size);
+					bidx++;
+					total_dram_sz -= dump_entry.size;
+#else
 					snprintf(dump_entry.name,
 						sizeof(dump_entry.name),
 						"%s0.BIN", dump_name_prefix);
 					dump_entry.size = gd->ram_size;
+#endif
 				}
 				break;
 			}
@@ -850,9 +875,21 @@ static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 		}
 #endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
 
+#if (CONFIG_NR_DRAM_BANKS > 1)
+		if (!strncmp(dump_infos[i].name, DRAM_DUMP_NAME_PREFIX,
+					strlen(DRAM_DUMP_NAME_PREFIX)))	{
+			if (split_bin_sz && (dump_entry.size > split_bin_sz))
+				last_dram_file_no =
+					(dump_entry.size / split_bin_sz);
+			else
+				last_dram_file_no++;
+		}
+#endif
+
 		if (split_bin_sz && (dump_entry.size > split_bin_sz)) {
 			split_bin_dump(dump_config, &dump_entry,
-					split_bin_sz, dump_name_prefix);
+					split_bin_sz, dump_name_prefix,
+					file_no);
 			continue;
 		}
 
@@ -1512,7 +1549,7 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 	case DUMP_TO_USB:
 		printf("Writing file %s into USB \n", dump_entry->name);
 		snprintf(runcmd, sizeof(runcmd),
-				"fatwrite usb %x:%x 0x%x %s 0x%x",
+				"fatwrite usb %x:%x 0x%llx %s 0x%llx",
 				iface_cfg->usb_dev_idx,
 				iface_cfg->usb_part_idx,
 				dump_entry->start_addr, dump_entry->name,
@@ -1530,7 +1567,7 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 			iface_cfg->dump2mem_rsvd_addr;
 		list->size = dump_entry->size;
 
-		printf("Dumping %s @ 0x%X \n", dump_entry->name,
+		printf("Dumping %s @ 0x%llX \n", dump_entry->name,
 				iface_cfg->dump2mem_curr_addr);
 		memcpy((void*)(uintptr_t)iface_cfg->dump2mem_curr_addr,
 				(void*)(uintptr_t)dump_entry->start_addr,
@@ -1542,7 +1579,7 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
 
 	case DUMP_TO_TFTP:
-		snprintf(runcmd, sizeof(runcmd), "tftpput 0x%x 0x%x %s/%s",
+		snprintf(runcmd, sizeof(runcmd), "tftpput 0x%llx 0x%llx %s/%s",
 				dump_entry->start_addr, dump_entry->size,
 				iface_cfg->tftp_dumpdir, dump_entry->name);
 		break;

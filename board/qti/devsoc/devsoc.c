@@ -63,14 +63,27 @@ int * machid_dts_entries = &machid_dts_nos;
 
 static crashdump_infos_t dumpinfo_n[] = {
 	{
+		/* DDR Bank 0 */
 		.name = "EBICS.BIN",
-		.start_addr = 0x80000000,
+		.start_addr = CFG_SYS_SDRAM_BASE0,
 		.size = 0xBAD0FF5E,
 		.dump_level = FULLDUMP,
 		.split_bin_sz = SZ_1G,
 		.is_aligned_access = false,
 		.compression_support = true
 	},
+#if (CONFIG_NR_DRAM_BANKS > 1)
+	{
+		/* DDR Bank 1 */
+		.name = "EBICS.BIN",
+		.start_addr = CFG_SYS_SDRAM_BASE1,
+		.size = 0xBAD0FF5E,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = SZ_1G,
+		.is_aligned_access = false,
+		.compression_support = true
+	},
+#endif
 	{
 		.name = "IMEM.BIN",
 		.start_addr = 0x08600000,
@@ -146,6 +159,7 @@ static struct mm_region devsoc_mem_map[] = {
 			 PTE_BLOCK_INNER_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 	}, {
+#if (CONFIG_NR_DRAM_BANKS > 1)
 		.virt = CFG_SYS_SDRAM_BASE1,
 		.phys = CFG_SYS_SDRAM_BASE1,
 		.size = 0x0UL,
@@ -153,6 +167,7 @@ static struct mm_region devsoc_mem_map[] = {
 			 PTE_BLOCK_INNER_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 	}, {
+#endif
 		/* List terminator */
 		0,
 	}

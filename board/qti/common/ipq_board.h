@@ -357,8 +357,8 @@ enum {
 
 typedef struct {
 	char name[DUMP_NAME_STR_MAX_LEN];/* dump name */
-	uint32_t start_addr;		/* dump start addr */
-	uint32_t size;			/* dump size
+	uint64_t start_addr;		/* dump start addr */
+	uint64_t size;			/* dump size
 					   0xBAD0FF5E - get ram_size runtime,
 					   otherwise specify size */
 	uint8_t dump_level;		/* dump level
