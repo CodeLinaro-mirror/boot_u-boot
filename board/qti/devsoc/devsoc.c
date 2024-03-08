@@ -11,6 +11,7 @@
 #include <mtd_node.h>
 #include <sysreset.h>
 #include <linux/psci.h>
+#include <mach/ipq_scm.h>
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
 #endif
@@ -102,6 +103,9 @@ uint8_t *board_dump_entries = &dump_entries_n;
 
 void reset_cpu(void)
 {
+#ifdef CONFIG_IPQ_CRASHDUMP
+	reset_crashdump(RESET_V2);
+#endif
 	psci_sys_reset(SYSRESET_COLD);
 	return;
 }

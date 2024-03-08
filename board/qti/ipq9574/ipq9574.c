@@ -198,7 +198,9 @@ uint8_t *board_dump_entries = &dump_entries_n;
 
 void reset_cpu(void)
 {
-	reset_crashdump();
+#ifdef CONFIG_IPQ_CRASHDUMP
+	reset_crashdump(RESET_V1);
+#endif
 	psci_sys_reset(SYSRESET_COLD);
 	return;
 }

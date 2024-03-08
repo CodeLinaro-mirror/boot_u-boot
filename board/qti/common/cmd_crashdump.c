@@ -1756,54 +1756,55 @@ reset:
 /**
  * reset_crashdump() - clear crashdump magic in SDI path
  */
-void reset_crashdump(void)
+void reset_crashdump(int reset_version)
 {
 	int ret = 0;
 	scm_param param;
 	unsigned int cookie = ipq_read_tcsr_boot_misc();
 
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_SDI_CLEAR;
-	param.len = 2;
+	switch(reset_version) {
+	case RESET_V1:
+		memset(&param, 0, sizeof(scm_param));
+		param.type = SCM_SDI_CLEAR;
+		param.len = 2;
 
-	/* Disable wdog debug */
-	param.buff[0] = 1;
-	param.arg_type[0] = SCM_VAL;
+		/* Disable wdog debug */
+		param.buff[0] = 1;
+		param.arg_type[0] = SCM_VAL;
 
-	/* SDI Enable */
-	param.buff[1] = 0;
-	param.arg_type[1] = SCM_VAL;
+		/* SDI Enable */
+		param.buff[1] = 0;
+		param.arg_type[1] = SCM_VAL;
 
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("Error in enabling SDI path\n");
-		goto retn;
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("Error in enabling SDI path\n");
+			goto retn;
+		}
+
+		if (cookie & DLOAD_ENABLE)
+			cookie |= CRASHDUMP_RESET;
+	case RESET_V2:
+		cookie &= DLOAD_DISABLE;
+
+		memset(&param, 0, sizeof(scm_param));
+		param.type = SCM_IO_WRITE;
+		param.len = 2;
+
+		/* Set TCSR_BOOT_MISC reg addr */
+		param.buff[0] = (uintptr_t)TCSR_BOOT_MISC_REG;
+		param.arg_type[0] = SCM_VAL;
+
+		/* DLOAD clear cookie */
+		param.buff[1] = cookie;
+		param.arg_type[1] = SCM_VAL;
+		ret = ipq_scm_call(&param);
+		if (ret)
+			printf("Error in reseting the Magic cookie\n");
 	}
-
-	if (cookie & DLOAD_ENABLE)
-		cookie |= CRASHDUMP_RESET;
-
-	cookie &= DLOAD_DISABLE;
-
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_IO_WRITE;
-	param.len = 2;
-
-	/* Set TCSR_BOOT_MISC reg addr */
-	param.buff[0] = (uintptr_t)TCSR_BOOT_MISC_REG;
-	param.arg_type[0] = SCM_VAL;
-
-	/* DLOAD clear cookie */
-	param.buff[1] = cookie;
-	param.arg_type[1] = SCM_VAL;
-	ret = ipq_scm_call(&param);
-	if (ret)
-		printf("Error in reseting the Magic cookie\n");
-
 retn:
 	return;
 }
-
 
 int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])

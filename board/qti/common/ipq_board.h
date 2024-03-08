@@ -355,6 +355,11 @@ enum {
 	DUMP_TO_FLASH,
 };
 
+enum {
+	RESET_V1 = 1,
+	RESET_V2,
+};
+
 typedef struct {
 	char name[DUMP_NAME_STR_MAX_LEN];/* dump name */
 	uint64_t start_addr;		/* dump start addr */
@@ -467,7 +472,7 @@ int part_get_info_efi_by_name(const char *name, struct disk_partition *info);
 int init_ubi_part(void);
 #endif
 void fdt_fixup_flash(void *blob);
-void reset_crashdump(void);
+void reset_crashdump(int reset_version);
 long long ubi_get_volume_size(char *volume);
 int is_atf_enbled(void);
 int is_secure_boot(void);

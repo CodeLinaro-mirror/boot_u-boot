@@ -313,6 +313,7 @@ config TARGET_DEVSOC
 	select IPQ_NET
 	select QTI_NSS_SWITCH
 	select IPQ_CRASHDUMP
+	select IPQ_SECURE
 	help
 	  Support for IPQ DEVSoC.
 
