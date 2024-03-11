@@ -297,7 +297,7 @@ void ipq_config_cmn_clock(void)
 	mdelay(1);
 }
 
-int get_soc_hw_version(void)
+uint32_t get_soc_hw_version(void)
 {
         return 0;
 }
