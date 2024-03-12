@@ -78,6 +78,15 @@ int msm_enable(struct clk *clk)
 	struct msm_clk_priv *priv = dev_get_priv(clk->dev);
 
 	switch (clk->id) {
+	case GCC_NSSCFG_CLK:
+		clk_enable_cbc(priv->base + GCC_NSSCFG_CBCR);
+		break;
+	case GCC_NSSNOC_MEMNOC_CLK:
+		clk_enable_cbc(priv->base + GCC_NSSNOC_MEMNOC_CBCR);
+		break;
+	case GCC_NSSNOC_MEMNOC_1_CLK:
+		clk_enable_cbc(priv->base + GCC_NSSNOC_MEMNOC_1_CBCR);
+		break;
 	case NSS_CC_PPE_SWITCH_CLK:
 		clk_enable_cbc(priv->base + NSS_CC_PPE_SWITCH_CBCR);
 		break;

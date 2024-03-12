@@ -177,7 +177,10 @@
 			assigned-clock-rates = <375000000>,
 					<375000000>,
 					<100000000>;
-			clocks = <&nss NSS_CC_PPE_SWITCH_CLK>,
+			clocks = <&gcc GCC_NSSCFG_CLK>,
+				<&gcc GCC_NSSNOC_MEMNOC_CLK>,
+				<&gcc GCC_NSSNOC_MEMNOC_1_CLK>,
+				<&nss NSS_CC_PPE_SWITCH_CLK>,
 				<&nss NSS_CC_PPE_SWITCH_IPE_CLK>,
 				<&nss NSS_CC_NSSNOC_PPE_CLK>,
 				<&nss NSS_CC_CE_APB_CLK>,
@@ -203,7 +206,10 @@
 				<&nss NSS_CC_UNIPHY_PORT2_TX_CLK>,
 				<&nss NSS_CC_UNIPHY_PORT3_RX_CLK>,
 				<&nss NSS_CC_UNIPHY_PORT3_TX_CLK>;
-			clock-names = "nss_cc_ppe_switch_clk",
+			clock-names = "gcc_nsscfg_clk",
+				"gcc_nssnoc_memnoc_clk",
+				"gcc_nssnoc_memnoc_1_clk",
+				"nss_cc_ppe_switch_clk",
 				"nss_cc_ppe_switch_ipe_clk",
 				"nss_cc_nssnoc_ppe_clk",
 				"nss_cc_ce_ape_clk",
