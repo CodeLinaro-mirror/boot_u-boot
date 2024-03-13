@@ -279,6 +279,10 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_CRYPTO;
 		desc.cmd = QCOM_SCM_CMD_AES_256_GEN_KEY;
 		break;
+	case SCM_AES_256_MAX_CTXT_GEN_KEY:
+		desc.svc = QCOM_SCM_SVC_CRYPTO;
+		desc.cmd = QCOM_SCM_CMD_AES_256_MAX_CTXT_GEN_KEY;
+		break;
 	case SCM_AES_256_ENC:
 		desc.svc = QCOM_SCM_SVC_CRYPTO;
 		desc.cmd = QCOM_SCM_CMD_AES_256_ENC;
