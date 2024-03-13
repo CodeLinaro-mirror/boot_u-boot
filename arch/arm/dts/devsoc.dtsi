@@ -114,6 +114,16 @@
 				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
+
+			se5: se5@1a94000 {
+				reg = <0x1a94000 0x4000>;
+				reg-names = "se_phys";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&gcc GCC_QUPV3_SE5_CLK>;
+				clock-names = "se-clk";
+				status = "disabled";
+			};
 		};
 
 		nand: nand-controller@79B0000 {
