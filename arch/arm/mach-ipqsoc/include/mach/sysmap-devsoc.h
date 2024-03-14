@@ -6,6 +6,11 @@
 #ifndef _MACH_SYSMAP_DEVSOC_H
 #define _MACH_SYSMAP_DEVSOC_H
 
+/* GCC clock control registers */
+#define GCC_NSSCFG_CBCR			(0x1702C)
+#define GCC_NSSNOC_MEMNOC_CBCR		(0x17024)
+#define GCC_NSSNOC_MEMNOC_1_CBCR	(0x17084)
+
 /* NSS clock control registers */
 #define NSS_CC_PPE_SWITCH_IPE_CBCR	(0x00400)
 #define NSS_CC_PPE_SWITCH_CBCR		(0x00410)

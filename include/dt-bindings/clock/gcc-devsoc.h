@@ -16,6 +16,9 @@
 #define GCC_QUPV3_SE5_CLK				6
 #define GCC_SDCC1_APPS_CLK				7
 #define GCC_SDCC1_AHB_CLK				8
+#define GCC_NSSCFG_CLK					9
+#define GCC_NSSNOC_MEMNOC_CLK				10
+#define GCC_NSSNOC_MEMNOC_1_CLK				11
 
 /* NSS controlled clock IDs */
 #define NSS_CC_PPE_CLK					100
