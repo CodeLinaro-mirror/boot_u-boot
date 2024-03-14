@@ -90,6 +90,12 @@ int msm_enable(struct clk *clk)
 	case NSS_CC_PPE_SWITCH_CLK:
 		clk_enable_cbc(priv->base + NSS_CC_PPE_SWITCH_CBCR);
 		break;
+	case GCC_SDCC1_APPS_CLK:
+		clk_enable_cbc(priv->base + GCC_SDCC1_APPS_CBCR);
+		break;
+	case GCC_SDCC1_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_SDCC1_AHB_CBCR);
+		break;
 	case NSS_CC_PPE_EDMA_CLK:
 		clk_enable_cbc(priv->base + NSS_CC_PPE_EDMA_CBCR);
 		break;
