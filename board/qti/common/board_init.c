@@ -437,7 +437,7 @@ void board_nand_init(void)
 }
 #endif
 
-__weak int get_soc_hw_version(void)
+__weak uint32_t get_soc_hw_version(void)
 {
         return readl(CONFIG_SOC_HW_VERSION_REG);
 }
@@ -715,7 +715,7 @@ int embedded_dtb_select(void)
 
 void setup_board_default_env(void)
 {
-	ulong soc_hw_version;
+	uint32_t soc_hw_version;
 
 	/*
 	 * setup machid
