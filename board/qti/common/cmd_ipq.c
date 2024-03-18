@@ -1341,7 +1341,8 @@ struct crypto_aes_req_data_t {
 	uint64_t resp_len;
 };
 #else
-#define MAX_CONTEXT_BUFFER_LEN		64
+#define MAX_CONTEXT_BUFFER_LEN_V1	64
+#define MAX_CONTEXT_BUFFER_LEN_V2	128
 #define DEFAULT_POLICY_DESTINATION	0
 #define DEFAULT_KEY_TYPE		2
 struct crypto_aes_operation_policy {
@@ -1357,15 +1358,29 @@ struct crypto_aes_hwkey_policy  {
 	uint32_t destination;
 };
 
-struct crypto_aes_hwkey_bindings {
+struct crypto_aes_hwkey_bindings_v1 {
 	uint32_t bindings;
 	uint32_t context_len;
-	uint8_t context[MAX_CONTEXT_BUFFER_LEN];
+	uint8_t context[MAX_CONTEXT_BUFFER_LEN_V1];
 };
 
-struct crypto_aes_derive_key_cmd_t {
+struct crypto_aes_derive_key_cmd_t_v1 {
 	struct crypto_aes_hwkey_policy policy;
-	struct crypto_aes_hwkey_bindings hw_key_bindings;
+	struct crypto_aes_hwkey_bindings_v1 hw_key_bindings;
+	uint32_t source;
+	uint64_t mixing_key;
+	uint64_t key;
+};
+
+struct crypto_aes_hwkey_bindings_v2 {
+	uint32_t bindings;
+	uint32_t context_len;
+	uint8_t context[MAX_CONTEXT_BUFFER_LEN_V2];
+};
+
+struct crypto_aes_derive_key_cmd_t_v2 {
+	struct crypto_aes_hwkey_policy policy;
+	struct crypto_aes_hwkey_bindings_v2 hw_key_bindings;
 	uint32_t source;
 	uint64_t mixing_key;
 	uint64_t key;
@@ -1396,7 +1411,7 @@ struct crypto_aes_req_data_t {
 static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 				 int argc, char *const argv[])
 {
-	struct crypto_aes_derive_key_cmd_t *req_ptr = NULL;
+	struct crypto_aes_derive_key_cmd_t_v1 *req_ptr = NULL;
 	int ret = CMD_RET_USAGE;
 	uintptr_t *key_handle = NULL;
 	uint8_t *context_buf = NULL;
@@ -1408,12 +1423,13 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 		return ret;
 	context_buf = (uint8_t *)simple_strtoul(argv[3], NULL, 16);;
 	context_len = simple_strtoul(argv[4], NULL, 16);
-	if (context_len > 64) {
-		printf("Error: context length should be less than 64\n");
+	if (context_len > MAX_CONTEXT_BUFFER_LEN_V1) {
+		printf("Error: context length should be less than %d\n",
+			MAX_CONTEXT_BUFFER_LEN_V1);
 		return ret;
 	}
-	req_ptr = (struct crypto_aes_derive_key_cmd_t *)memalign(ARCH_DMA_MINALIGN,
-					sizeof(struct crypto_aes_derive_key_cmd_t));
+	req_ptr = (struct crypto_aes_derive_key_cmd_t_v1 *)memalign(ARCH_DMA_MINALIGN,
+				sizeof(struct crypto_aes_derive_key_cmd_t_v1));
 	if (!req_ptr) {
 		printf("Error allocating memory for key handle request buf");
 		return -ENOMEM;
@@ -1427,7 +1443,8 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 					sizeof(uint64_t));
 	if (!key_handle) {
 		printf("Error allocating memory for key handle");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto exit;
 	}
 
 	req_ptr->key = (uintptr_t) key_handle;
@@ -1441,7 +1458,7 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 	param.type = SCM_AES_256_GEN_KEY;
 	param.buff[0] = (uintptr_t)req_ptr;
 	param.arg_type[0] = SCM_WRITE_OP;
-	param.buff[1] = sizeof(struct crypto_aes_derive_key_cmd_t);
+	param.buff[1] = sizeof(struct crypto_aes_derive_key_cmd_t_v1);
 	param.len = 2;
 
 	invalidate_dcache_all();
@@ -1453,6 +1470,7 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 	} else
 		printf("Key handle is %u\n", (unsigned int)*key_handle);
 
+exit:
 	if (key_handle)
 		free(key_handle);
 	if (req_ptr)
@@ -1465,6 +1483,97 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 U_BOOT_CMD(
 	derive_aes_256_key, 5, 1, do_derive_aes_256_key,
 	"Derive AES 256 key before encrypt/decrypt in TME-L based systems",
+	"Key Derivation: derive_aes_256_key <source_data> <bindings_data>"
+	"<context_data address> <context data len>"
+);
+
+/**
+ * do_derive_aes_256_max_ctxt_key() - Handle the "derive_key" command-line
+ *                                    command for 128 byte context
+ * @cmdtp:	Command data struct pointer
+ * @flag:	Command flag
+ * @argc:	Command-line argument count
+ * @argv:	Array of command-line arguments
+ *
+ * Returns zero on success, CMD_RET_USAGE in case of misuse and negative
+ * on error.
+ */
+static int do_derive_aes_256_max_ctxt_key(struct cmd_tbl *cmdtp, int flag,
+				 int argc, char *const argv[])
+{
+	struct crypto_aes_derive_key_cmd_t_v2 *req_ptr = NULL;
+	int ret = CMD_RET_USAGE;
+	uintptr_t *key_handle = NULL;
+	uint8_t *context_buf = NULL;
+	int context_len = 0;
+	int i = 0, j = 0;
+	scm_param param;
+
+	if (argc != 5)
+		return ret;
+	context_buf = (uint8_t *)simple_strtoul(argv[3], NULL, 16);;
+	context_len = simple_strtoul(argv[4], NULL, 16);
+	if (context_len > MAX_CONTEXT_BUFFER_LEN_V2) {
+		printf("Error: context length should be less than %d\n",
+			MAX_CONTEXT_BUFFER_LEN_V2);
+		return ret;
+	}
+	req_ptr = (struct crypto_aes_derive_key_cmd_t_v2 *)memalign(ARCH_DMA_MINALIGN,
+				sizeof(struct crypto_aes_derive_key_cmd_t_v2));
+	if (!req_ptr) {
+		printf("Error allocating memory for key handle request buf");
+		return -ENOMEM;
+	}
+
+	req_ptr->policy.key_type = DEFAULT_KEY_TYPE;
+	req_ptr->policy.destination = DEFAULT_POLICY_DESTINATION;
+	req_ptr->source = simple_strtoul(argv[1], NULL, 16);
+	req_ptr->hw_key_bindings.bindings = simple_strtoul(argv[2], NULL, 16);
+	key_handle = (uintptr_t *)memalign(ARCH_DMA_MINALIGN,
+					sizeof(uint64_t));
+	if (!key_handle) {
+		printf("Error allocating memory for key handle");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	req_ptr->key = (uintptr_t) key_handle;
+	req_ptr->mixing_key = 0;
+	req_ptr->hw_key_bindings.context_len = context_len;
+	while (i < context_len) {
+		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
+	}
+
+	memset(&param, 0, sizeof(scm_param));
+	param.type = SCM_AES_256_MAX_CTXT_GEN_KEY;
+	param.buff[0] = (uintptr_t)req_ptr;
+	param.arg_type[0] = SCM_WRITE_OP;
+	param.buff[1] = sizeof(struct crypto_aes_derive_key_cmd_t_v2);
+	param.len = 2;
+
+	invalidate_dcache_all();
+	ret = ipq_scm_call(&param);
+	if (ret) {
+		printf("\nipq_scm_call: SCM_AES_256_MAX_CTXT_GEN_KEY"
+				" failed, ret : %d\n", ret);
+		ret = CMD_RET_FAILURE;
+	} else
+		printf("Key handle is %u\n", (unsigned int)*key_handle);
+
+exit:
+	if (key_handle)
+		free(key_handle);
+	if (req_ptr)
+		free(req_ptr);
+
+	return ret;
+}
+
+/***************************************************/
+U_BOOT_CMD(
+	derive_aes_256_max_ctxt_key, 5, 1, do_derive_aes_256_max_ctxt_key,
+	"Derive AES 256 key with 128 byte context before"
+	"encrypt/decrypt in TME-L based systems",
 	"Key Derivation: derive_aes_256_key <source_data> <bindings_data>"
 	"<context_data address> <context data len>"
 );
