@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -46,59 +46,6 @@
 
 #include "ipq_board.h"
 
-/*
- * getpart_offset_size - retreive partition offset and size
- * @part_name - partition name
- * @offset - location where the offset of partition to be stored
- * @size - location where partition size to be stored
- *
- * Retreive partition offset and size in bytes with respect to the
- * partition specific flash block size
- */
-int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
-{
-	int i;
-	uint32_t bsize;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	struct smem_ptable * ptable = get_ipq_part_table_info();
-#ifdef CONFIG_CMD_NAND
-	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	if (!mtd)
-		return -ENODEV;
-#endif
-
-	for (i = 0; i < ptable->len; i++) {
-		struct smem_ptn *p = &ptable->parts[i];
-		loff_t psize;
-		if (!strncmp(p->name, part_name, SMEM_PTN_NAME_MAX)) {
-			bsize = get_part_block_size(p, sfi);
-			if (p->size == (~0u)) {
-				/*
-				 * Partition size is 'till end of device',
-				 * calculate appropriately
-				 */
-#ifdef CONFIG_CMD_NAND
-				psize = mtd->size - (((loff_t)p->start) \
-								* bsize);
-#else
-				psize = 0;
-#endif
-			} else {
-				psize = ((loff_t)p->size) * bsize;
-			}
-
-		*offset = ((loff_t)p->start) * bsize;
-		*size = psize;
-		break;
-		}
-	}
-
-	if (i == ptable->len)
-		return -ENOENT;
-
-	return 0;
-}
-
 #ifdef CONFIG_CMD_UBI
 static void print_ubi_vol_info(struct ubi_device *ubi)
 {
@@ -133,13 +80,17 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	int i;
 	uint32_t bsize;
 	struct smem_ptable * ptable = get_ipq_part_table_info();
-#ifdef CONFIG_CMD_NAND
+#if defined(CONFIG_NOR_BLK)
+	struct blk_desc *dev;
+#endif
+#ifdef CONFIG_IPQ_NAND
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 #endif
 #ifdef CONFIG_CMD_UBI
+	bool print_ubi = false;
 	struct ubi_device *ubi = NULL;
-	init_ubi_part();
-	ubi = ubi_get_device(0);
+	if (init_ubi_part() == 0)
+		ubi = ubi_get_device(0);
 #endif
 	if(sfi->flash_density != 0) {
 		printf(	"flash_type:		0x%x\n"
@@ -179,10 +130,10 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 			 * Partition size is 'till end of device', calculate
 			 * appropriately
 			 */
-#ifdef CONFIG_CMD_NAND
+#ifdef CONFIG_IPQ_NAND
 			if (mtd)
-				psize = mtd->size - (((loff_t) p->start)
-								* bsize);
+				psize = mtd->size -
+						(((loff_t) p->start) * bsize);
 #else
 			psize = 0;
 #endif
@@ -200,13 +151,25 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 		if (!strncmp(p->name, ROOT_FS_PART_NAME, SMEM_PTN_NAME_MAX) &&
 			ubi) {
 			print_ubi_vol_info(ubi);
+			print_ubi = true;
 		}
 #endif
 	}
-
+#if defined(CONFIG_NOR_BLK)
+	printf("\n");
+	dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
+        if (dev != NULL && dev->type != DEV_TYPE_UNKNOWN) {
+		part_print(dev);
+	}
+#endif
 #ifdef CONFIG_CMD_UBI
-	if (ubi)
+	if (ubi) {
+		if (!print_ubi) {
+			printf("\n Ubi volume list:\n");
+			print_ubi_vol_info(ubi);
+		}
 		ubi_put_device(ubi);
+	}
 #endif
 	return CMD_RET_SUCCESS;
 }

@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2013, 2015-2017, 2020 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Based on smem.c from lk.
  *
@@ -51,11 +51,11 @@
 #include <u-boot/crc.h>
 #include <miiphy.h>
 #endif
-#ifdef CONFIG_MMC_SDHCI
+#ifdef CONFIG_MMC
 #include <mmc.h>
 #include <sdhci.h>
 #endif
-#ifdef CONFIG_CMD_NAND
+#ifdef CONFIG_IPQ_NAND
 #include <nand.h>
 #endif
 #ifdef CONFIG_CMD_UBI
@@ -154,137 +154,6 @@ void *smem_get_item(unsigned int item) {
 
 	return smem_get(reloc_flag ? smem : smem_tmp, -1, item, &size);
 }
-
-#ifdef CONFIG_CMD_NAND
-uint32_t get_nand_block_size(uint8_t dev_id)
-{
-	uint32_t block_size = 0;
-	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	if (mtd)
-		block_size = mtd->erasesize;
-	return block_size;
-}
-#endif
-
-uint32_t get_part_block_size(struct smem_ptn *p,
-					   ipq_smem_flash_info_t *sfi)
-{
-#ifdef CONFIG_CMD_NAND
-        return (part_which_flash(p) == 1) ?
-		get_nand_block_size(0)
-		: sfi->flash_block_size;
-#else
-	return sfi->flash_block_size;
-#endif
-}
-
-/*
- * smem_getpart - retreive partition start and size
- * @part_name: partition name
- * @start: location where the start offset is to be stored
- * @size: location where the size is to be stored
- *
- * Retreive the start offset in blocks and size in blocks, of the
- * specified partition.
- */
-int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
-{
-	unsigned i;
-	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
-	struct smem_ptn *p;
-	uint32_t bsize;
-#ifdef CONFIG_CMD_NAND
-	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	if (!mtd)
-		return -ENODEV;
-#endif
-	if (!ptable)
-		return -ENODEV;
-
-	for (i = 0; i < ptable->len; i++) {
-		if (!strncmp(ptable->parts[i].name, part_name,
-			     SMEM_PTN_NAME_MAX))
-			break;
-	}
-	if (i == ptable->len)
-		return -ENOENT;
-
-	p = &ptable->parts[i];
-	bsize = get_part_block_size(p, sfi);
-
-	*start = p->start;
-
-	if (p->size == (~0u)) {
-		/*
-		 * Partition size is 'till end of device', calculate
-		 * appropriately
-		 */
-#ifdef CONFIG_CMD_NAND
-		*size = (mtd->size / bsize) - p->start;
-#else
-		*size = 0;
-		bsize = bsize;
-#endif
-	} else {
-		*size = p->size;
-	}
-
-	return 0;
-}
-
-/*
- * smem_getpart_from_offset - retreive partition start and size for given offset
- * belongs to.
- * @part_name: offset for which part start and size needed
- * @start: location where the start offset is to be stored
- * @size: location where the size is to be stored
- *
- * Returns 0 at success or -ENOENT otherwise.
- */
-int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size)
-{
-	unsigned i;
-	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
-	struct smem_ptn *p;
-	uint32_t bsize;
-#ifdef CONFIG_IPQ_NAND
-	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	if (!mtd)
-		return -ENODEV;
-#endif
-
-	if (!ptable)
-		return -ENODEV;
-
-	for (i = 0; i < ptable->len; i++) {
-		p = &ptable->parts[i];
-		bsize = get_part_block_size(p, sfi);
-		*start = p->start;
-
-		if (p->size == (~0u)) {
-		/*
-		 * Partition size is 'till end of device', calculate
-		 * appropriately
-		 */
-#ifdef CONFIG_IPQ_NAND
-			*size = (mtd->size / bsize) - p->start;
-#else
-			*size = 0;
-			bsize = bsize;
-#endif
-		} else {
-			*size = p->size;
-		}
-		*start = *start * bsize;
-		*size = *size * bsize;
-		if (*start <= offset && *start + *size > offset) {
-			return 0;
-		}
-	}
-
-	return -ENOENT;
-}
-
 /*
  * This function should only be used when sfi->flash_type is
  * SMEM_BOOT_SPI_FLASH
@@ -307,127 +176,73 @@ unsigned int get_which_flash_param(char *part_name)
 	return flash_var;
 }
 
-int get_current_board_flash_config(void)
+int get_current_board_flash_config(int flash_type)
 {
 	int ret;
 	int board_type;
+#if defined(CONFIG_NOR_BLK)
+	struct disk_partition disk_info;
+	blkpart_info_t  bpart_info;
 
-	ret = get_which_flash_param("rootfs");
-	if (ret == -1) {
-		board_type = SMEM_BOOT_NORPLUSEMMC;
-	} else if (ret) {
-		board_type = SMEM_BOOT_NORPLUSNAND;
-	} else {
-		board_type = SMEM_BOOT_SPI_FLASH;
+	if (flash_type == SMEM_BOOT_NORGPT_FLASH) {
+		BLK_PART_GET_INFO_S(bpart_info, "rootfs", &disk_info,
+					flash_type);
+
+		ret = ipq_part_get_info_by_name(&bpart_info);
+		if (ret) {
+#ifdef CONFIG_IPQ_NAND
+			/*
+			 * Since unable to read GPT.
+			 * Try NAND init to confirm secondary flash is nand
+			 * otherwise is MMC
+			 */
+			nand_init();
+			if (get_nand_dev_by_index(0)) {
+				board_type = SMEM_BOOT_NORPLUSNAND;
+			} else
+#endif
+			{
+				board_type = SMEM_BOOT_NORPLUSEMMC;
+			}
+		} else {
+			if (bpart_info.isnand)
+				board_type = SMEM_BOOT_NORPLUSNAND;
+			else
+				board_type = SMEM_BOOT_NORPLUSEMMC;
+		}
+	} else
+#endif
+	{
+		ret = get_which_flash_param("rootfs");
+		if (ret == -1) {
+			board_type = SMEM_BOOT_NORPLUSEMMC;
+		} else if (ret) {
+			board_type = SMEM_BOOT_NORPLUSNAND;
+		} else {
+			board_type = SMEM_BOOT_SPI_FLASH;
+		}
 	}
 
 	return board_type;
 }
-/*
- * get flash block size based on partition name.
- */
-static inline uint32_t get_flash_block_size(char *name,
-					    ipq_smem_flash_info_t *smem)
-{
-#ifdef CONFIG_CMD_NAND
-	return (get_which_flash_param(name) == 1) ?
-		get_nand_block_size(0)
-		: smem->flash_block_size;
-#else
-	return smem->flash_block_size;
-#endif
-}
-
-void ipq_set_part_entry(char *name, ipq_smem_flash_info_t *smem,
-		ipq_part_entry_t *part, uint32_t start, uint32_t size)
-{
-	uint32_t bsize = get_flash_block_size(name, smem);
-	part->offset = ((loff_t)start) * bsize;
-	part->size = ((loff_t)size) * bsize;
-}
-
-void get_kernel_fs_part_details(void)
-{
-	int ret, i;
-	uint32_t start;         /* block number */
-	uint32_t size;          /* no. of blocks */
-
-	ipq_smem_flash_info_t *smem = &ipq_smem_flash_info;
-
-	struct { char *name; ipq_part_entry_t *part; } entries[] = {
-		{ "0:HLOS", &smem->hlos },
-		{ "rootfs", &smem->rootfs },
-	};
-
-	for (i = 0; i < ARRAY_SIZE(entries); i++) {
-		ret = smem_getpart(entries[i].name, &start, &size);
-		if (ret < 0) {
-			ipq_part_entry_t *part = entries[i].part;
-
-			debug("cdp: get part failed for %s\n",
-				entries[i].name);
-			part->offset = 0xBAD0FF5E;
-			part->size = 0xBAD0FF5E;
-		} else {
-			ipq_set_part_entry(entries[i].name, smem,
-					entries[i].part, start, size);
-		}
-	}
-
-	return;
-}
-
-#ifdef CONFIG_CMD_UBI
-int init_ubi_part(void)
-{
-	int ret;
-	uint32_t offset;
-	uint32_t part_size = 0;
-	uint32_t size_block, start_block;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	struct ubi_device *ubi = ubi_get_device(0);
-	char runcmd[128];
-
-	if(ubi == NULL) {
-		if (((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-			(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
-			ret = smem_getpart(ROOT_FS_PART_NAME,
-					&start_block, &size_block);
-			if (ret)
-				return ret;
-
-			offset = sfi->flash_block_size * start_block;
-			part_size = sfi->flash_block_size * size_block;
-		} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH &&
-					get_which_flash_param(ROOT_FS_PART_NAME)) {
-			ret = getpart_offset_size(ROOT_FS_PART_NAME, &offset,
-									&part_size);
-			if (ret)
-				return ret;
-		}
-
-		if (!part_size)
-			return -ENOENT;
-
-		snprintf(runcmd, sizeof(runcmd),
-			"setenv mtdids nand0=nand0 && "
-			"setenv mtdparts mtdparts=nand0:0x%x@0x%x(fs) && "
-			"ubi part fs", part_size, offset);
-
-		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-			return CMD_RET_FAILURE;
-	} else
-		ubi_put_device(ubi);
-
-	return 0;
-}
-#endif
 
 #if CONFIG_IS_ENABLED(NAND_QTI)
 void board_nand_init(void)
 {
 	struct udevice *dev;
+	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 	int ret;
+
+	/*
+	 * Since the training partition info present in the gpt table
+	 * which resides inside SPI-NOR flash so spi nor probe is must
+	 * before nand init in NOTGPT case.
+	 */
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+#ifdef CONFIG_IPQ_SPI_NOR
+		ipq_spi_probe();
+#endif
+	}
 
 	ret = uclass_get_device_by_driver(UCLASS_MTD,
 					  DM_DRIVER_GET(qti_nand), &dev);
@@ -442,7 +257,6 @@ __weak uint32_t get_soc_hw_version(void)
         return readl(CONFIG_SOC_HW_VERSION_REG);
 }
 
-#ifdef CONFIG_BOARD_TYPES
 void update_board_type(void)
 {
 	uint32_t board_type;
@@ -460,13 +274,11 @@ void update_board_type(void)
 
 	gd->board_type = board_type;
 }
-#endif
 
 int board_init(void)
 {
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
-	uint32_t board_type;
 	uint32_t *flash_type;
 	uint32_t *flash_chip_select;
 	uint32_t *primary_mibib;
@@ -530,9 +342,13 @@ int board_init(void)
 	sfi->flash_density = (!flash_density ? 0 : *flash_density);
 	sfi->primary_mibib = (!primary_mibib ? 0 : *primary_mibib);
 	sfi->ipq_smem_bootconfig_info = ipq_smem_bootconfig_info;
-
+#if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
+	sfi->mmc_gpt_pte.gpt_pte = NULL;
+	sfi->nor_gpt_pte.gpt_pte = NULL;
+#endif
 	switch(sfi->flash_type) {
 	case SMEM_BOOT_MMC_FLASH:
+	case SMEM_BOOT_NORGPT_FLASH:
 	case SMEM_BOOT_NO_FLASH:
 		break;
 	default:
@@ -546,42 +362,6 @@ int board_init(void)
 		if (ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
 			ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 			return -ENOMSG;
-	}
-
-	board_type = (sfi->flash_type == SMEM_BOOT_SPI_FLASH) ?
-			get_current_board_flash_config() :
-			sfi->flash_type;
-
-	switch(board_type) {
-	case SMEM_BOOT_NORPLUSEMMC:
-		sfi->flash_secondary_type = SMEM_BOOT_MMC_FLASH;
-		break;
-	case SMEM_BOOT_NORPLUSNAND:
-		sfi->flash_secondary_type = SMEM_BOOT_QSPI_NAND_FLASH;
-		break;
-	default:
-		break;
-	}
-	/*
-	 * To set SoC specific secondary flash type to
-	 * eMMC/NAND device based on the one that is enabled.
-	 */
-	set_flash_secondary_type(sfi->flash_secondary_type);
-
-	/*
-	 * get soc_version, cpu_type, machid
-	 */
-
-	ipq_smem_get_socinfo();
-
-#ifdef CONFIG_BOARD_TYPES
-	gd->board_type = board_type;
-	update_board_type();
-#endif
-	if(SZ_256M == gd->ram_size && CONFIG_SYS_LOAD_ADDR > SZ_256M) {
-		g_load_addr = CFG_SYS_SDRAM_BASE + SZ_64M;
-	} else {
-		g_load_addr = CONFIG_SYS_LOAD_ADDR;
 	}
 
 	return 0;
@@ -759,39 +539,17 @@ static void init_mmc(void)
 
 	if (mmc_init(mmc))
 		printf("mmc init failed\n");
-
+#ifdef CONFIG_EFI_PARTITION
+	struct blk_desc *dev;
+	dev = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
+	if(dev->part_type == PART_TYPE_UNKNOWN)
+		dev->part_type = PART_TYPE_EFI;
+#endif
 	return;
 }
 #endif
 
-
-#ifdef CONFIG_MMC
-gpt_entry* get_gpt_entry(struct blk_desc *dev_desc, gpt_header *gpt_head)
-{
-	int ret = -1;
-	gpt_entry *l_gpt_pte = NULL;
-
-	/* This function validates AND fills in the GPT header and PTE */
-	ret = gpt_verify_headers(dev_desc, gpt_head, &l_gpt_pte);
-	if(ret) {
-		if(gpt_repair_headers(dev_desc)) {
-			printf("%s: Error recovering GPT\n", __func__);
-			goto out;
-		}
-		ret = gpt_verify_headers(dev_desc, gpt_head, &l_gpt_pte);
-		if(ret) {
-			printf("%s: fiailed to verify GPT\n", __func__);
-			goto out;
-		}
-	}
-
-out:
-	if(ret || !l_gpt_pte)
-		return NULL;
-	else
-		return l_gpt_pte;
-}
-
+#ifdef CONFIG_MMC_FLASH_PARTITION_WRITE_PROTECT
 static inline int is_readonly(gpt_entry *p)
 {
 	/* bit 60 of gpt attribute denotes read-only flag */
@@ -800,16 +558,15 @@ static inline int is_readonly(gpt_entry *p)
 	return 0;
 }
 
-#ifdef CONFIG_MMC_FLASH_PARTITION_WRITE_PROTECT
 void board_flash_protect(void)
 {
 	int num_part;
-	int ret;
 	struct mmc *mmc;
 	struct blk_desc *mmc_dev;
 	struct disk_partition info;
 	int curr_device = -1;
 	gpt_entry *gpt_pte = NULL;
+	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 
 	if (curr_device < 0) {
 		if (get_mmc_num() > 0) {
@@ -829,16 +586,13 @@ void board_flash_protect(void)
 	mmc_dev = mmc_get_blk_desc(mmc);
 
 	if (mmc_dev != NULL && mmc_dev->type != DEV_TYPE_UNKNOWN) {
-		ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1,
-							mmc_dev->blksz);
-
-		gpt_pte = get_gpt_entry(mmc_dev, gpt_head);
+		gpt_pte = get_gpt_entry(mmc_dev);
 		if(!gpt_pte) {
 			printf("%s: Failed to get gpt table entry\n", __func__);
 			goto out;
 		}
 
-		num_part = le32_to_cpu(gpt_head->num_partition_entries);
+		num_part = sfi->mmc_gpt_pte.ncount;
 
 		if (num_part < 0) {
 			printf("Both primary & backup GPT are invalid, "
@@ -847,27 +601,11 @@ void board_flash_protect(void)
 		}
 
 		for (uint8_t part = 1; part <= num_part; part++) {
-
-			uint8_t readonly = 0;
-
-			/* "part" argument must be at least 1 */
-			if (part < 1) {
-				log_debug("Invalid Argument(s)\n");
-				goto out;
-			}
-
-			if (part > le32_to_cpu(gpt_head->num_partition_entries)) {
-					log_debug("Invalid partition number "
-							"%d\n", part);
-					goto out;
-					}
-
-			readonly = is_readonly(&gpt_pte[part - 1]);
-
-			ret = part_get_info_efi(mmc_dev, part, &info);
-			if (ret)
-				goto out;
+			uint8_t readonly = is_readonly(&gpt_pte[part - 1]);
 			if(readonly) {
+				if(part_get_info_efi(mmc_dev, part, &info))
+					continue;
+
 				if(!mmc_write_protect(mmc,
 						  info.start,
 						  info.size, 1))
@@ -881,23 +619,72 @@ void board_flash_protect(void)
 		}
 	}
 out:
-	if(gpt_pte)
+	if (gpt_pte)
 		free(gpt_pte);
 	return;
 }
-#endif
 #endif
 
 int board_late_init(void)
 {
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
+	uint32_t board_type;
 
 #ifdef CONFIG_IPQ_MMC
 	init_mmc();
 #endif
-	if (sfi->flash_type != SMEM_BOOT_MMC_FLASH) {
-		get_kernel_fs_part_details();
+	switch(sfi->flash_type) {
+	case SMEM_BOOT_NORGPT_FLASH:
+	case SMEM_BOOT_SPI_FLASH:
+		board_type = get_current_board_flash_config(sfi->flash_type);
+		break;
+	default:
+		board_type = sfi->flash_type;
 	}
+
+	switch(board_type) {
+	case SMEM_BOOT_NORPLUSEMMC:
+		sfi->flash_secondary_type = SMEM_BOOT_MMC_FLASH;
+		break;
+	case SMEM_BOOT_NORPLUSNAND:
+		sfi->flash_secondary_type = SMEM_BOOT_QSPI_NAND_FLASH;
+		break;
+	default:
+		sfi->flash_secondary_type = 0;
+	}
+
+	/*
+	 * To set SoC specific secondary flash type to
+	 * eMMC/NAND device based on the one that is enabled.
+	 */
+	set_flash_secondary_type(sfi->flash_secondary_type);
+
+	/*
+	 * get soc_version, cpu_type, machid
+	 */
+
+	ipq_smem_get_socinfo();
+
+	gd->board_type = board_type;
+
+	update_board_type();
+
+	if(SZ_256M == gd->ram_size && CONFIG_SYS_LOAD_ADDR > SZ_256M) {
+		g_load_addr = CFG_SYS_SDRAM_BASE + SZ_64M;
+	} else {
+		g_load_addr = CONFIG_SYS_LOAD_ADDR;
+	}
+
+	switch(sfi->flash_type) {
+	case SMEM_BOOT_SPI_FLASH:
+	case SMEM_BOOT_QSPI_NAND_FLASH:
+	case SMEM_BOOT_NORGPT_FLASH:
+		get_kernel_fs_part_details(sfi->flash_type);
+		break;
+	default:
+		;
+	}
+
 #ifdef CONFIG_QTI_NSS_SWITCH
 	/*
 	 * configure CMN clock for ethernet
@@ -1001,37 +788,6 @@ void *env_sf_get_env_addr(void)
         return NULL;
 }
 
-#ifdef CONFIG_MMC_SDHCI
-int part_get_info_efi_by_name(const char *name, struct disk_partition *info)
-{
-	struct blk_desc *mmc_dev;
-	int ret = -1;
-	int i;
-
-	mmc_dev = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
-	if (!mmc_dev)
-		return -ENODEV;
-
-	if (mmc_dev->type == DEV_TYPE_UNKNOWN)
-		goto done;
-
-	for (i = 1; i < GPT_ENTRY_NUMBERS; i++) {
-		ret = part_get_info_efi(mmc_dev, i, info);
-		if (ret != 0) {
-			/* no more entries in table */
-			goto done;
-		}
-		if (strcmp(name, (const char *)info->name) == 0) {
-			/* matched */
-			ret = 0;
-			goto done;
-		}
-	}
-done:
-	return ret;
-}
-#endif
-
 enum env_location env_get_location(enum env_operation op, int prio)
 {
 	int ret = ENVL_NOWHERE;
@@ -1044,26 +800,36 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	if (IS_ERR_OR_NULL(flash_type))
 		return ret;
 
-	if (*flash_type == SMEM_BOOT_SPI_FLASH) {
+	switch(*flash_type) {
+	case SMEM_BOOT_SPI_FLASH:
+	case SMEM_BOOT_NORGPT_FLASH:
 		ret = ENVL_SPI_FLASH;
-	} else if (*flash_type == SMEM_BOOT_MMC_FLASH) {
+		break;
+	case SMEM_BOOT_MMC_FLASH:
 		ret = ENVL_MMC;
-	} else if ((*flash_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
-		(*flash_type == SMEM_BOOT_NAND_FLASH)) {
+		break;
+	case SMEM_BOOT_QSPI_NAND_FLASH:
+	case SMEM_BOOT_NAND_FLASH:
 		ret = ENVL_NAND;
-	} else { }
+		break;
+	default:
+		ret = ENVL_NOWHERE;
+	}
 
 	return ret;
 }
 
-#ifdef CONFIG_MMC_SDHCI
+#ifdef CONFIG_MMC
 int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 {
 	int ret;
 	struct disk_partition disk_info;
+	blkpart_info_t  bpart_info;
 
-	ret = part_get_info_efi_by_name("0:APPSBLENV", &disk_info);
+	BLK_PART_GET_INFO_S(bpart_info, "0:APPSBLENV", &disk_info,
+					SMEM_BOOT_MMC_FLASH);
 
+	ret = ipq_part_get_info_by_name(&bpart_info);
 	if (!ret) {
 		*env_addr = (u32)disk_info.start * disk_info.blksz;
 	}
@@ -1217,90 +983,25 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	u8 *fw_load_addr = NULL;
 	int ret = 0;
-	char runcmd[256];
 	mbn_header_t *fwimg_header;
-	char * eth_fw_part_name = IPQ_ETH_FW_PART_NAME;
-	size_t part_size = 0;
 
-	uint32_t start_blk;		/* starting block */
-	uint32_t blk_cnt;		/* no. of blocks */
-
-	ipq_part_entry_t ethphyfw;
-	struct blk_desc *desc;
-	struct disk_partition disk_info;
-
-	/* check the smem info to see which flash used for booting */
-	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-	    (sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
-	    (sfi->flash_type == SMEM_BOOT_SPI_FLASH)) {
-
-		ret = smem_getpart(eth_fw_part_name, &start_blk, &blk_cnt);
-		if (ret < 0) {
-			debug("cdp: get part failed for %s\n",
-					eth_fw_part_name);
-			ret = -ENXIO;
-			goto exit;
-		} else {
-			ipq_set_part_entry(eth_fw_part_name,
-					sfi, &ethphyfw, start_blk, blk_cnt);
-		}
-
-		part_size = IPQ_ETH_FW_PART_SIZE;
-	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
-		blk_get_device_by_str("mmc", "0", &desc);
-		if (!desc) {
-			ret = -ENODEV;
-			goto exit;
-		}
-
-		part_get_info_by_name(desc, eth_fw_part_name,
-				&disk_info);
-
-		part_size = (((uint)disk_info.size) *
-					((uint)disk_info.blksz));
-	} else {
-		printf("Unsupported BOOT flash type\n");
-		ret = -ENXIO;
-		goto exit;
-	}
-
-	fw_load_addr = (u8 *)malloc_cache_aligned(part_size);
-
+	fw_load_addr = (u8 *)malloc_cache_aligned(IPQ_ETH_FW_PART_SIZE);
 	/* We only need memory equivalent to max size ETHPHYFW
 	 * which is currently assumed as 512 KB.
 	 */
 	if (fw_load_addr == NULL) {
-		printf("ETHPHYFW Loading failed, size = %zu\n", part_size);
+		printf("ETHPHYFW Loading failed, size = 0x%x\n",
+			IPQ_ETH_FW_PART_SIZE);
 		ret = -ENOMEM;
 		goto exit;
 	}
 
-	memset(fw_load_addr, 0, part_size);
+	memset(fw_load_addr, 0, IPQ_ETH_FW_PART_SIZE);
 
-	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-	    (sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
-		snprintf(runcmd, sizeof(runcmd),
-			 "nand read 0x%p 0x%llx 0x%llx && ",
-			 fw_load_addr, ethphyfw.offset,
-			 (long long unsigned int) part_size);
-
-	} else if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
-		snprintf(runcmd, sizeof(runcmd),
-			 "sf probe && " "sf read 0x%p 0x%llx 0x%llx && ",
-			 fw_load_addr, ethphyfw.offset,
-			 (long long unsigned int) part_size);
-
-	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH ) {
-		snprintf(runcmd, sizeof(runcmd), "mmc read 0x%p 0x%X 0x%X",
-			fw_load_addr, (uint)disk_info.start,
-			(uint)disk_info.size);
-	}
-
-	debug("%s \n", runcmd);
-	if (run_command(runcmd, 0) != 0) {
-		ret = -1;
+	ret = get_partition_data(IPQ_ETH_FW_PART_NAME, 0, fw_load_addr,
+					IPQ_ETH_FW_PART_SIZE, sfi->flash_type);
+	if (ret < 0)
 		goto free_nd_exit;
-	}
 
 	fwimg_header = (mbn_header_t *)(fw_load_addr);
 
@@ -1327,151 +1028,10 @@ exit:
 
 int get_eth_mac_address(uint8_t *enetaddr, int no_of_macs)
 {
-	return get_partition_data("0:ART", 0, enetaddr, no_of_macs * 6);
-}
-
-int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
-			size_t size)
-{
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	int ret = 0;
-#ifdef CONFIG_IPQ_SPI_NOR
-	struct spi_flash *flash = NULL;
-#endif
-	uint32_t start_blk;
-	uint32_t blk_cnt;
-	ipq_part_entry_t part;
-#if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
-	struct mmc *mmc;
-	struct blk_desc *desc;
-	struct disk_partition disk_info;
-	unsigned char *mmc_blk = NULL;
-	uint32_t start_blk_no, end_blk_no, i;
-	int rdatacnt = 0, buf_cur_pos = 0;
-#endif
 
-	/* check the smem info to see which flash used for booting */
-	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-	    (sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
-	    (sfi->flash_type == SMEM_BOOT_SPI_FLASH)) {
-		ret = smem_getpart(part_name, &start_blk, &blk_cnt);
-		if (ret < 0) {
-			debug("cdp: get part failed for %s\n",
-					part_name);
-			ret = -ENXIO;
-			goto exit;
-		} else {
-			ipq_set_part_entry(part_name, sfi, &part, start_blk,
-						blk_cnt);
-			part.offset += offset;
-		}
-	} else if (sfi->flash_type == SMEM_BOOT_MMC_FLASH) {
-#if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
-		mmc = find_mmc_device(CONFIG_SYS_MMC_ENV_DEV);
-		if (!mmc) {
-			printf("Failed to find MMC device \n");
-			ret = -ENODEV;
-			goto exit;
-		}
-		desc = mmc_get_blk_desc(mmc);
-		if (!desc) {
-			printf("Failed to find the desc \n");
-			ret = -ENXIO;
-			goto exit;
-		}
-		ret = part_get_info_by_name(desc, part_name, &disk_info);
-		if (ret == -ENOENT) {
-			printf("Failed to find the partition info \n");
-			goto exit;
-		}
-
-		start_blk_no = (uint32_t) disk_info.start + (offset / 512);
-		end_blk_no = (uint32_t) disk_info.start +
-				((offset + size) / 512);
-
-		mmc_blk = (unsigned char*) malloc_cache_aligned(512);
-		if (mmc_blk == NULL)
-			return -ENOMEM;
-
-		rdatacnt = size;
-		for (i = start_blk_no; i <= end_blk_no; i++) {
-#ifdef CONFIG_BLK
-			ret = blk_dread(desc, i, 1, mmc_blk);
-#else
-			ret = mmc->block_dev.block_read(&mmc->block_dev,
-						i, 1, mmc_blk);
-#endif
-			if (ret < 0) {
-				printf("MMC: %s read failed %d\n", part_name,
-					ret);
-				goto exit;
-			}
-
-			if (i == start_blk_no) {
-				if (size <= 512) {
-					memcpy(buf, mmc_blk + (offset % 512),
-						size);
-					if (start_blk_no == end_blk_no)
-						break;
-				} else {
-					memcpy(buf, mmc_blk + (offset % 512),
-						512 - (offset % 512));
-					buf_cur_pos += (512 - (offset % 512));
-					rdatacnt -= (512 - (offset % 512));
-				}
-			} else if (rdatacnt >= 512) {
-				memcpy(buf + buf_cur_pos, mmc_blk, 512);
-				rdatacnt -= 512;
-				buf_cur_pos += 512;
-			} else
-				memcpy(buf + buf_cur_pos, mmc_blk, rdatacnt);
-		}
-
-		if (mmc_blk) {
-			free(mmc_blk);
-			mmc_blk = NULL;
-		}
-#endif
-	} else {
-		printf("Unsupported BOOT flash type\n");
-		ret = -ENXIO;
-		goto exit;
-	}
-#ifdef CONFIG_IPQ_SPI_NOR
-	if (sfi->flash_type == SMEM_BOOT_SPI_FLASH) {
-		flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS,
-					CONFIG_SF_DEFAULT_CS,
-					CONFIG_SF_DEFAULT_SPEED,
-					CONFIG_SF_DEFAULT_MODE);
-		if (flash == NULL){
-			printf("No SPI flash device found\n");
-			ret = -ENODEV;
-			goto exit;
-		} else
-			spi_flash_read(flash, part.offset, size, buf);
-	}
-#endif
-#ifdef CONFIG_CMD_NAND
-	if ((sfi->flash_type == SMEM_BOOT_NAND_FLASH) ||
-		(sfi->flash_type == SMEM_BOOT_QSPI_NAND_FLASH)) {
-		struct mtd_info *mtd = get_nand_dev_by_index(0);
-		if (!mtd) {
-			printf("No NAND flash device found\n");
-			ret = -ENODEV;
-			goto exit;
-		}
-
-		nand_read(mtd, part.offset, &size, buf);
-	}
-#endif
-exit:
-#if defined(CONFIG_MMC_SDHCI) && defined(CONFIG_SYS_MMC_ENV_PART)
-	if (mmc_blk) {
-		free(mmc_blk);
-		mmc_blk = NULL;
-	}
-#endif
-	return ret;
+	return get_partition_data("0:ART", 0, enetaddr, no_of_macs * 6,
+					sfi->flash_type);
 }
 
 void set_ethmac_addr(void)

@@ -1438,7 +1438,8 @@ static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config)
 			deinit_crashdump_nand_flash_write;
 #endif
 #ifdef CONFIG_IPQ_SPI_NOR
-	} else if (flash_type == SMEM_BOOT_SPI_FLASH) {
+	} else if ((flash_type == SMEM_BOOT_SPI_FLASH) ||
+			(flash_type == SMEM_BOOT_NORGPT_FLASH)) {
 		if (!crashdump_flash_spi_cnxt.crashdump_spi_flash) {
 			crashdump_flash_spi_cnxt.crashdump_spi_flash =
 					spi_flash_probe(CONFIG_SF_DEFAULT_BUS,

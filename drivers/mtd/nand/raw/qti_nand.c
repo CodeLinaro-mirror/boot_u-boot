@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+// Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
 // SPDX-License-Identifier: GPL-2.0-only
 
@@ -144,7 +144,7 @@ struct nand_flash_dev qpic_nand_flash_ids_2k[] = {
 	{NULL}
 };
 
-extern int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
+extern int ipq_get_training_part_info(uint32_t *offset, uint32_t *size);
 int qti_nand_deinit(struct udevice *device);
 
 static int qti_read_page(struct mtd_info *mtd, uint32_t page,
@@ -3771,8 +3771,8 @@ static int qti_serial_training(struct mtd_info *mtd)
 	struct qcom_nand_controller *nandc = MTD_QTI_NAND_DEV(mtd);
 	struct nand_chip *chip = mtd_to_nand(mtd);
 
-	unsigned int start, blk_cnt = 0;
-	unsigned int offset, pageno, curr_freq;
+	uint32_t start, blk_cnt = 0;
+	uint32_t offset, pageno, curr_freq, size;
 	int i;
 	unsigned int io_macro_freq_tbl[] = {24000000, 100000000, 200000000,
 								320000000};
@@ -3781,17 +3781,15 @@ static int qti_serial_training(struct mtd_info *mtd)
 	int phase, phase_cnt;
 	int training_seq_cnt = 4;
 	int index = 3, ret, phase_failed=0;
-	u32 start_blocks;
-	u32 size_blocks;
 	loff_t training_offset;
 
-	ret = smem_getpart("0:TRAINING", &start_blocks, &size_blocks);
-	if (ret < 0) {
+	ret = ipq_get_training_part_info(&offset, &size);
+	if (ret) {
 		printf("Serial Training part offset not found.\n");
 		return -EIO;
 	}
 
-	training_offset = ((loff_t) mtd->erasesize * start_blocks);
+	training_offset = (loff_t)offset;
 	start = (training_offset >> chip->phys_erase_shift);
 	offset = (start << chip->phys_erase_shift);
 	pageno = (offset >> chip->page_shift);

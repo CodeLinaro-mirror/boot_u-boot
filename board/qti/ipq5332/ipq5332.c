@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <common.h>
@@ -333,15 +333,17 @@ void board_update_RFA_settings(void)
 	uint32_t CDACIN;
 	uint32_t CDACOUT;
 	scm_param param;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
 	/* Check for Q6 DISABLE bit 15 */
 	if ((readl(QFPROM_RAW_FEATURE_CONFIG_ROW0_LSB) >> 15) & 0x1)
 		return;
 
 	calDataOffset  = (((slotId * 150) + 4) * 1024 + 0x66C4);
-	ret = get_partition_data("0:ART", calDataOffset, (uint8_t*)&calData, 4);
+	ret = get_partition_data("0:ART", calDataOffset, (uint8_t*)&calData, 4,
+					sfi->flash_type);
 	if (ret < 0) {
-		printf("\nget_partition_data failed, ret: %d\n", ret);
+		printf("Failed to read from ART : %d\n", ret);
 		return;
 	}
 
