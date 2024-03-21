@@ -32,6 +32,7 @@ typedef enum {
 
 /* MACH IDs for various RDPs */
 #define MACH_TYPE_DEVSOC_EMU			0x8050001
+#define MACH_TYPE_DEVSOC_EMU_FBC		0xF060000
 
 /* Crashdump Magic registers & values */
 #define TCSR_BOOT_MISC_REG			((u32*)0x195C100)

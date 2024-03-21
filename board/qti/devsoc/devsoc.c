@@ -54,6 +54,7 @@ int * fnode_entires = &ipq_fnode_entires;
 #ifdef CONFIG_DTB_RESELECT
 struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_DEVSOC_EMU, "devsoc-emulation"},
+	{ MACH_TYPE_DEVSOC_EMU_FBC, "devsoc-emulation"},
 };
 
 int machid_dts_nos = ARRAY_SIZE(machid_dts);
