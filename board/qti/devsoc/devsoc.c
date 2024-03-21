@@ -95,6 +95,15 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.is_aligned_access = false,
 		.compression_support = false
 	},
+	{
+		.name = "TZ_LOG.BIN",
+		.start_addr = 0x0860C000,
+		.size = 0x00003000,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false
+	},
 };
 
 static uint8_t dump_entries_n = ARRAY_SIZE(dumpinfo_n);
