@@ -452,6 +452,8 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 				flash_type = SMEM_BOOT_MMC_FLASH;
 			else if (strncmp(argv[argc-1], "nand", 4) == 0)
 				flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
+			else if (strncmp(argv[argc-1], "nor-gpt", 7) == 0)
+				flash_type = SMEM_BOOT_NORGPT_FLASH;
 			else if (strncmp(argv[argc-1], "nor", 3) == 0)
 				flash_type = SMEM_BOOT_SPI_FLASH;
 			else
@@ -745,6 +747,8 @@ char * const argv[])
 			flash_type = SMEM_BOOT_MMC_FLASH;
 		else if (strncmp(argv[4], "nand", 4) == 0)
 			flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
+		else if (strncmp(argv[4], "nor-gpt", 7) == 0)
+			flash_type = SMEM_BOOT_NORGPT_FLASH;
 		else if (strncmp(argv[4], "nor", 3) == 0)
 			flash_type = SMEM_BOOT_SPI_FLASH;
 		else
@@ -801,6 +805,8 @@ static int do_flupdate(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		if (!strncmp(argv[2], "mmc", 3))
 			g_flash = SMEM_BOOT_MMC_FLASH;
+		else if (!strncmp(argv[2], "nor-gpt", 7))
+			g_flash = SMEM_BOOT_NORGPT_FLASH;
 		else if (!strncmp(argv[2], "nor", 3))
 			g_flash = SMEM_BOOT_SPI_FLASH;
 		else if (!strncmp(argv[2], "nand", 4))
@@ -827,8 +833,8 @@ U_BOOT_CMD(
 	flash,       5,      0,      do_flash,
 	"flash part_name \n"
 	"\tflash part_name load_addr file_size \n"
-	"\tflash part_name flash_type{emmc/nand/nor} \n"
-	"\tflash part_name load_addr file_size flash_type{emmc/nand/nor}\n",
+	"\tflash part_name flash_type{emmc/nand/nor/nor-gpt} \n"
+	"\tflash part_name load_addr file_size flash_type{emmc/nand/nor/nor-gpt}\n",
 	"flash the image at load_addr, given file_size in hex"
 );
 
@@ -864,6 +870,6 @@ U_BOOT_CMD(
 
 U_BOOT_CMD(
 	flupdate,       3,       0,       do_flupdate,
-	"flupdate set mmc/nand/nor ; flupdate clear \n",
+	"flupdate set mmc/nand/nor/nor-gpt ; flupdate clear \n",
 	"flash type update \n"
 );
