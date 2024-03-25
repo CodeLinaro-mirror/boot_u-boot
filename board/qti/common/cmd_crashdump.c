@@ -1759,51 +1759,49 @@ reset:
  */
 void reset_crashdump(int reset_version)
 {
-	int ret = 0;
+	int ret = -1;
 	scm_param param;
 	unsigned int cookie = ipq_read_tcsr_boot_misc();
 
 	switch(reset_version) {
 	case RESET_V1:
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_SDI_CLEAR;
-		param.len = 2;
 
-		/* Disable wdog debug */
-		param.buff[0] = 1;
-		param.arg_type[0] = SCM_VAL;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_ENABLE_SDI(param, 1, 0);
+			ret = ipq_scm_call(&param);
 
-		/* SDI Enable */
-		param.buff[1] = 0;
-		param.arg_type[1] = SCM_VAL;
+			if (ret) {
+				printf("Error in enabling SDI path\n");
+			}
+		} while (0);
 
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("Error in enabling SDI path\n");
-			goto retn;
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 		}
 
+	case RESET_V2:
 		if (cookie & DLOAD_ENABLE)
 			cookie |= CRASHDUMP_RESET;
-	case RESET_V2:
+
 		cookie &= DLOAD_DISABLE;
-
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_IO_WRITE;
-		param.len = 2;
-
-		/* Set TCSR_BOOT_MISC reg addr */
-		param.buff[0] = (uintptr_t)TCSR_BOOT_MISC_REG;
-		param.arg_type[0] = SCM_VAL;
-
-		/* DLOAD clear cookie */
-		param.buff[1] = cookie;
-		param.arg_type[1] = SCM_VAL;
-		ret = ipq_scm_call(&param);
-		if (ret)
-			printf("Error in reseting the Magic cookie\n");
 	}
-retn:
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG, cookie);
+		ret = ipq_scm_call(&param);
+
+		if (ret) {
+			printf("Error in reseting the Magic cookie\n");
+			return;
+		}
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+	}
+
 	return;
 }
 

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <common.h>
+#include <command.h>
 #include <cpu_func.h>
 #include <asm/cache.h>
 #include <asm/global_data.h>
@@ -193,4 +194,53 @@ struct mm_region *mem_map = devsoc_mem_map;
 void board_mmc_config(void)
 {
 	writel(0x1, 0x194C008);
+}
+
+int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	int ret = CMD_RET_USAGE;
+	unsigned long loadaddr, filesize;
+	unsigned long default_hex_val = 0xFFFFFFFF;
+	uint32_t dpr_status = 0;
+	scm_param param;
+
+	memset(&param, 0, sizeof(scm_param));
+	if (argc > cmdtp->maxargs || argc == 2)
+		goto fail;
+
+	if (argc == cmdtp->maxargs) {
+		loadaddr = simple_strtoul(argv[1], NULL, 16);
+		filesize = simple_strtoul(argv[2], NULL, 16);
+	} else {
+		loadaddr = env_get_hex("fileaddr", default_hex_val);
+		if (loadaddr == default_hex_val)
+			goto fail;
+
+		filesize = env_get_hex("filesize", default_hex_val);
+		if (filesize == default_hex_val)
+			goto fail;
+	}
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_EXECUTE_DPR(param, loadaddr, filesize, 0, 0);
+		param.get_ret = true;
+		ret = ipq_scm_call(&param);
+		dpr_status = param.res.result[0];
+
+		if (ret || dpr_status) {
+			printf("Error in DPR Processing ret : %d, "
+					"dpr_status : %d\n",
+					ret, dpr_status);
+		} else
+			printf("DPR Process Successful\n");
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		goto fail;
+	}
+
+fail:
+	return ret;
 }

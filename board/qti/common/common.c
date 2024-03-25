@@ -139,85 +139,143 @@ long long ubi_get_volume_size(char *volume)
 }
 #endif
 
-int is_atf_enbled(void)
+bool is_atf_enbled(void)
 {
 	scm_param param;
-	int ret;
+	int ret = -1;
 
 	if (likely(atf_status != ATF_STATE_UNKNOWN))
 		return (atf_status == ATF_STATE_ENABLED);
 
-	memset(&param, 0, sizeof(scm_param));
-
-	param.type = SCM_CHECK_AUTHENTICATE_SUPPORT;
-	param.buff[0] = SCM_SMC_FNID(QCOM_SCM_SVC_INFO,
-					QCOM_GET_SECURE_STATE_CMD);
-	param.arg_type[0] = SCM_VAL;
-
-	param.len = 1;
-	param.get_ret = 1;
-
-	ret = ipq_scm_call(&param);
-
-	if(!ret && (le32_to_cpu(param.res.result[0]) > 0)) {
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_CHECK_ATF_SUPPORT;
-
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_CHECK_SCM_SUPPORT(param, SCM_SMC_FNID(QCOM_SCM_SVC_INFO,
+						QCOM_GET_SECURE_STATE_CMD));
+		param.get_ret = true;
 		ret = ipq_scm_call(&param);
-		if(ret == 0 && (param.res.result[0] & 0x08))
-			atf_status = ATF_STATE_ENABLED;
-	} else {
-		return 0;
+
+		if(!ret && (le32_to_cpu(param.res.result[0]) > 0)) {
+			do {
+				ret = -ENOTSUPP;
+				check_atf_support(param);
+				ret = ipq_scm_call(&param);
+				if(ret == 0 && (param.res.result[0] & 0x08))
+					atf_status = ATF_STATE_ENABLED;
+			} while (0);
+
+			if (ret == -ENOTSUPP) {
+				printf("Unsupported SCM call\n");
+				return false;
+			}
+
+		} else {
+			return false;
+		}
+
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		return false;
 	}
 
 	return atf_status == ATF_STATE_ENABLED;
 
 }
 
-int is_secure_boot(void)
+#ifdef CONFIG_SCM_V1
+bool is_secure_boot_v1(void)
 {
 	scm_param param;
 	uint8_t *buff = NULL;
-	int ret = 0;
+	int ret = -1;
+	bool status = false;
 
 	buff = (uint8_t *)malloc_cache_aligned(CONFIG_SYS_CACHELINE_SIZE);
 	if(!buff) {
 		printf("Unable allocate memory\n");
-		return -1;
+		return false;
 	}
 
-	memset(&param, 0, sizeof(scm_param));
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_SECURE_BOOT(param, (uintptr_t)buff, sizeof(uint8_t));
+		ret = ipq_scm_call(&param);
 
-	param.type = SCM_CHECK_SECURE_FUSE;
-	/*Buffer to read fuse status*/
-	param.buff[0] = (uintptr_t)buff;
-	param.arg_type[0] = SCM_READ_OP;
+		/* invalidate cache to update latest value in buff */
+		invalidate_dcache_range((unsigned long)buff,
+					(unsigned long)buff +
+					CONFIG_SYS_CACHELINE_SIZE);
 
-	/*Buffer size*/
-	param.buff[1] = sizeof(uint8_t);
-	param.arg_type[1] = SCM_VAL;
+		if(!ret && *(uint8_t *)buff == 1)
+			status  = true;
+	} while (0);
 
-	param.len = 2;
-
-	ret = ipq_scm_call(&param);
-
-	/* invalidate cache to update latest value in buff */
-	invalidate_dcache_range((unsigned long)buff,
-				(unsigned long)buff +
-				CONFIG_SYS_CACHELINE_SIZE);
-
-	if(!ret && *(uint8_t *)buff == 1) {
-
-		ret  = 1;
-	} else {
-		ret = 0;
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 	}
 
 	if(buff)
 		free(buff);
 
-	return ret;
+	return status;
 }
+#endif
+
+#ifdef CONFIG_SCM_V2
+bool is_secure_boot_v2(void)
+{
+	scm_param param;
+	int ret = -1;
+	struct fuse_payload {
+		u32 fuse_addr;
+		u32 lsb_val;
+		u32 msb_val;
+	};
+	struct fuse_payload *fuse = NULL;
+	size_t size = sizeof(struct fuse_payload);
+	bool status = false;
+
+	size = roundup(size, CONFIG_SYS_CACHELINE_SIZE);
+
+	fuse = malloc_cache_aligned(size);
+	if(!fuse)
+		return false;
+
+	memset(fuse, 0, sizeof(struct fuse_payload));
+
+	fuse[0].fuse_addr = QFPROM_CORR_TME_OEM_ATE_ROW0_LSB;
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_READ_FUSE(param, (unsigned long)fuse,
+					sizeof(struct fuse_payload));
+		/* invalidate cache to update latest value in buff */
+		flush_dcache_range((unsigned long)fuse,
+					(unsigned long)fuse + size);
+		ret = ipq_scm_call(&param);
+
+		if(ret)
+		{
+			ret = -1;
+			break;
+		}
+
+		if(fuse[0].lsb_val & OEM_SEC_BOOT_ENABLE)
+		{
+			status = true;
+		}
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+	}
+
+	if(fuse)
+		free(fuse);
+	return status;
+}
+#endif
 
 #if CONFIG_IPQ_MMC
 int mmc_send_wp_set_clr(struct mmc *mmc, unsigned int start,

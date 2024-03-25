@@ -92,6 +92,8 @@ extern uint32_t g_load_addr;
 						SZ_1M - 1) & ~(SZ_1M - 1))
 #define NONCACHED_MEM_REGION_SIZE		SZ_1M
 
+#define QFPROM_CORR_TME_OEM_ATE_ROW0_LSB	0xA40E0
+#define QFPROM_CORR_TME_OEM_ATE_ROW1_LSB	0xA40E8
 /*
  * Refer above memory layout,
  * Non-Cached Memory should not begin at above 0x8A400000 since upcoming
