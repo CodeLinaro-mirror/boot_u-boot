@@ -93,6 +93,10 @@ skip_4k_nand = "false"
 atf = "false"
 tiny_16m = "false"
 supported_arch = ["devsoc", "devsoc_64", "ipq5332", "ipq5332_64"]
+supported_flash_type = {}
+supported_flash_type["ipq5332"] = { "nand", "nor", "tiny-nor", "emmc", "norplusnand", "norplusemmc", "tiny-nor-debug" };
+supported_flash_type["devsoc"] = { "nand", "nor", "emmc", "norplusnand", "norplusemmc", "norplusnand-gpt", "norplusemmc-gpt" };
+gpt_flash = ["nor-gpt", "emmc"]
 soc_hw_versions = {}
 soc_hw_versions["ipq5332"] = { 0x201A0100, 0x201A0101 };
 soc_hw_versions["devsoc"] = { 0xE0010100 };
@@ -162,6 +166,7 @@ class GPT(object):
         self.blocksize = flinfo.blocksize
         self.chipsize = flinfo.chipsize
         self.__partitions = OrderedDict()
+        self.ftype = flinfo.type
 
     def __validate_and_read_parts(self, part_fp):
         """Validate the GPT and read the partition"""
@@ -184,8 +189,10 @@ class GPT(object):
         # GPT Header starts at LBA1 so (current_lba -1) will give the
         # starting of primary GPT.
         # blocksize will equal to gptheader.first_usuable_lba - current_lba + 1
-
-        name = "0:GPT"
+        if self.ftype == "nor-gpt":
+            name = "0:NORGPT"
+        else:
+            name = "0:GPT"
         block_start = gptheader.current_lba - 1
         block_count = gptheader.first_usable_lba - gptheader.current_lba + 1
         which_flash = 0
@@ -212,7 +219,10 @@ class GPT(object):
         # GPT header backup_lba gives block number where the GPT backup header will be.
         # GPT Backup header will start from offset of 32 blocks before
         # the GPTheader.backup_lba. Backup GPT size is 33 blocks.
-        name = "0:GPTBACKUP"
+        if self.ftype == "nor-gpt":
+            name = "0:NORGPTBACKUP"
+        else:
+            name = "0:GPTBACKUP"
         block_start = gptheader.backup_lba - 32
         block_count = 33
         part_info = PartInfo(name, block_start, block_count, which_flash)
@@ -476,6 +486,8 @@ class Pack(object):
         self.img_fname = None
         self.emmc_page_size = 512
         self.emmc_block_size = 512
+        self.nor_gpt_page_size = 4096
+        self.nor_gpt_block_size = 4096
 
     def __get_machid(self, section):
         """Get the machid for a section.
@@ -540,7 +552,13 @@ class Pack(object):
 
             section_conf = section_conf.lower()
 
-            if self.flinfo.type != "emmc":
+            if self.flinfo.type in gpt_flash:
+                if part_info != None:
+                    if (img_size > 0):
+                        if img_size > (part_info.length * self.flinfo.blocksize):
+                            print("img size is larger than part. len in '%s'" % section_conf)
+                            return 0
+            else:
                 if part_info == None:
                     if self.flinfo.type == 'norplusnand':
                         if count > 2:
@@ -548,12 +566,6 @@ class Pack(object):
                 elif img_size > part_info.length:
                     print("img size is larger than part. len in '%s'" % section_conf)
                     return 0
-            else:
-                if part_info != None:
-                    if (img_size > 0):
-                        if img_size > (part_info.length * self.flinfo.blocksize):
-                            print("img size is larger than part. len in '%s'" % section_conf)
-                            return 0
 
             if part_info == None and self.flinfo.type != 'norplusnand':
                 print("Flash type is norplusemmc")
@@ -594,7 +606,13 @@ class Pack(object):
             section_conf = section_label[0]
         section_conf = section_conf.lower()
 
-        if self.flinfo.type != "emmc":
+        if self.flinfo.type in gpt_flash:
+            if part_info != None:
+                if (img_size > 0):
+                    if img_size > (part_info.length * self.flinfo.blocksize):
+                        print("img size is larger than part. len in '%s'" % section_conf)
+                        return 0
+        else:
             if part_info == None:
                 if self.flinfo.type == 'norplusnand':
                     if count > 2:
@@ -602,12 +620,7 @@ class Pack(object):
             elif img_size > part_info.length:
                 print("img size is larger than part. len in '%s'" % section_conf)
                 return 0
-        else:
-            if part_info != None:
-                if (img_size > 0):
-                    if img_size > (part_info.length * self.flinfo.blocksize):
-                        print("img size is larger than part. len in '%s'" % section_conf)
-                        return 0
+
 
         if part_info == None and self.flinfo.type != 'norplusnand':
             print("Flash type is norplusemmc")
@@ -697,7 +710,13 @@ class Pack(object):
 
             section_conf = section_conf.lower()
 
-            if self.flinfo.type != "emmc":
+            if self.flinfo.type in gpt_flash:
+                if part_info != None:
+                    if (img_size > 0):
+                        if img_size > (part_info.length * self.flinfo.blocksize):
+                            print("img size is larger than part. len in '%s'" % section_conf)
+                            return 0
+            else:
                 if part_info == None:
                     if self.flinfo.type == 'norplusnand':
                         if count > 2:
@@ -705,12 +724,6 @@ class Pack(object):
                 elif img_size > part_info.length:
                     print("img size is larger than part. len in '%s'" % section_conf)
                     return 0
-            else:
-                if part_info != None:
-                    if (img_size > 0):
-                        if img_size > (part_info.length * self.flinfo.blocksize):
-                            print("img size is larger than part. len in '%s'" % section_conf)
-                            return 0
 
             if part_info == None and self.flinfo.type != 'norplusnand':
                 print("Flash type is norplusemmc")
@@ -777,7 +790,13 @@ class Pack(object):
 
         section_conf = section_conf.lower()
 
-        if self.flinfo.type != "emmc":
+        if self.flinfo.type in gpt_flash:
+            if part_info != None:
+                if (img_size > 0):
+                    if img_size > (part_info.length * self.flinfo.blocksize):
+                        print("img size is larger than part. len in '%s'" % section_conf)
+                        return 0
+        else:
             if part_info == None:
                 if self.flinfo.type == 'norplusnand':
                     if count > 2:
@@ -785,12 +804,6 @@ class Pack(object):
             elif img_size > part_info.length:
                 print("img size is larger than part. len in '%s'" % section_conf)
                 return 0
-        else:
-            if part_info != None:
-                if (img_size > 0):
-                    if img_size > (part_info.length * self.flinfo.blocksize):
-                        print("img size is larger than part. len in '%s'" % section_conf)
-                        return 0
 
         if part_info == None and self.flinfo.type != 'norplusnand':
             print("Flash type is norplusemmc")
@@ -833,6 +846,7 @@ class Pack(object):
         global SRC_DIR
         global ARCH_NAME
         global flash_size
+        global skip_test
 
         diff_files = ""
         count = 0
@@ -841,19 +855,26 @@ class Pack(object):
         file_exists = 1
         wifi_fw_type = ""
 
-        if self.flash_type == "norplusemmc" and flinfo.type == "emmc":
+        if flinfo.type == "nor-gpt":
+            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition.xml"
+        elif self.flash_type == "norplusemmc" and flinfo.type == "emmc":
             srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition"+ flash_size +".xml"
         else:
             srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition"+ flash_size +".xml"
 
         root_part = ET.parse(srcDir_part)
-        if self.flash_type != "emmc" and flinfo.type != "emmc":
+        if self.flash_type == "norplusnand-gpt":
+            parts = root_part.findall(".//physical_partition[@ref='norplusnand-gpt']/partition")
+        elif self.flash_type == "norplusemmc-gpt":
+            parts = root_part.findall(".//physical_partition[@ref='norplusemmc-gpt']/partition")
+        elif self.flash_type != "emmc" and flinfo.type != "emmc":
             parts = root_part.findall(".//partitions/partition")
         elif self.flash_type != "emmc" and flinfo.type == "emmc":
             parts = root_part.findall(".//physical_partition[@ref='norplusemmc']/partition")
         else:
             parts = root_part.findall(".//physical_partition[@ref='emmc']/partition")
-        if flinfo.type == "emmc" and image_type == "all":
+
+        if image_type == "all" and (flinfo.type == "emmc" or flinfo.type == "nor-gpt"):
             parts_length = len(parts) + 2
         else:
             parts_length = len(parts)
@@ -879,6 +900,8 @@ class Pack(object):
 
         chip_count = 0
         for soc_hw_version in soc_hw_versions[ARCH_NAME]:
+            if skip_test:
+                break;
             chip_count = chip_count + 1
             if chip_count == 1:
                 script.script.append('if test -n $soc_hw_version')
@@ -897,7 +920,7 @@ class Pack(object):
             script.script.append('echo \'soc_hw_version : unknown, skipping validation\'\n')
             script.script.append('fi\n')
 
-        if testmachid:
+        if (skip_test == False) and testmachid:
             machid_count = 0
             for section in entries:
                 machid = self.__get_machid(section)
@@ -917,45 +940,63 @@ class Pack(object):
         section = None
         part_index = 0
 
-        if flinfo.type == "emmc" and image_type == "all":
-            first = True
+        if image_type == "all" and (flinfo.type == "emmc" or flinfo.type == "nor-gpt"):
+                first = True
 
         if flinfo.type == "nand" or self.flash_type == "norplusnand":
             script.append("flashinit nand")
         elif flinfo.type == "emmc" or self.flash_type == "norplusemmc":
             script.append("flashinit mmc")
+
         if flinfo.type == "emmc":
             script.append("flupdate set mmc")
+        elif flinfo.type == "nor-gpt":
+            script.append("flupdate set nor-gpt")
 
-        if flinfo.type != "emmc" and image_type != "hlos":
+        if flinfo.type != "nor-gpt" and flinfo.type != "emmc" and image_type != "hlos":
             self.__gen_script_mibib(script, flinfo, parts, parts_length, "mibib_reload")
 
         for index in range(parts_length):
             filename = ""
             partition = ""
             if first:
-                if self.flash_type == "norplusemmc":
+                if self.flash_type == "norplusnand-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSNAND-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSEMMC-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc":
                     part_info = root.find(".//data[@type='NORPLUSEMMC_PARAMETER']")
                 else:
                     part_info = root.find(".//data[@type='EMMC_PARAMETER']")
+
                 part_fname = part_info.find(".//partition_mbn")
                 filename = part_fname.text
-                partition = "0:GPT"
+                if flinfo.type == "nor-gpt":
+                    partition = "0:NORGPT"
+                else:
+                    partition = "0:GPT"
                 first = False
 
-            elif index == (parts_length - 1) and flinfo.type == "emmc" and image_type == "all":
-                if self.flash_type == "norplusemmc":
+            elif index == (parts_length - 1) and (flinfo.type == "emmc" or flinfo.type == "nor-gpt") and image_type == "all":
+                if self.flash_type == "norplusnand-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSNAND-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSEMMC-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc":
                     part_info = root.find(".//data[@type='NORPLUSEMMC_PARAMETER']")
                 else:
                     part_info = root.find(".//data[@type='EMMC_PARAMETER']")
+
                 part_fname = part_info.find(".//partition_mbn_backup")
                 filename = part_fname.text
-                partition = "0:GPTBACKUP"
-
+                if flinfo.type == "nor-gpt":
+                    partition = "0:NORGPTBACKUP"
+                else:
+                    partition = "0:GPTBACKUP"
             else:
                 section = parts[part_index]
                 part_index += 1
-                if flinfo.type != "emmc":
+                if flinfo.type != "emmc" and flinfo.type != "nor-gpt":
                     try:
                         if image_type == "all" or section[8].attrib['image_type'] == image_type:
                             filename = section[8].text
@@ -1027,7 +1068,7 @@ class Pack(object):
                         return 0
                     continue
 
-            if flinfo.type != "emmc" and flinfo.type != "nor":
+            if flinfo.type != "nor-gpt" and flinfo.type != "emmc" and flinfo.type != "nor":
                 imgs = section.findall('img_name')
                 for img in imgs:
                     memory_attr = img.get('memory')
@@ -1047,7 +1088,7 @@ class Pack(object):
                     if no_fw_mach_ids and filename != "":
                         self.__gen_flash_script_update_for_wififw(partition, filename, flinfo, script, no_fw_mach_ids)
 
-                    if flinfo.type == "emmc":
+                    if flinfo.type == "nor-gpt" or flinfo.type == "emmc":
                         section_img_type = section.attrib['image_type']
                     else:
                         section_img_type = section[8].attrib['image_type']
@@ -1096,7 +1137,7 @@ class Pack(object):
 
                 continue
 
-        if flinfo.type == "emmc":
+        if flinfo.type == "emmc" or flinfo.type == "nor-gpt":
             script.append("flupdate clear")
 
         return 1
@@ -1274,22 +1315,29 @@ class Pack(object):
         if ret == 0:
             return 0 #Stop packing this single-image
 
-        if (self.flash_type == "norplusemmc" and flinfo.type == "emmc") or (self.flash_type != "norplusemmc"):
+        if self.flash_type != "norplusemmc-gpt" and ((self.flash_type == "norplusemmc" and flinfo.type == "emmc") or (self.flash_type != "norplusemmc")):
             script.end()
 
-        if self.flash_type == "norplusemmc" and flinfo.type == "emmc":
+        if flinfo.type == "nor-gpt":
+            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition.xml"
+        elif self.flash_type == "norplusemmc" and flinfo.type == "emmc":
             srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition"+ flash_size +".xml"
         else:
             srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition"+ flash_size +".xml"
 
         root_part = ET.parse(srcDir_part)
-        if self.flash_type != "emmc" and flinfo.type != "emmc":
+        if self.flash_type == "norplusnand-gpt":
+            parts = root_part.findall(".//physical_partition[@ref='norplusnand-gpt']/partition")
+        elif self.flash_type == "norplusemmc-gpt":
+            parts = root_part.findall(".//physical_partition[@ref='norplusemmc-gpt']/partition")
+        elif self.flash_type != "emmc" and flinfo.type != "emmc":
             parts = root_part.findall(".//partitions/partition")
         elif self.flash_type != "emmc" and flinfo.type == "emmc":
             parts = root_part.findall(".//physical_partition[@ref='norplusemmc']/partition")
         else:
             parts = root_part.findall(".//physical_partition[@ref='emmc']/partition")
-        if flinfo.type == "emmc" and image_type == "all":
+
+        if image_type == "all" and (flinfo.type == "nor-gpt" or flinfo.type == "emmc"):
             parts_length = len(parts) + 2
         else:
             parts_length = len(parts)
@@ -1298,35 +1346,48 @@ class Pack(object):
         section = None
         part_index = 0
 
-        if flinfo.type == "emmc" and image_type == "all":
-            first = True
+        if image_type == "all" and (flinfo.type == "nor-gpt" or flinfo.type == "emmc"):
+                first = True
 
         for index in range(parts_length):
             filename = ""
             partition = ""
             if first:
-                if self.flash_type == "norplusemmc":
+                if self.flash_type == "norplusnand-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSNAND-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSEMMC-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc":
                     part_info = root.find(".//data[@type='NORPLUSEMMC_PARAMETER']")
                 else:
                     part_info = root.find(".//data[@type='EMMC_PARAMETER']")
                 part_fname = part_info.find(".//partition_mbn")
                 filename = part_fname.text
-                partition = "0:GPT"
+                if flinfo.type == "nor-gpt":
+                    partition = "0:NORGPT"
+                else:
+                    partition = "0:GPT"
                 first = False
 
-            elif index == (parts_length - 1) and flinfo.type == "emmc" and image_type == "all":
-                if self.flash_type == "norplusemmc":
+            elif index == (parts_length - 1) and (flinfo.type == "emmc" or flinfo.type == "nor-gpt") and image_type == "all":
+                if self.flash_type == "norplusnand-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSNAND-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc-gpt":
+                    part_info = root.find(".//data[@type='NORPLUSEMMC-GPT_PARAMETER']")
+                elif self.flash_type == "norplusemmc":
                     part_info = root.find(".//data[@type='NORPLUSEMMC_PARAMETER']")
                 else:
                     part_info = root.find(".//data[@type='EMMC_PARAMETER']")
                 part_fname = part_info.find(".//partition_mbn_backup")
                 filename = part_fname.text
-                partition = "0:GPTBACKUP"
-
+                if flinfo.type == "nor-gpt":
+                    partition = "0:NORGPTBACKUP"
+                else:
+                    partition = "0:GPTBACKUP"
             else:
                 section = parts[part_index]
                 part_index += 1
-                if flinfo.type != "emmc":
+                if flinfo.type != "nor-gpt" and flinfo.type != "emmc":
                     try:
                         if image_type == "all" or section[8].attrib['image_type'] == image_type:
                             filename = section[8].text
@@ -1408,7 +1469,7 @@ class Pack(object):
                 except KeyError as e:
                     continue
 
-            if flinfo.type != "emmc":
+            if flinfo.type != "nor-gpt" and flinfo.type != "emmc":
                 imgs = section.findall('img_name')
                 for img in imgs:
                     memory_attr = img.get('memory')
@@ -1527,7 +1588,10 @@ class Pack(object):
         self.flinfo = flinfo
         script = FlashScript(flinfo)
 
-        if flinfo.type != "emmc":
+        if flinfo.type == "emmc" or flinfo.type == "nor-gpt":
+            gpt = GPT(part_fname, flinfo)
+            self.partitions = gpt.get_parts()
+        else:
             if root.find(".//data[@type='NAND_PARAMETER']/entry") != None:
                 if self.flash_type == "nand-4k" or self.flash_type == "norplusnand-4k":
                     flash_param = root.find(".//data[@type='NAND_PARAMETER']/entry[@type='4k']")
@@ -1548,9 +1612,6 @@ class Pack(object):
             mibib = MIBIB(part_fname, flinfo, blocksize, chipsize, root_part)
             self.partitions = mibib.get_parts()
 
-        else:
-            gpt = GPT(part_fname, flinfo)
-            self.partitions = gpt.get_parts()
 
         ret = self.__gen_script(script_fp, script, images, flinfo, root)
         if ret == 0:
@@ -1564,7 +1625,7 @@ class Pack(object):
         script_fp.close()
         return 1
 
-    def __process_board_flash_emmc(self, ftype, images, root):
+    def __process_board_flash_gpt(self, ftype, images, root):
         """Extract board info from config and generate the flash script.
 
         ftype -- string, flash type 'emmc'
@@ -1579,16 +1640,27 @@ class Pack(object):
             part_fname = part_fname.text
             part_fname = os.path.join(self.images_dname, part_fname)
 
-            if ftype == "norplusemmc":
+            if ftype == "norplusnand-gpt":
+                part_info = root.find(".//data[@type='NORPLUSNAND-GPT_PARAMETER']")
+                pagesize = self.nor_gpt_page_size
+                blocksize = self.nor_gpt_block_size
+                ftype = "nor-gpt"
+            elif ftype == "norplusemmc-gpt":
+                part_info = root.find(".//data[@type='NORPLUSEMMC-GPT_PARAMETER']")
+                pagesize = self.nor_gpt_page_size
+                blocksize = self.nor_gpt_block_size
+                ftype = "nor-gpt"
+            elif ftype == "norplusemmc":
                 part_info = root.find(".//data[@type='NORPLUSEMMC_PARAMETER']")
                 pagesize = int(part_info.find(".//page_size_flash").text)
                 part_info = root.find(".//data[@type='EMMC_PARAMETER']")
+                ftype = "emmc"
+                blocksize = self.emmc_block_size
             else:
                 pagesize = self.emmc_page_size
-            blocksize = self.emmc_block_size
+                blocksize = self.emmc_block_size
+
             chipsize = int(part_info.find(".//total_block").text)
-            if ftype.lower() == "norplusemmc":
-                ftype = "emmc"
 
         except ValueError as e:
             error("invalid flash info in section '%s'" % board_section.find('machid').text, e)
@@ -1692,16 +1764,20 @@ class Pack(object):
         return ret
 
     def __process_board(self, images, root):
-
+        global skip_test
         try:
             if self.flash_type in [ "nand", "nand-4k", "nor", "tiny-nor", "norplusnand", "norplusnand-4k", "tiny-nor-debug" ]:
                 ret = self.__process_board_flash(self.flash_type, images, root)
-            elif self.flash_type == "emmc":
-                ret = self.__process_board_flash_emmc(self.flash_type, images, root)
+            elif self.flash_type in ["emmc", "norplusnand-gpt", "norplusemmc-gpt"]:
+                ret = self.__process_board_flash_gpt(self.flash_type, images, root)
+                if self.flash_type == "norplusemmc-gpt" and ret:
+                    self.flash_type = "norplusemmc"
+                    skip_test = True
+                    ret = self.__process_board_flash_gpt("norplusemmc", images, root)
             elif self.flash_type == "norplusemmc":
                 ret = self.__process_board_flash("norplusemmc", images, root)
                 if ret:
-                    ret = self.__process_board_flash_emmc("norplusemmc", images, root)
+                    ret = self.__process_board_flash_gpt("norplusemmc", images, root)
             return ret
         except ValueError as e:
             error("error getting board info in section '%s'" % board_section.find('machid').text, e)
@@ -1757,7 +1833,9 @@ class ArgParser(object):
         global atf
         global skip_4k_nand
         global flash_size
+        global skip_test
         flash_size = ""
+        skip_test = False
 
         """Start the parsing process, and populate members with parsed value.
 
@@ -1817,7 +1895,7 @@ class ArgParser(object):
             if self.flash_type == None:
                 self.flash_type = ArgParser.DEFAULT_TYPE
             for flash_type in self.flash_type.split(","):
-                if flash_type not in [ "nand", "nor", "tiny-nor", "emmc", "norplusnand", "norplusemmc", "tiny-nor-debug" ]:
+                if flash_type not in supported_flash_type[ARCH_NAME]:
                     raise UsageError("invalid flash type '%s'" % flash_type)
 
 # Verify src Path
@@ -1844,7 +1922,7 @@ class ArgParser(object):
         print()
         print("options:")
         print("  --arch \tARCH_TYPE [" + '/'.join(supported_arch) + "]")
-        print("  --fltype \tFlash Type [nor/tiny-nor/nand/emmc/norplusnand/norplusemmc/tiny-nor-debug]")
+        print("  --fltype \tFlash Type [" + '/'.join(supported_flash_type[ARCH_NAME]) + "]")
         print(" \t\tMultiple flashtypes can be passed by a comma separated string")
         print(" \t\tDefault is all. i.e If \"--fltype\" is not passed image for all the flash-type will be created.\n")
         print("  --srcPath \tPath to the directory containg the meta scripts and configs")
