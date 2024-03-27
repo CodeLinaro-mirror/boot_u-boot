@@ -275,6 +275,16 @@ void update_board_type(void)
 	gd->board_type = board_type;
 }
 
+#if defined(CONFIG_ARM64) && defined(CFG_EMUL_FREQUENCY_DIVIDER)
+void setup_arch_cntfreq(void)
+{
+	unsigned long freq = CONFIG_COUNTER_FREQUENCY /
+		CFG_EMUL_FREQUENCY_DIVIDER;
+	asm volatile("msr cntfrq_el0, %0" : : "r" (freq) : "memory");
+	return;
+}
+#endif
+
 int board_init(void)
 {
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
@@ -346,6 +356,12 @@ int board_init(void)
 	sfi->mmc_gpt_pte.gpt_pte = NULL;
 	sfi->nor_gpt_pte.gpt_pte = NULL;
 #endif
+
+#if defined(CONFIG_ARM64) && defined(CFG_EMUL_FREQUENCY_DIVIDER)
+	if ((current_el() == 3) && (sfi->flash_type != SMEM_BOOT_NO_FLASH))
+		setup_arch_cntfreq();
+#endif
+
 	switch(sfi->flash_type) {
 	case SMEM_BOOT_MMC_FLASH:
 	case SMEM_BOOT_NORGPT_FLASH:

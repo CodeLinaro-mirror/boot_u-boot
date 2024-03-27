@@ -53,7 +53,15 @@ extern uint32_t g_load_addr;
 #define CFG_SYS_BAUDRATE_TABLE			{ 115200, 230400,	\
 							460800, 921600 }
 
-#define CFG_SYS_HZ_CLOCK			240000
+#define CFG_EMUL_FREQUENCY_DIVIDER		150
+
+/* override the counter frequency incase of emulation platform */
+#ifdef CFG_EMUL_FREQUENCY_DIVIDER
+#define CFG_SYS_HZ_CLOCK			(CONFIG_COUNTER_FREQUENCY / \
+						CFG_EMUL_FREQUENCY_DIVIDER)
+#else
+#define CFG_SYS_HZ_CLOCK			CONFIG_COUNTER_FREQUENCY
+#endif
 
 /* In 64-bit, SDRAM will contains 2 banks */
 #define CFG_SYS_SDRAM_BASE0			0x80000000
