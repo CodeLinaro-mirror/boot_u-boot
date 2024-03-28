@@ -1574,8 +1574,8 @@ U_BOOT_CMD(
 	derive_aes_256_max_ctxt_key, 5, 1, do_derive_aes_256_max_ctxt_key,
 	"Derive AES 256 key with 128 byte context before"
 	"encrypt/decrypt in TME-L based systems",
-	"Key Derivation: derive_aes_256_key <source_data> <bindings_data>"
-	"<context_data address> <context data len>"
+	"Key Derivation: derive_aes_256_max_ctxt_key <source_data>"
+	"<bindings_data> <context_data address> <context data len>"
 );
 #endif /* CONFIG_AES_256_DERIVE_KEY */
 
