@@ -54,6 +54,16 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 	int ret;
 
 	switch (clk->id) {
+	case GCC_USB0_MASTER_CLK:
+		break;
+	case GCC_USB0_MOCK_UTMI_CLK:
+		break;
+	case GCC_USB0_AUX_CLK:
+		break;
+	case GCC_USB1_MOCK_UTMI_CLK:
+		break;
+
+	/* NSS clocks */
 	case NSS_CC_PPE_CLK:
 		clk_rcg_set_rate_v2(priv->base, &nss_cc_ppe_regs,
 				1, 0, NSS_CC_PPE_SRC_SEL_CMN_PLL_NSS_CLK_375M);
@@ -87,14 +97,49 @@ int msm_enable(struct clk *clk)
 	case GCC_NSSNOC_MEMNOC_1_CLK:
 		clk_enable_cbc(priv->base + GCC_NSSNOC_MEMNOC_1_CBCR);
 		break;
-	case NSS_CC_PPE_SWITCH_CLK:
-		clk_enable_cbc(priv->base + NSS_CC_PPE_SWITCH_CBCR);
-		break;
 	case GCC_SDCC1_APPS_CLK:
 		clk_enable_cbc(priv->base + GCC_SDCC1_APPS_CBCR);
 		break;
 	case GCC_SDCC1_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_SDCC1_AHB_CBCR);
+		break;
+	case GCC_USB0_MASTER_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_MASTER_CBCR);
+		break;
+	case GCC_USB0_MOCK_UTMI_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_MOCK_UTMI_CBCR);
+		break;
+	case GCC_USB0_SLEEP_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_SLEEP_CBCR);
+		break;
+	case GCC_USB0_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_AUX_CBCR);
+		break;
+	case GCC_USB0_PHY_CFG_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_PHY_CFG_AHB_CBCR);
+		break;
+	case GCC_USB1_MASTER_CLK:
+		clk_enable_cbc(priv->base + GCC_USB1_MASTER_CBCR);
+		break;
+	case GCC_USB1_MOCK_UTMI_CLK:
+		clk_enable_cbc(priv->base + GCC_USB1_MOCK_UTMI_CBCR);
+		break;
+	case GCC_USB1_SLEEP_CLK:
+		clk_enable_cbc(priv->base + GCC_USB1_SLEEP_CBCR);
+		break;
+	case GCC_USB1_PHY_CFG_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_USB1_PHY_CFG_AHB_CBCR);
+		break;
+	case GCC_USB0_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_USB0_PIPE_CBCR);
+		break;
+	case GCC_CNOC_USB_CLK:
+		clk_enable_cbc(priv->base + GCC_CNOC_USB_CBCR);
+		break;
+
+	/* NSS clocks */
+	case NSS_CC_PPE_SWITCH_CLK:
+		clk_enable_cbc(priv->base + NSS_CC_PPE_SWITCH_CBCR);
 		break;
 	case NSS_CC_PPE_EDMA_CLK:
 		clk_enable_cbc(priv->base + NSS_CC_PPE_EDMA_CBCR);

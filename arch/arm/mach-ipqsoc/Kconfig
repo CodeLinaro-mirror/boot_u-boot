@@ -315,6 +315,7 @@ config TARGET_DEVSOC
 	select IPQ_CRASHDUMP
 	select IPQ_SECURE
 	select NOR_BLK
+	select IPQ_USB
 	help
 	  Support for IPQ DEVSoC.
 

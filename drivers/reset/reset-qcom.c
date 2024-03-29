@@ -187,6 +187,12 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 #include <dt-bindings/reset/devsoc-reset.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {
 	[GCC_SDCC1_BCR] = {0x33000, 0},
+	[GCC_USB_BCR] = {0x2C000, 0},
+	[GCC_QUSB2_0_PHY_BCR] = {0x2C068, 0},
+	[GCC_USB0_PHY_BCR] = {0x2C06C, 0},
+	[GCC_USB3PHY_0_PHY_BCR] = {0x2C070, 0},
+	[GCC_USB1_BCR] = {0x3C000, 0},
+	[GCC_QUSB2_1_PHY_BCR] = {0x3C030, 0},
 };
 #endif
 

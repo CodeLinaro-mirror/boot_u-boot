@@ -19,6 +19,17 @@
 #define GCC_NSSCFG_CLK					9
 #define GCC_NSSNOC_MEMNOC_CLK				10
 #define GCC_NSSNOC_MEMNOC_1_CLK				11
+#define GCC_USB0_MASTER_CLK				12
+#define GCC_USB0_MOCK_UTMI_CLK				13
+#define GCC_USB0_SLEEP_CLK				14
+#define GCC_USB0_AUX_CLK				15
+#define GCC_USB0_PHY_CFG_AHB_CLK			16
+#define GCC_USB1_MASTER_CLK				17
+#define GCC_USB1_MOCK_UTMI_CLK				18
+#define GCC_USB1_SLEEP_CLK				19
+#define GCC_USB1_PHY_CFG_AHB_CLK			20
+#define GCC_USB0_PIPE_CLK				21
+#define GCC_CNOC_USB_CLK				22
 
 /* NSS controlled clock IDs */
 #define NSS_CC_PPE_CLK					100
