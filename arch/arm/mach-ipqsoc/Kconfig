@@ -30,6 +30,13 @@ config SMEM_VERSION_C
 config SMEM_BASE_ADDR
 	hex "Define memory for shared memory"
 
+config SYSUPGRADE_HELPER
+	bool "Enable sysupgrade tool for user space"
+	default n
+	help
+	  This is not specific to u-boot subsystem
+	  u-boot code is leveraged for user space application
+
 config NUM_ALT_PARTITION
 	int
 	default 16

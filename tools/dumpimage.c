@@ -102,6 +102,7 @@ int main(int argc, char **argv)
 		case 'V':
 			printf("dumpimage version %s\n", PLAIN_VERSION);
 			exit(EXIT_SUCCESS);
+#ifdef CONFIG_SYSUPGRADE_HELPER
 		case 'c':
 			return do_board_upgrade_check(optarg);
 		case 'b':
@@ -113,6 +114,7 @@ int main(int argc, char **argv)
 			} else {
 				return invalidate_bootconfig(atoi(optarg));
 			}
+#endif
 		case 'h':
 		default:
 			usage();
