@@ -12,6 +12,12 @@
 #define GCC_NSSNOC_MEMNOC_1_CBCR	(0x17084)
 #define GCC_SDCC1_APPS_CBCR		(0x3302C)
 #define GCC_SDCC1_AHB_CBCR		(0x3303C)
+#define SDCC1_APPS_CMD_RCGR		(0x33004)
+#define SDCC1_APPS_CFG_RCGR		(0x33008)
+#define SDCC1_APPS_M			(0x3300C)
+#define SDCC1_APPS_N			(0x33010)
+#define SDCC1_APPS_D			(0x33014)
+#define SDCC1_SRC_SEL_GPLL2_OUT_MAIN	(2 << 8)
 
 /* USB clock control registers */
 #define GCC_USB0_MASTER_CBCR		(0x2C044)

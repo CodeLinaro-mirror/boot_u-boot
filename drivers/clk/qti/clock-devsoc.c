@@ -34,6 +34,14 @@ static const struct bcr_regs_v2 nss_cc_cfg_regs = {
 	.cmd_rcgr = NSS_CC_CFG_CMD_RCGR,
 };
 
+static const struct bcr_regs sdc_regs = {
+	.cfg_rcgr = SDCC1_APPS_CFG_RCGR,
+	.cmd_rcgr = SDCC1_APPS_CMD_RCGR,
+	.M = SDCC1_APPS_M,
+	.N = SDCC1_APPS_N,
+	.D = SDCC1_APPS_D,
+};
+
 int msm_set_parent(struct clk *clk, struct clk* parent)
 {
 	assert(clk);
@@ -75,6 +83,11 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 	case NSS_CC_CFG_CLK:
 		clk_rcg_set_rate_v2(priv->base, &nss_cc_cfg_regs,
 				15, 0, NSS_CC_PPE_SRC_SEL_GCC_GPLL0_OUT_AUX);
+		break;
+	case GCC_SDCC1_APPS_CLK:
+		/* SDCC1: 192 MHz */
+		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 6, 0, 0,
+				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
 		break;
 	default:
 		ret = 0;
