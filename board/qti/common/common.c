@@ -513,7 +513,7 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	int *ncount, ret = 0;
+	int *ncount = NULL, ret = 0;
 	gpt_entry **pp_gpt_pte;
 
 	ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1, dev_desc->blksz);
@@ -525,7 +525,7 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 		pp_gpt_pte = &sfi->nor_gpt_pte.gpt_pte;
 		ncount = &sfi->nor_gpt_pte.ncount;
 	} else
-		*pp_gpt_pte = NULL;
+		return NULL;
 
 	if(*pp_gpt_pte)
 #ifdef UPDATE_GPT_RUNTIME
@@ -542,7 +542,7 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 		 * This gpt header and pte from backup gpt in sucess case.
 		 */
 		ret = gpt_verify_headers(dev_desc, gpt_head, pp_gpt_pte);
-		if(ret == 0)
+		if(ret == 0 && ncount != NULL)
 			*ncount = le32_to_cpu(gpt_head->num_partition_entries);
 		else
 			*pp_gpt_pte = NULL;
@@ -932,6 +932,7 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 	int i, rdatacnt = 0, buf_cur_pos = 0;
 #endif
 #endif
+	 memset(&part, 0, sizeof(ipq_part_entry_t));
 
 	if ((sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) &&
 		((fl_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
@@ -1065,8 +1066,9 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 		if (flash == NULL){
 			printf("No SPI flash device found\n");
 			ret = -ENODEV;
-		} else
+		} else {
 			ret = spi_flash_read(flash, part.offset, size, buf);
+		}
 	}
 #endif
 #ifdef CONFIG_IPQ_NAND
@@ -1076,9 +1078,9 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 		if (!mtd) {
 			printf("No NAND flash device found\n");
 			ret = -ENODEV;
+		} else {
+			ret = nand_read(mtd, part.offset, &size, buf);
 		}
-
-		ret = nand_read(mtd, part.offset, &size, buf);
 	}
 #endif
 
