@@ -2423,7 +2423,10 @@ static int ipq_eth_start(struct udevice *dev)
 
 		port = priv->port[i];
 
-		if ((!port || !port->phydev) && !priv->emulation)
+		if (!port)
+			continue;
+
+		if (!port->phydev && !priv->emulation)
 			continue;
 
 		if (active_port != i && active_port != CONFIG_ETH_MAX_MAC) {
