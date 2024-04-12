@@ -420,7 +420,7 @@ int validate_and_copy(gpt_entry *pte, struct smem_ptn *p)
 void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 {
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	int i, ret, ncount;
+	int i, ret, ncount = 0;
 	int device_id = 0;
 	char *part = mtdid, *unit;
 	int init = 0;

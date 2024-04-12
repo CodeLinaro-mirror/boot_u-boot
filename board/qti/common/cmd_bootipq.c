@@ -591,7 +591,7 @@ exit:
 
 static int copy_rootfs(uint32_t request, uint32_t size)
 {
-	int ret;
+	int ret = 0;
 #ifdef CONFIG_MMC
 	int curr_device = -1;
 	struct mmc *mmc;

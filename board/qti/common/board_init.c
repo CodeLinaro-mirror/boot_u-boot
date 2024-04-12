@@ -542,7 +542,7 @@ static void init_mmc(void)
 #ifdef CONFIG_EFI_PARTITION
 	struct blk_desc *dev;
 	dev = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
-	if(dev->part_type == PART_TYPE_UNKNOWN)
+	if (dev != NULL && dev->part_type == PART_TYPE_UNKNOWN)
 		dev->part_type = PART_TYPE_EFI;
 #endif
 	return;
