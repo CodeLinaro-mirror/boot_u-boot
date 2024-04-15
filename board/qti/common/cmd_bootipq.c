@@ -650,6 +650,15 @@ int config_select(void)
 	if(!(gd->board_type & SECURE_BOARD))
 	{
 		request = boot_info.load_address;
+		ret = genimg_get_format((void *)request);
+		if ((ret != IMAGE_FORMAT_LEGACY) && (ret != IMAGE_FORMAT_FIT))
+		{
+			if (!parse_elf_image_phdr(&img_info, request)) {
+				request += img_info.img_offset;
+				boot_info.load_address = request;
+			}
+		} else
+			goto get_img_config;
 	} else if (gd->board_type & SECURE_BOARD) {
 #ifndef CONFIG_IPQ_ELF_AUTH
 		request = boot_info.load_address + sizeof(mbn_header_t);
@@ -660,6 +669,7 @@ int config_select(void)
 
 	ret = genimg_get_format((void *)request);
 
+get_img_config:
 	if (ret == IMAGE_FORMAT_LEGACY) {
 
 		if(boot_info.debug)
