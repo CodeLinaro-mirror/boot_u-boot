@@ -223,6 +223,10 @@ config CMD_AES_256
 	bool "AES 256 command support"
 	default n
 
+config IPQ_EMULATION
+	bool "Emulation support"
+	default n
+
 config AES_256_DERIVE_KEY
 	bool "AES 256 derive key support"
 	depends on CMD_AES_256
@@ -316,6 +320,7 @@ config TARGET_DEVSOC
 	select IPQ_SECURE
 	select NOR_BLK
 	select IPQ_USB
+	select IPQ_EMULATION
 	help
 	  Support for IPQ DEVSoC.
 

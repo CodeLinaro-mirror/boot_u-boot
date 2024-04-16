@@ -527,6 +527,11 @@ __weak void board_update_RFA_settings(void)
 	return;
 }
 
+__weak void board_mmc_config(void)
+{
+	return;
+}
+
 #ifdef CONFIG_IPQ_MMC
 static void init_mmc(void)
 {
@@ -825,6 +830,10 @@ int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 	int ret;
 	struct disk_partition disk_info;
 	blkpart_info_t  bpart_info;
+
+#ifdef CONFIG_IPQ_EMULATION
+	board_mmc_config();
+#endif
 
 	BLK_PART_GET_INFO_S(bpart_info, "0:APPSBLENV", &disk_info,
 					SMEM_BOOT_MMC_FLASH);

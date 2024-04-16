@@ -189,3 +189,8 @@ static struct mm_region devsoc_mem_map[] = {
 
 struct mm_region *mem_map = devsoc_mem_map;
 #endif
+
+void board_mmc_config(void)
+{
+	writel(0x1, 0x194C008);
+}
