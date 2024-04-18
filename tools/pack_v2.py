@@ -582,6 +582,62 @@ class Pack(object):
 
         return 1
 
+    def __gen_flash_script_xblconfig(self, entries, partition, flinfo, script):
+        global ARCH_NAME
+        for section in entries:
+            machid = self.__get_machid(section)
+            board = section.find(".//board").text
+
+            try:
+                memory = section.find(".//memory").text
+            except AttributeError as e:
+                memory = "128M16"
+            if memory_size != "default":
+                filename = "xblconfig-" + board + "_" + memory + "_LM" + memory_size + ".elf"
+            else:
+                filename = "xblconfig-" + board + "_" + memory + ".elf"
+
+            img_size = self.__get_img_size(filename)
+            part_info = self.__get_part_info(partition)
+
+            section_label = partition.split(":")
+            if len(section_label) != 1:
+                section_conf = section_label[1]
+            else:
+                section_conf = section_label[0]
+
+            section_conf = section_conf.lower()
+
+            if self.flinfo.type in gpt_flash:
+                if part_info != None:
+                    if (img_size > 0):
+                        if img_size > (part_info.length * self.flinfo.blocksize):
+                            print("img size is larger than part. len in '%s'" % section_conf)
+                            return 0
+            else:
+                if part_info == None:
+                    if self.flinfo.type == 'norplusnand':
+                        if count > 2:
+                            error("More than 2 NAND images for NOR+NAND is not allowed")
+                elif img_size > part_info.length:
+                    print("img size is larger than part. len in '%s'" % section_conf)
+                    return 0
+
+            if part_info == None and self.flinfo.type != 'norplusnand':
+                print("Flash type is norplusemmc")
+                continue
+
+            if machid:
+                script.start_if("machid", machid)
+
+            if img_size > 0:
+                script.imxtract_n_flash("xblconfig-" + board + "_" + memory + "-" + sha1(filename), part_info.name)
+
+            if machid:
+                script.end_if()
+
+        return 1
+
     def __gen_flash_script_for_ubi_wififw(self, fw_filename, script, multi_fw_check):
         if multi_fw_check != None:
             script.append(multi_fw_check[0], fatal=False)
@@ -1061,6 +1117,17 @@ class Pack(object):
                 except KeyError as e:
                     continue
 
+            if partition == "0:XBLCONFIG":
+                try:
+                    if image_type == "all" or section.attrib['image_type'] == image_type:
+                        ret = self.__gen_flash_script_xblconfig(entries, partition, flinfo, script)
+                        if ret == 0:
+                            return 0
+                        continue
+                except KeyError as e:
+                    continue
+
+
             if partition == "0:BOOTLDR1":
                 if image_type == "all" or section.attrib['image_type'] == image_type:
                     ret = self.__gen_flash_script_bootldr(entries, partition, flinfo, script)
@@ -1171,6 +1238,37 @@ class Pack(object):
             if filename.lower() != "none":
                 if image_info not in images:
                     images.append(image_info)
+
+    def __gen_script_xblconfig(self, images, flinfo, root, section_conf, partition):
+        global ARCH_NAME
+
+        entries = root.findall(".//data[@type='MACH_ID_BOARD_MAP']/entry")
+
+        for section in entries:
+
+            board = section.find(".//board").text
+            try:
+                memory = section.find(".//memory").text
+            except AttributeError as e:
+                memory = "128M16"
+
+            if memory_size != "default":
+                filename = "xblconfig-" + board + "_" + memory + "_LM" + memory_size + ".elf"
+            else:
+                filename = "xblconfig-" + board + "_" + memory + ".elf"
+            file_info = "xblconfig-" + board + "_" + memory
+
+            part_info = self.__get_part_info(partition)
+
+            if part_info == None and self.flinfo.type != 'norplusnand':
+                continue
+
+            image_info = ImageInfo(file_info + "-" + sha1(filename),
+                                   filename, "firmware")
+            if filename.lower() != "none":
+                if image_info not in images:
+                    images.append(image_info)
+
 
     def __gen_script_bootldr(self, images, flinfo, root, section_conf, partition):
         global ARCH_NAME
@@ -1457,6 +1555,14 @@ class Pack(object):
                 try:
                     if image_type == "all" or section[8].attrib['image_type'] == image_type:
                         self.__gen_script_cdt(images, flinfo, root, section_conf, partition)
+                        continue
+                except KeyError as e:
+                    continue
+
+            if section_conf == "xblconfig":
+                try:
+                    if image_type == "all" or section[8].attrib['image_type'] == image_type:
+                        self.__gen_script_xblconfig(images, flinfo, root, section_conf, partition)
                         continue
                 except KeyError as e:
                     continue
