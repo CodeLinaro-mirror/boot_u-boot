@@ -310,8 +310,7 @@ static int boot_mmc(void)
 	uint32_t blk, cnt, n;
 	void *addr;
 	int active_part = get_rootfs_active_partition();
-	int secure_boot = (gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED);
+
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	blkpart_info_t  bpart_info;
 
@@ -341,7 +340,8 @@ static int boot_mmc(void)
 
 	ret = ipq_part_get_info_by_name(&bpart_info);
 	if (ret == 0) {
-		if(secure_boot) {
+		if((gd->board_type & SECURE_BOARD) &&
+				!(gd->board_type & ATF_ENABLED)) {
 #ifdef CONFIG_IPQ_ELF_AUTH
 			addr = (void *)boot_info.load_address;
 			blk = (uint32_t) disk_info.start;
@@ -398,8 +398,6 @@ static int boot_nand(void)
 {
 	int ret;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-	int secure_boot = (gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED);
 
 	if (sfi->rootfs.offset == 0xBAD0FF5E) {
 		printf(" bad offset of hlos");
@@ -415,7 +413,8 @@ static int boot_nand(void)
 	}
 
 #ifdef CONFIG_IPQ_ELF_AUTH
-	if(secure_boot) {
+	if((gd->board_type & SECURE_BOARD) &&
+				!(gd->board_type & ATF_ENABLED)) {
 		ret = ubi_volume_read("kernel", (char *)boot_info.load_address,
 					(uintptr_t)ELF_HDR_PLUS_PHDR_SIZE);
 		if(ret)
@@ -449,10 +448,6 @@ static int boot_nor(void)
 {
 	int ret;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-#ifdef CONFIG_IPQ_ELF_AUTH
-	int secure_boot = (gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED);
-#endif
 
 	if (sfi->hlos.offset == 0xBAD0FF5E) {
 		printf(" bad offset of hlos");
@@ -466,7 +461,8 @@ static int boot_nor(void)
 	}
 
 #ifdef CONFIG_IPQ_ELF_AUTH
-	if(secure_boot) {
+	if((gd->board_type & SECURE_BOARD) &&
+				!(gd->board_type & ATF_ENABLED)) {
 		ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
 				ELF_HDR_PLUS_PHDR_SIZE,
 				(void *)boot_info.load_address);
@@ -518,10 +514,12 @@ int config_select(void)
 		ret = genimg_get_format((void *)request);
 		if ((ret != IMAGE_FORMAT_LEGACY) && (ret != IMAGE_FORMAT_FIT))
 		{
+#ifdef CONFIG_IPQ_ELF_AUTH
 			if (!parse_elf_image_phdr(&img_info, request)) {
 				request += img_info.img_offset;
 				boot_info.load_address = request;
 			}
+#endif
 		} else
 			goto get_img_config;
 	} else if (gd->board_type & SECURE_BOARD) {
