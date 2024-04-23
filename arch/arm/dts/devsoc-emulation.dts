@@ -6,7 +6,7 @@
 #include "devsoc-default.dts"
 
 / {
-	config_name = "config-emulation";
+	config_name = "config-emulation-fbc";
 
 	soc: soc@0 {
 		usb3_0: usb@8af8800 {
