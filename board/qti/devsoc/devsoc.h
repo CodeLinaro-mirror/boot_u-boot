@@ -51,4 +51,11 @@ typedef enum {
 #define STATUS_OK			"status%?okay"
 #define STATUS_DISABLED			"status%?disabled"
 
+/*
+ * Rootfs authentication fuse
+ */
+#define ROOTFS_AUTH_FUSE	0xA0058
+
+#define OEM_SEC_BOOT_ENABLE	BIT(7)
+
 #endif /* _DEVSOC_H_ */

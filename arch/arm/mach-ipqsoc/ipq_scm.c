@@ -16,12 +16,17 @@
 #include <mach/ipq_scm.h>
 #include <common.h>
 #include <asm/system.h>
+#include <malloc.h>
+#include <memalign.h>
 
 #ifdef DEBUG
-#define debugf(fmt, args...) do { printf("%s(): ", __func__); printf(fmt, ##args); } while (0)
+#define debugf(fmt, args...)						\
+	do { printf("%s(): ", __func__); printf(fmt, ##args); } while (0)
 #else
 #define debugf(fmt, args...)
 #endif
+
+#define ARG_LEN_MASK	0xF
 
 enum qcom_scm_convention {
 	SMC_CONVENTION_UNKNOWN,
@@ -52,8 +57,9 @@ static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 
 	do {
 		arm_smccc_smc_quirk(a0, smc->args[1], smc->args[2],
-					smc->args[3], smc->args[4], smc->args[5],
-					quirk.state.a6, smc->args[7], res, &quirk);
+					smc->args[3], smc->args[4],
+					smc->args[5], quirk.state.a6,
+					smc->args[7], res, &quirk);
 
 		if (res->a0 == QCOM_SCM_INTERRUPTED)
 			a0 = res->a0;
@@ -61,11 +67,13 @@ static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 	} while (res->a0 == QCOM_SCM_INTERRUPTED);
 }
 
-
 int __scm_smc_call(const struct qcom_scm_desc *desc,
 		   enum qcom_scm_convention qcom_convention,
 		   struct qcom_scm_res *res, bool atomic)
 {
+	int arglen = desc->arginfo & ARG_LEN_MASK;
+	void *args_phys = NULL;
+	size_t alloc_len;
 	int i;
 	u32 smccc_call_type = atomic ? ARM_SMCCC_FAST_CALL : ARM_SMCCC_STD_CALL;
 	u32 qcom_smccc_convention = (qcom_convention == SMC_CONVENTION_ARM_32) ?
@@ -83,6 +91,31 @@ int __scm_smc_call(const struct qcom_scm_desc *desc,
 	for (i = 0; i < SCM_SMC_N_REG_ARGS; i++)
 		smc.args[i + SCM_SMC_FIRST_REG_IDX] = desc->args[i];
 
+	if (unlikely(arglen > SCM_SMC_N_REG_ARGS)) {
+		alloc_len = roundup(SCM_SMC_N_EXT_ARGS * sizeof(u64),
+					CONFIG_SYS_CACHELINE_SIZE);
+		args_phys = malloc_cache_aligned(alloc_len);
+
+		if (!args_phys)
+			return -ENOMEM;
+
+		if (qcom_smccc_convention == ARM_SMCCC_SMC_32) {
+			__le32 *args = args_phys;
+
+			for (i = 0; i < SCM_SMC_N_EXT_ARGS; i++)
+				args[i] = cpu_to_le32(desc->args[i +
+						      SCM_SMC_FIRST_EXT_IDX]);
+		} else {
+			__le64 *args = args_phys;
+
+			for (i = 0; i < SCM_SMC_N_EXT_ARGS; i++)
+				args[i] = cpu_to_le64(desc->args[i +
+						      SCM_SMC_FIRST_EXT_IDX]);
+		}
+
+		smc.args[SCM_SMC_LAST_REG_IDX] = (uintptr_t)args_phys;
+	}
+
 	__scm_smc_do_quirk(&smc, &smc_res);
 
 	if (res) {
@@ -90,6 +123,9 @@ int __scm_smc_call(const struct qcom_scm_desc *desc,
 		res->result[1] = smc_res.a2;
 		res->result[2] = smc_res.a3;
 	}
+
+	if(args_phys)
+		free(args_phys);
 
 	return (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
 }
@@ -212,7 +248,7 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_BOOT;
 		desc.cmd = QCOM_SCM_CMD_TZ_CONFIG_HW_FOR_RAM_DUMP_ID;
 		break;
-	case SCM_CHECK_AUTHENTICATE_SUPPORT:
+	case SCM_CHECK_SUPPORT:
 		desc.svc = QCOM_SCM_SVC_INFO;
 		desc.cmd = QCOM_SCM_INFO_IS_CALL_AVAIL;
 		break;
@@ -290,6 +326,10 @@ int ipq_scm_call(scm_param *param)
 	case SCM_AES_256_DEC:
 		desc.svc = QCOM_SCM_SVC_CRYPTO;
 		desc.cmd = QCOM_SCM_CMD_AES_256_DEC;
+		break;
+	case SCM_ROOTFS_HASH_VERIFY:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_ROOTFS_HASH_VERIFY_CMD;
 		break;
 	default:
 		printf("Invalid call ID: %d\n", param->type);

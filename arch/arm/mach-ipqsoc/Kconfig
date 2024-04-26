@@ -65,6 +65,16 @@ config DPR_VER_2_0
 	bool "DPR Version 2.0 support"
 	default n
 
+config DPR_VER_3_0
+	bool "DPR Version 3.0 support"
+	default n
+
+config DPR_VERSION
+	int "Current DPR version"
+	default 1 if DPR_VER_1_0
+	default 2 if DPR_VER_2_0
+	default 3 if DPR_VER_3_0
+
 config CAPIN_CAPOUT_SUPPORT
 	bool "Update RFA register based on Caldata"
 	default n
@@ -82,6 +92,19 @@ config NOR_BLK_SIZE
 	int "Block size for SPI Nor BLK device"
 	depends on NOR_BLK
 	default 4096
+
+config SCM_V1
+	bool "U-boot SCM framework version 1"
+	default n
+
+config SCM_V2
+	bool "U-boot SCM framework version 2"
+	default n
+
+config SCM_VERSION
+	int "U-boot SCM framework current version"
+	default 1 if SCM_V1
+	default 2 if SCM_V2
 
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
@@ -255,6 +278,7 @@ config TARGET_IPQ5332
 	select DPR_VER_2_0
 	select CAPIN_CAPOUT_SUPPORT
 	select AES_256_DERIVE_KEY
+	select SCM_V1
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -286,6 +310,7 @@ config TARGET_IPQ9574
 	select DPR_VER_1_0
 	select AES_256_DERIVE_KEY
 	select QSPI_LAYOUT_SWITCH if IPQ_NAND
+	select SCM_V1
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
@@ -317,10 +342,15 @@ config TARGET_DEVSOC
 	select IPQ_NET
 	select QTI_NSS_SWITCH
 	select IPQ_CRASHDUMP
+	select IPQ_ELF_AUTH
 	select IPQ_SECURE
 	select NOR_BLK
 	select IPQ_USB
 	select IPQ_EMULATION
+	select DPR_VER_3_0
+	select SCM_V2
+	select CMD_HASH
+	select SHA384
 	help
 	  Support for IPQ DEVSoC.
 

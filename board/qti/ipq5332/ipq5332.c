@@ -4,6 +4,7 @@
  */
 
 #include <common.h>
+#include <command.h>
 #include <cpu_func.h>
 #include <asm/cache.h>
 #include <asm/global_data.h>
@@ -359,60 +360,61 @@ void board_update_RFA_settings(void)
 	CDACIN = CDACIN << 22;
 	CDACOUT = CDACOUT << 13;
 
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_PHYA0_REGION_RD;
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_READ_PHY_REG(param, PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1);
+		param.get_ret = true;
+		ret = ipq_scm_call(&param);
 
-	/* args[0] has the addr */
-	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1;
-	param.arg_type[0] = SCM_VAL;
+		if (ret) {
+			printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1"
+				"read failed, ret : %d", ret);
+			return;
+		}
+	} while (0);
 
-	param.len = 1;
-	param.get_ret = 1;
-
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1"
-			"read failed, ret : %d", ret);
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 		return;
 	}
 
 	reg_val = param.res.result[0];
 
 	reg_val = (reg_val & 0xFFF9FFFF) | (0x3 << 17u);
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_PHYA0_REGION_WR;
 
-	/* args[0] has the addr */
-	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1;
-	param.arg_type[0] = SCM_VAL;
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_WRITE_PHY_REG(param, PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1,
+								reg_val);
+		ret = ipq_scm_call(&param);
 
-	/* args[1] has the regval */
-	param.buff[1] = reg_val;
-	param.arg_type[1] = SCM_VAL;
+		if (ret) {
+			printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1"
+				"write failed, ret : %d", ret);
+			return;
+		}
+	} while (0);
 
-	param.len = 2;
-
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_OV_1"
-			"write failed, ret : %d", ret);
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 		return;
 	}
 
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_PHYA0_REGION_RD;
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_READ_PHY_REG(param, PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0);
+		param.get_ret = true;
+		ret = ipq_scm_call(&param);
 
-	/* args[0] has the addr */
-	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0;
-	param.arg_type[0] = SCM_VAL;
+		if (ret) {
+			printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0"
+				"read failed, ret : %d", ret);
+			return;
+		}
+	} while (0);
 
-	param.len = 1;
-	param.get_ret = 1;
-
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0"
-			"read failed, ret : %d", ret);
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 		return;
 	}
 
@@ -425,23 +427,72 @@ void board_update_RFA_settings(void)
 	}
 
 	reg_val = ((reg_val & 0x1FFF) | ((CDACIN | CDACOUT) & (~0x1FFF)));
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_PHYA0_REGION_WR;
 
-	/* args[0] has the addr */
-	param.buff[0] = PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0;
-	param.arg_type[0] = SCM_VAL;
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_WRITE_PHY_REG(param, PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0,
+								reg_val);
+		ret = ipq_scm_call(&param);
 
-	/* args[1] has the regval */
-	param.buff[1] = reg_val;
-	param.arg_type[1] = SCM_VAL;
+		if (ret) {
+			printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0"
+				"write failed, ret : %d", ret);
+			return;
+		}
+	} while (0);
 
-	param.len = 2;
-
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("ipq_scm_call: PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0"
-			"write failed, ret : %d", ret);
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 		return;
 	}
+}
+
+int execute_dprv2(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	int ret = CMD_RET_USAGE;
+	unsigned long loadaddr, filesize;
+	unsigned long default_hex_val = 0xFFFFFFFF;
+	uint32_t dpr_status = 0;
+	scm_param param;
+
+	memset(&param, 0, sizeof(scm_param));
+	if (argc > cmdtp->maxargs || argc == 2)
+		goto fail;
+
+	if (argc == cmdtp->maxargs) {
+		loadaddr = simple_strtoul(argv[1], NULL, 16);
+		filesize = simple_strtoul(argv[2], NULL, 16);
+	} else {
+		loadaddr = env_get_hex("fileaddr", default_hex_val);
+		if (loadaddr == default_hex_val)
+			goto fail;
+
+		filesize = env_get_hex("filesize", default_hex_val);
+		if (filesize == default_hex_val)
+			goto fail;
+	}
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_EXECUTE_DPR(param, loadaddr, filesize);
+		param.get_ret = true;
+		ret = ipq_scm_call(&param);
+
+		dpr_status = param.res.result[0];
+		if (ret || dpr_status) {
+			printf("Error in DPR Processing ret : %d, "
+					"dpr_status : %d\n",
+					ret, dpr_status);
+		} else
+			printf("DPR Process Successful\n");
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		goto fail;
+	}
+
+
+fail:
+	return ret;
 }

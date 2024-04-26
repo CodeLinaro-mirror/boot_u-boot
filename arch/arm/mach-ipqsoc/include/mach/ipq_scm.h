@@ -76,6 +76,7 @@ struct qcom_scm_res {
 #define QCOM_KERNEL_AUTH_CMD		0x1E
 #define QCOM_SCM_SEC_AUTH_CMD		0x1F
 #define QCOM_PART_INFO_CMD		0x22
+#define QCOM_ROOTFS_HASH_VERIFY_CMD	0x23
 
 #define QCOM_SCM_SVC_INFO               0x06
 #define QCOM_SCM_INFO_IS_CALL_AVAIL     0x01
@@ -138,7 +139,7 @@ enum scm_type {
 	SCM_IO_READ,
 	SCM_SDI_CLEAR,
 	SCM_DLODE,
-	SCM_CHECK_AUTHENTICATE_SUPPORT,
+	SCM_CHECK_SUPPORT,
 	SCM_SECURE_AUTH,
 	SCM_KERNEL_AUTH,
 	SCM_CHECK_SECURE_FUSE,
@@ -156,7 +157,8 @@ enum scm_type {
 	SCM_AES_256_GEN_KEY,
 	SCM_AES_256_MAX_CTXT_GEN_KEY,
 	SCM_AES_256_ENC,
-	SCM_AES_256_DEC
+	SCM_AES_256_DEC,
+	SCM_ROOTFS_HASH_VERIFY
 };
 
 typedef struct {
@@ -166,7 +168,7 @@ typedef struct {
 	uint32_t cmd_id;
 	uint32_t len;
 	uint8_t arg_type[MAX_QCOM_SCM_ARGS];
-	int get_ret;
+	bool get_ret;
 	enum scm_type type;
 }scm_param;
 

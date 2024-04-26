@@ -39,6 +39,687 @@
 #endif
 #define BOARD_DTS_MAX_NAMELEN	30
 
+/*
+ * Execute DPR
+ */
+#ifdef CONFIG_DPR_VER_1_0
+#define execute_dpr_fun(a, b, c, d)		execute_dprv1(a, b, c, d)
+#elif CONFIG_DPR_VER_2_0
+#define execute_dpr_fun(a, b, c, d)		execute_dprv2(a, b, c, d)
+#elif CONFIG_DPR_VER_3_0
+#define execute_dpr_fun(a, b, c, d)		execute_dprv3(a, b, c, d)
+#endif
+
+/*
+ * Check secure boot enablement
+ */
+#ifdef CONFIG_SCM_V1
+#define is_secure_boot()	is_secure_boot_v1()
+#elif CONFIG_SCM_V2
+#define is_secure_boot()	is_secure_boot_v2()
+#endif
+
+
+/*
+ * Authenticate kernel image during bootup
+ */
+
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_AUTHENTICATE_KERNEL_V1(_param, _a, ...)		\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_KERNEL_AUTH;			\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#elif IS_ENABLED(CONFIG_SCM_V2)
+#define _IPQ_SCM_AUTHENTICATE_KERNEL_V2(_param, _a, _b, _c, _d, _e)	\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SECURE_AUTH;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b; 					\
+		(_param).buff[2] = _c;	 				\
+		(_param).buff[3] = _d; 					\
+		(_param).buff[4] = _e; 					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).arg_type[2] = SCM_VAL;				\
+		(_param).arg_type[3] = SCM_READ_OP;			\
+		(_param).arg_type[4] = SCM_VAL;				\
+		(_param).len = 5;					\
+	} while (0)
+#else
+#define _IPQ_SCM_AUTHENTICATE_KERNEL(...) break;
+#endif
+
+/*
+ * Authenticate Rootfs during bootup
+ * as well as to authenticate signed image
+ * of all the sub-systems
+ */
+
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_SECURE_AUTHENTICATE_V1(_param, _a, _b, _c, _d, _e)	\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SECURE_AUTH;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b; 					\
+		(_param).buff[2] = _c;	 				\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).arg_type[2] = SCM_WRITE_OP;			\
+		(_param).len = 3;					\
+	} while (0)
+#elif IS_ENABLED(CONFIG_SCM_V2)
+#define _IPQ_SCM_SECURE_AUTHENTICATE_V2(_param, _a, _b, _c, _d, _e)	\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SECURE_AUTH;			\
+		(_param).buff[0] = _c;					\
+		(_param).buff[1] = _b; 					\
+		(_param).buff[2] = _a;	 				\
+		(_param).buff[3] = _d; 					\
+		(_param).buff[4] = _e; 					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).arg_type[2] = SCM_VAL;				\
+		(_param).arg_type[3] = SCM_READ_OP;			\
+		(_param).arg_type[4] = SCM_VAL;				\
+		(_param).len = 5;					\
+	} while (0)
+#else
+#define _IPQ_SCM_SECURE_AUTHENTICATE(...) break;
+#endif
+
+/*
+ * Helps to read fuse valuse
+ */
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define _IPQ_SCM_READ_FUSE_V1(_param, _a, _b)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_LIST_FUSE;				\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_READ_FUSE(...) break;
+#endif
+
+/*
+ * verify hash value with meta data
+ */
+
+#if IS_ENABLED(CONFIG_SCM_V2)
+#define _IPQ_SCM_VERIFY_HASH_V1(_param, _a, _b, _c, _d, _e)		\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_ROOTFS_HASH_VERIFY;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b; 					\
+		(_param).buff[2] = _c;	 				\
+		(_param).buff[3] = _d; 					\
+		(_param).buff[4] = _e; 					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_WRITE_OP;			\
+		(_param).arg_type[2] = SCM_VAL;				\
+		(_param).arg_type[3] = SCM_WRITE_OP;			\
+		(_param).arg_type[4] = SCM_VAL;				\
+		(_param).len = 5;					\
+	} while (0)
+#else
+#define _IPQ_SCM_VERIFY_HASH(...) break;
+#endif
+
+/*
+ * check for secure boot
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_SECURE_BOOT_V1(_param, _a, _b)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CHECK_SECURE_FUSE;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_READ_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_SECURE_BOOT(...) break;
+#endif
+
+/*
+ * Set active partition for image version anti roll-back
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_SET_ACTIVE_PARTITION_V1(_param, _a)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SET_ACTIVE_PART;			\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _IPQ_SCM_SET_ACTIVE_PARTITION(...) break;
+#endif
+
+/*
+ * blow fuse
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_FUSE_IPQ_V1(_param, _a)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_FUSE_IPQ;				\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_READ_OP;			\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _IPQ_SCM_FUSE_IPQ(...) break;
+#endif
+
+/*
+ * XPU secure test
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_XPU_SEC_TEST_1_V1(_param, _a, _b)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_XPU_SEC_TEST_1;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_XPU_SEC_TEST_1(...) break;
+#endif
+
+/*
+ * XPU log buffer
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_XPU_LOG_V1(_param, _a, _b)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_XPU_LOG_BUFFER;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_XPU_LOG(...) break;
+#endif
+
+/*
+ * TZT region notification
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_TZT_REGION_NOTIFY_V1(_param, _a, _b)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_TZT_REGION_NOTIFICATION;		\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_TZT_REGION_NOTIFY(...) break;
+#endif
+
+/*
+ * TZT execute image
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_TZT_EXEC_IMG_V1(_param, _a, _b, _c)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_TZT_TESTEXEC_IMG;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).buff[2] = _c;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).arg_type[2] = SCM_VAL;				\
+		(_param).len = 3;					\
+	} while (0)
+#else
+#define _IPQ_SCM_TZT_EXEC_IMG(...) break;
+#endif
+
+/*
+ * Generate AES_256 Key
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_GENERATE_AES_256_KEY_V1(_param, _a, _b)		\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_AES_256_GEN_KEY;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_GENERATE_AES_256_KEY(...) break;
+#endif
+
+/*
+ * Generate AES_256 Key with max 128 bytes context
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX_V1(_param, _a, _b)	\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_AES_256_MAX_CTXT_GEN_KEY;		\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX(...) break;
+#endif
+
+/*
+ * Encrypt AES_256
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_ENCRYPT_AES_256_V1(_param, _a, _b)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_AES_256_ENC;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_ENCRYPT_AES_256(...) break;
+#endif
+
+/*
+ * Decrypt AES_256
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_DECRYPT_AES_256_V1(_param, _a, _b)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_AES_256_DEC;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_WRITE_OP;			\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_DECRYPT_AES_256(...) break;
+#endif
+
+/*
+ * blow fuse
+ */
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define _IPQ_SCM_CHECK_SCM_SUPPORT_V1(_param, _a)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CHECK_SUPPORT;			\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _IPQ_SCM_CHECK_SCM_SUPPORT(...) break;
+#endif
+
+/*
+ * Enable SDI path
+ */
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define _IPQ_SCM_ENABLE_SDI_V1(_param, _a, _b)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SDI_CLEAR;				\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_ENABLE_SDI(...) break;
+#endif
+
+/*
+ * I/O write
+ */
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define _IPQ_SCM_IO_WRITE_V1(_param, _a, _b)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_IO_WRITE;				\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_IO_WRITE(...) break;
+#endif
+
+/*
+ * Read PHYA0 region
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_READ_PHY_REG_V1(_param, _a)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_PHYA0_REGION_RD;			\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _IPQ_SCM_READ_PHY_REG(...) break;
+#endif
+
+/*
+ * Write PHYA0 region
+ */
+#if IS_ENABLED(CONFIG_SCM_V1)
+#define _IPQ_SCM_WRITE_PHY_REG_V1(_param, _a, _b)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_PHYA0_REGION_WR;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#else
+#define _IPQ_SCM_WRITE_PHY_REG(...) break;
+#endif
+
+/*
+ * Execute DPR
+ */
+#if defined(CONFIG_SCM_V1) && defined(CONFIG_DPR_VER_1_0)
+#define _IPQ_SCM_EXECUTE_DPR_V1(_param, _a, ...)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_TME_DPR_PROCESSING;			\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#elif defined(CONFIG_SCM_V1) && defined(CONFIG_DPR_VER_2_0)
+#define _IPQ_SCM_EXECUTE_DPR_V2(_param, _a, _b, ...)			\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_TME_DPR_PROCESSING;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).len = 2;					\
+	} while (0)
+#elif defined(CONFIG_SCM_V2) && defined(CONFIG_DPR_VER_3_0)
+#define _IPQ_SCM_EXECUTE_DPR_V3(_param, _a, _b, _c, _d, _e, ...)	\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SECURE_AUTH;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b; 					\
+		(_param).buff[2] = _c;	 				\
+		(_param).buff[3] = _d; 					\
+		(_param).buff[4] = _e; 					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).arg_type[2] = SCM_VAL;				\
+		(_param).arg_type[3] = SCM_READ_OP;			\
+		(_param).arg_type[4] = SCM_VAL;				\
+		(_param).len = 5;					\
+	} while (0)
+#else
+#define _IPQ_SCM_EXECUTE_DPR(...) break;
+#endif
+
+/*
+ * Check ATF support
+ */
+#if defined(CONFIG_SCM_V1)
+#define _check_atf_support_V1(_param)					\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CHECK_ATF_SUPPORT;			\
+	} while (0)
+#else
+#define _check_atf_support(...)	break;
+#endif
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)		\
+		_IPQ_SCM_AUTHENTICATE_KERNEL_V1(param, a, b, c, d, e)
+#elif defined(CONFIG_SCM_V2)
+#define IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)		\
+		_IPQ_SCM_AUTHENTICATE_KERNEL_V2(param, a, b, c, d, e)
+#else
+#define IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)		\
+		_IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_SECURE_AUTHENTICATE(param, a, b, c, d, e)		\
+		_IPQ_SCM_SECURE_AUTHENTICATE_V1(param, a, b, c, d, e)
+#elif defined(CONFIG_SCM_V2)
+#define IPQ_SCM_SECURE_AUTHENTICATE(param, a, b, c, d, e)		\
+		_IPQ_SCM_SECURE_AUTHENTICATE_V2(param, a, b, c, d, e)
+#else
+#define IPQ_SCM_SECURE_AUTHENTICATE(param, a, b, c, d, e)		\
+		_IPQ_SCM_SECURE_AUTHENTICATE(param, a, b, c, d, e)
+#endif
+
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define IPQ_SCM_READ_FUSE(param, a, b)					\
+		_IPQ_SCM_READ_FUSE_V1(param, a, b)
+#else
+#define IPQ_SCM_READ_FUSE(param, a, b)					\
+		_IPQ_SCM_READ_FUSE(param, a, b)
+#endif
+
+#if defined(CONFIG_SCM_V2)
+#define IPQ_SCM_VERIFY_HASH(param, a, b, c, d, e)			\
+		_IPQ_SCM_VERIFY_HASH_V1(param, a, b, c, d, e)
+#else
+#define IPQ_SCM_VERIFY_HASH(param, a, b, c, d, e)			\
+		_IPQ_SCM_VERIFY_HASH(param, a, b, c, d,	e)
+#endif
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_SECURE_BOOT(param, a, b)				\
+		_IPQ_SCM_SECURE_BOOT_V1(param, a, b)
+#else
+#define IPQ_SCM_SECURE_BOOT(param, a, b)				\
+		_IPQ_SCM_SECURE_BOOT(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_SET_ACTIVE_PARTITION(param, a)				\
+		_IPQ_SCM_SET_ACTIVE_PARTITION_V1(param, a)
+#else
+#define IPQ_SCM_SET_ACTIVE_PARTITION(param, a)				\
+		_IPQ_SCM_SET_ACTIVE_PARTITION(param, a)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_FUSE_IPQ(param, a)					\
+		_IPQ_SCM_FUSE_IPQ_V1(param, a)
+#else
+#define IPQ_SCM_FUSE_IPQ(param, a)					\
+		_IPQ_SCM_FUSE_IPQ(param, a)
+#endif
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_XPU_SEC_TEST_1(param, a, b)				\
+		_IPQ_SCM_XPU_SEC_TEST_1_V1(param, a, b)
+#else
+#define IPQ_SCM_XPU_SEC_TEST_1(param, a, b)				\
+		_IPQ_SCM_XPU_SEC_TEST_1(param, a, b)
+#endif
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_XPU_LOG(param, a, b)					\
+		_IPQ_SCM_XPU_LOG_V1(param, a, b)
+#else
+#define IPQ_SCM_XPU_LOG(param, a, b)					\
+		_IPQ_SCM_XPU_LOG(param, a, b)
+#endif
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_TZT_REGION_NOTIFY(param, a, b)				\
+		_IPQ_SCM_TZT_REGION_NOTIFY_V1(param, a, b)
+#else
+#define IPQ_SCM_TZT_REGION_NOTIFY(param, a, b)				\
+		_IPQ_SCM_TZT_REGION_NOTIFY(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_TZT_EXEC_IMG(param, a, b, c)				\
+		_IPQ_SCM_TZT_EXEC_IMG_V1(param, a, b, c)
+#else
+#define IPQ_SCM_TZT_EXEC_IMG(param, a, b, c)				\
+		_IPQ_SCM_TZT_EXEC_IMG(param, a, b, c)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_GENERATE_AES_256_KEY(param, a, b)			\
+		_IPQ_SCM_GENERATE_AES_256_KEY_V1(param, a, b)
+#else
+#define IPQ_SCM_GENERATE_AES_256_KEY(param, a, b)			\
+		_IPQ_SCM_GENERATE_AES_256_KEY(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX(param, a, b)		\
+		_IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX_V1(param, a, b)
+#else
+#define IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX(param, a, b)		\
+		_IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_ENCRYPT_AES_256(param, a, b)				\
+		_IPQ_SCM_ENCRYPT_AES_256_V1(param, a, b)
+#else
+#define IPQ_SCM_ENCRYPT_AES_256(param, a, b)				\
+		_IPQ_SCM_ENCRYPT_AES_256(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_DECRYPT_AES_256(param, a, b)				\
+		_IPQ_SCM_DECRYPT_AES_256_V1(param, a, b)
+#else
+#define IPQ_SCM_DECRYPT_AES_256(param, a, b)				\
+		_IPQ_SCM_DECRYPT_AES_256(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define IPQ_SCM_CHECK_SCM_SUPPORT(param, a)				\
+		_IPQ_SCM_CHECK_SCM_SUPPORT_V1(param, a)
+#else
+#define IPQ_SCM_CHECK_SCM_SUPPORT(param, a)				\
+		_IPQ_SCM_CHECK_SCM_SUPPORT(param, a)
+#endif
+
+
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define IPQ_SCM_ENABLE_SDI(param, a, b)					\
+		_IPQ_SCM_ENABLE_SDI_V1(param, a, b)
+#else
+#define IPQ_SCM_ENABLE_SDI(param, a, b)					\
+		_IPQ_SCM_ENABLE_SDI(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#define IPQ_SCM_IO_WRITE(param, a, b)					\
+		_IPQ_SCM_IO_WRITE_V1(param, a, b)
+#else
+#define IPQ_SCM_IO_WRITE(param, a, b)					\
+		_IPQ_SCM_IO_WRITE(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_READ_PHY_REG(param, a)					\
+		_IPQ_SCM_READ_PHY_REG_V1(param, a)
+#else
+#define IPQ_SCM_READ_PHY_REG(param, a)					\
+		_IPQ_SCM_READ_PHY_REG(param, a)
+#endif
+
+
+
+#if defined(CONFIG_SCM_V1)
+#define IPQ_SCM_WRITE_PHY_REG(param, a, b)				\
+		_IPQ_SCM_WRITE_PHY_REG_V1(param, a, b)
+#else
+#define IPQ_SCM_WRITE_PHY_REG(param, a, b)				\
+		_IPQ_SCM_WRITE_PHY_REG(param, a, b)
+#endif
+
+
+#if defined(CONFIG_SCM_V1) && defined(CONFIG_DPR_VER_1_0)
+#define IPQ_SCM_EXECUTE_DPR(...)					\
+		_IPQ_SCM_EXECUTE_DPR_V1(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
+#elif defined(CONFIG_SCM_V1) && defined(CONFIG_DPR_VER_2_0)
+#define IPQ_SCM_EXECUTE_DPR(...)					\
+		_IPQ_SCM_EXECUTE_DPR_V2(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
+#elif defined(CONFIG_SCM_V2) && defined(CONFIG_DPR_VER_3_0)
+#define IPQ_SCM_EXECUTE_DPR(...)					\
+		_IPQ_SCM_EXECUTE_DPR_V3(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
+#else
+#define IPQ_SCM_EXECUTE_DPR(...)					\
+		_IPQ_SCM_EXECUTE_DPR(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
+#endif
+
+
+#if defined(CONFIG_SCM_V1)
+#define check_atf_support(param)					\
+		_check_atf_support_V1(param)
+#else
+#define check_atf_support(param)					\
+		_check_atf_support(param)
+#endif
+
 #ifdef CONFIG_SMEM_VERSION_C
 #define part_which_flash(p)    (((p)->attr & 0xff000000) >> 24)
 
@@ -518,8 +1199,13 @@ int init_ubi_part(void);
 void fdt_fixup_flash(void *blob);
 void reset_crashdump(int reset_version);
 long long ubi_get_volume_size(char *volume);
-int is_atf_enbled(void);
-int is_secure_boot(void);
+bool is_atf_enbled(void);
+#ifdef CONFIG_SCM_V1
+bool is_secure_boot_v1(void);
+#endif
+#ifdef CONFIG_SCM_V2
+bool is_secure_boot_v2(void);
+#endif
 uint8_t * get_boot_mode(void);
 #ifdef CONFIG_CMD_NAND
 void board_nand_init(void);
@@ -533,5 +1219,15 @@ void bring_secondary_core_down(unsigned int state);
 int is_secondary_core_off(unsigned int cpuid);
 uint64_t smem_get_flash_size(uint8_t flash_type);
 bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize);
-#endif
 struct spi_flash *ipq_spi_probe(void);
+#ifdef CONFIG_DPR_VER_1_0
+int execute_dprv1(struct cmd_tbl *cmdtp, int flag, int argc,
+							char *const argv[]);
+#elif CONFIG_DPR_VER_2_0
+int execute_dprv2(struct cmd_tbl *cmdtp, int flag, int argc,
+							char *const argv[]);
+#elif CONFIG_DPR_VER_3_0
+int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc,
+							char *const argv[]);
+#endif
+#endif

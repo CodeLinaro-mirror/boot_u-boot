@@ -15,6 +15,7 @@
 #include <linux/arm-smccc.h>
 #include <dm.h>
 #include <dm/device-internal.h>
+#include <elf.h>
 #ifdef CONFIG_IPQ_QCN9224_FUSING
 #include <init.h>
 #include <pci.h>
@@ -134,138 +135,109 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag,
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
 	int active_part = PRI_PARTITION;
 #endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
-	uint8_t *buff = NULL;
-	auth_cmd_buf auth_buf;
-
-	scm_param param;
 
 	if(argc!=4 && argc !=1)
 		return CMD_RET_USAGE;
 
 	if (strncmp(argv[0], "is_sec_boot_enabled", 19) == 0 && argc == 1) {
 
-		buff = (uint8_t *)malloc_cache_aligned(CONFIG_SYS_CACHELINE_SIZE);
-		if(!buff) {
-			printf("Unable allocate memory\n");
-			ret = CMD_RET_FAILURE;
-			goto exit;
-		}
+		printf("secure boot fuse is%senabled\n",
+				(gd->board_type & SECURE_BOARD) ? " " :
+							" not ");
+		ret = 0;
 
-		memset(buff, 0, CONFIG_SYS_CACHELINE_SIZE);
+	}
+#ifdef CONFIG_SCM_V1
+	else if(strncmp(argv[0], "secure_authenticate", 19) == 0 && argc == 4) {
 
-		memset(&param, 0, sizeof(scm_param));
-
-		param.type = SCM_CHECK_SECURE_FUSE;
-		/*Buffer to read fuse status*/
-		param.buff[0] = (uintptr_t)buff;
-		param.arg_type[0] = SCM_READ_OP;
-
-		/*Buffer size*/
-		param.buff[1] = sizeof(uint8_t);
-		param.arg_type[1] = SCM_VAL;
-
-		param.len = 2;
-
-		ret = ipq_scm_call(&param);
-
-		/* invalidate cache to update latest value in buff */
-		invalidate_dcache_range((unsigned long)buff,
-					(unsigned long)buff +
-					CONFIG_SYS_CACHELINE_SIZE);
-
-		if(!ret) {
-			printf("secure boot fuse is%senabled\n",
-					1 == *(uint8_t *)buff? " ": " not ");
-			ret = CMD_RET_SUCCESS;
-		} else {
-			printf("secure cmd: scm call failed. ret = %d\n", ret);
-			ret = CMD_RET_FAILURE;
-		}
-
-		if(buff)
-			free(buff);
-	} else if(strncmp(argv[0], "secure_authenticate", 19) == 0 && argc == 4) {
-
-		memset(&param, 0, sizeof(scm_param));
-
-		param.type = SCM_CHECK_AUTHENTICATE_SUPPORT;
-		param.buff[0] = SCM_SMC_FNID(QCOM_SCM_SVC_BOOT,
-					QCOM_SCM_SEC_AUTH_CMD) |
-					(ARM_SMCCC_OWNER_SIP <<
-					ARM_SMCCC_OWNER_SHIFT);
-		param.arg_type[0] = SCM_VAL;
-
-		param.len = 1;
-		param.get_ret = 1;
-
-		ret = ipq_scm_call(&param);
-
-		if (ret || (!ret && le32_to_cpu(param.res.result[0]) <= 0)) {
-			printf("secure authentication scm call"
-				" is not supported. ret = %d\n", ret);
-			ret = CMD_RET_SUCCESS;
-			goto exit;
-		}
+		auth_cmd_buf auth_buf;
+		scm_param param;
 
 		auth_buf.type = simple_strtoul(argv[1], NULL, 16);
 		auth_buf.addr = simple_strtoul(argv[2], NULL, 16);
-		auth_buf.size = simple_strtoul(argv[3], NULL, 16);
+
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_CHECK_SCM_SUPPORT(param,
+						SCM_SMC_FNID(QCOM_SCM_SVC_BOOT,
+						QCOM_SCM_SEC_AUTH_CMD) |
+						(ARM_SMCCC_OWNER_SIP <<
+						ARM_SMCCC_OWNER_SHIFT));
+			param.get_ret = true;
+			ret = ipq_scm_call(&param);
+
+			if (ret || (!ret &&
+				le32_to_cpu(param.res.result[0]) <= 0)) {
+				printf("secure authentication scm call"
+					" is not supported. ret = %d\n", ret);
+				ret = CMD_RET_SUCCESS;
+				goto exit;
+			}
+		} while(0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
+			ret = CMD_RET_FAILURE;
+			goto exit;
+		}
+
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
 		active_part = get_rootfs_active_partition();
 		active_part = active_part ? ALT_PARTITION : PRI_PARTITION;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
+			ret = ipq_scm_call(&param);
 
-		memset(&param, 0, sizeof(scm_param));
+			if(ret) {
+				printf("Partition info authentication "
+								"failed\n");
+				BUG(); //:TODO check if BUG is necessary
+			}
+		} while(0);
 
-		param.type = SCM_SET_ACTIVE_PART;
-
-		/*pass current avtive partition */
-		param.buff[0] = active_part;
-		param.arg_type[0] = SCM_VAL;
-
-		param.len = 1;
-
-		ret = ipq_scm_call(&param);
-
-		if(ret) {
-			printf("Partition info authentication failed\n");
-			BUG(); //:TODO check if BUG is necessary
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
+			ret =  CMD_RET_FAILURE;
+			goto exit;
 		}
-
 #endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
-		memset(&param, 0, sizeof(scm_param));
 
-		param.type = SCM_SECURE_AUTH;
+		auth_buf.size = simple_strtoul(argv[3], NULL, 16);
 
-		/* args[0] has the image SW ID*/
-		param.buff[0] = auth_buf.type;
-		param.arg_type[0] = SCM_VAL;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_SECURE_AUTHENTICATE(param, auth_buf.type,
+						auth_buf.size,
+						auth_buf.addr, 0, 0);
+			param.get_ret = true;
+			ret = ipq_scm_call(&param);
 
-		/* args[1] has the image size */
-		param.buff[1] = auth_buf.size;
-		param.arg_type[1] = SCM_VAL;
+			if(ret || (param.res.result[0] && !ret)) {
+				printf("image authentication failed. "
+							"ret  = %d\n",
+							ret);
+				ret = CMD_RET_FAILURE;
+			} else {
+				printf("image authentication success\n");
+				ret = CMD_RET_SUCCESS;
+			}
+		} while (0);
 
-		/* args[2] has the load address*/
-		param.buff[2] = auth_buf.addr;
-		param.arg_type[2] = SCM_WRITE_OP;
-
-		param.len = 3;
-		param.get_ret = 1;
-
-		ret = ipq_scm_call(&param);
-
-		if(ret || (param.res.result[0] && !ret)) {
-			printf("image authentication failed. ret  = %d\n",
-									ret);
-			ret = CMD_RET_FAILURE;
-		} else {
-			printf("image authentication success\n");
-			ret = CMD_RET_SUCCESS;
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
+			ret =  CMD_RET_FAILURE;
+			goto exit;
 		}
-	} else {
+	}
+#endif
+	else {
 		return CMD_RET_USAGE;
 	}
 
+#ifdef CONFIG_SCM_V1
 exit:
+#endif
 	return ret;
 }
 
@@ -273,15 +245,16 @@ U_BOOT_CMD(is_sec_boot_enabled, 1, 0, do_secure,
 		"check secure boot fuse is enabled or not\n",
 		"is_sec_boot_enabled - check secure boot fuse "
 		"is enabled or not\n");
-
+#ifdef CONFIG_SCM_V1
 U_BOOT_CMD(secure_authenticate, 4, 0, do_secure,
 		"authenticate the signed image\n",
 		"secure_authenticate <sw_id> <img_addr> <img_size>\n"
 		"	- authenticate the signed image\n");
-
-static int do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+#endif
+static int
+do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	int ret;
+	int ret = -1;
 	scm_param param;
 	uint32_t fuse_status = 0;
 	uint32_t fuse_address;
@@ -294,31 +267,32 @@ static int do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 
 	fuse_address = simple_strtoul(argv[1], NULL, 16);
 
-	memset(&param, 0, sizeof(scm_param));
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_FUSE_IPQ(param, (uint64_t) fuse_address);
+		param.get_ret = true;
+		ret = ipq_scm_call(&param);
 
-	param.type = SCM_FUSE_IPQ;
+		fuse_status = param.res.result[0];
 
-	param.buff[0] = (uint64_t) fuse_address;
-	param.arg_type[0] = SCM_READ_OP;
-	param.len = 1;
-	param.get_ret = 1;
+		if (ret || fuse_status)
+			printf("%s: Error in QFPROM write (%d, %d)\n",
+				__func__, ret, fuse_status);
 
-	ret = ipq_scm_call(&param);
+		if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
+			printf("Fuse already blown\n");
+		else if (fuse_status == FUSEPROV_INVALID_HASH)
+			printf("Invalid sec.dat\n");
+		else if (fuse_status  != FUSEPROV_SUCCESS)
+			printf("Failed to Blow fuses");
+		else
+			printf("Blow Success\n");
+	} while (0);
 
-	fuse_status = param.res.result[0];
-
-	if (ret || fuse_status)
-		printf("%s: Error in QFPROM write (%d, %d)\n",
-			__func__, ret, fuse_status);
-
-	if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
-		printf("Fuse already blown\n");
-	else if (fuse_status == FUSEPROV_INVALID_HASH)
-		printf("Invalid sec.dat\n");
-	else if (fuse_status  != FUSEPROV_SUCCESS)
-		printf("Failed to Blow fuses");
-	else
-		printf("Blow Success\n");
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		return CMD_RET_FAILURE;
+	}
 
 	return 0;
 }
@@ -347,7 +321,7 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	fuse = malloc_cache_aligned(size);
 	if (fuse == NULL) {
-		return 1;
+		return CMD_RET_FAILURE;
 	}
 
 	memset(fuse, 0, MAX_FUSE_ADDR_SIZE * sizeof(struct fuse_payload));
@@ -358,47 +332,47 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 		next += 0x8;
 	}
 
-	memset(&param, 0, sizeof(scm_param));
-
-	param.type = SCM_LIST_FUSE;
-
-	param.buff[0] = (unsigned long)fuse;
-	param.arg_type[0] = SCM_WRITE_OP;
-
-	param.buff[1] = sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE;
-	param.arg_type[1] = SCM_VAL;
-
-	param.len = 2;
-
 	/* invalidate cache to update latest value in buff */
-	flush_dcache_range((unsigned long)fuse,
-				(unsigned long)fuse +
-				size);
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_READ_FUSE(param, (unsigned long)fuse,
+			sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE);
 
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("Error (%d) failed to read fuse\n", ret);
-	}
+		flush_dcache_range((unsigned long)fuse,
+					(unsigned long)fuse +
+					size);
+		ret = ipq_scm_call(&param);
 
-	printf("Fuse Name\tAddress\t\tValue\n");
-	printf("------------------------------------------------\n");
+		if (ret) {
+			printf("Error (%d) failed to read fuse\n", ret);
+		}
 
-	printf("TME_AUTH_EN\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
-			fuse[0].lsb_val & 0x41);
-	printf("TME_OEM_ID\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
-			fuse[0].lsb_val & 0xFFFF0000);
-	printf("TME_PRODUCT_ID\t0x%08X\t0x%08X\n", fuse[0].fuse_addr + 0x4,
-			fuse[0].msb_val & 0xFFFF);
+		printf("Fuse Name\tAddress\t\tValue\n");
+		printf("------------------------------------------------\n");
 
-	for (index = 1; index < MAX_FUSE_ADDR_SIZE; index++) {
-		printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
-				fuse[index].fuse_addr, fuse[index].lsb_val);
-		printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
-				fuse[index].fuse_addr + 0x4, fuse[index].msb_val);
+		printf("TME_AUTH_EN\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
+				fuse[0].lsb_val & 0x41);
+		printf("TME_OEM_ID\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
+				fuse[0].lsb_val & 0xFFFF0000);
+		printf("TME_PRODUCT_ID\t0x%08X\t0x%08X\n",
+				fuse[0].fuse_addr + 0x4,
+				fuse[0].msb_val & 0xFFFF);
+
+		for (index = 1; index < MAX_FUSE_ADDR_SIZE; index++) {
+			printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
+			fuse[index].fuse_addr, fuse[index].lsb_val);
+			printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
+			fuse[index].fuse_addr + 0x4, fuse[index].msb_val);
+		}
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		ret = CMD_RET_FAILURE;
 	}
 
 	free(fuse);
-	return 0;
+	return ret;
 }
 
 U_BOOT_CMD(list_ipq5332_fuse, 1, 0, do_list_ipq5332_fuse,
@@ -861,37 +835,40 @@ static int run_xpu_config_test(void)
 	printf("****** xPU Configuration Validation Test Begin ******\n");
 
 	do {
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_XPU_LOG_BUFFER;
-		/* Log Buffer */
-		param.buff[0] = (uintptr_t)&logbuff;
-		param.arg_type[0] = SCM_WRITE_OP;
 
-		/* Log Buffer size*/
-		param.buff[1] = PRINT_BUF_LEN;
-		param.len = 2;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_XPU_LOG(param, (uintptr_t)&logbuff,
+							PRINT_BUF_LEN);
+			ret = ipq_scm_call(&param);
 
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("\nipq_scm_call: SCM_XPU_LOG_BUFFER"
+			if (ret) {
+				printf("\nipq_scm_call: SCM_XPU_LOG_BUFFER"
 						" failed, ret : %d\n", ret);
+				goto fail;
+			}
+		} while (0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			goto fail;
 		}
 
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_XPU_SEC_TEST_1;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_XPU_SEC_TEST_1(param, (uintptr_t)&xputzt,
+						sizeof(struct xpu_tzt));
+			ret = ipq_scm_call(&param);
 
-		xputzt.param2 = i++;
-		param.buff[0] = (uintptr_t)&xputzt;
-		param.arg_type[0] = SCM_WRITE_OP;
+			if (ret) {
+				printf("\nipq_scm_call: SCM_SEC_TEST_1"
+						" failed, ret : %d\n", ret);
+				goto fail;
+			}
+		} while (0);
 
-		param.buff[1] = sizeof(struct xpu_tzt);
-		param.len = 2;
-
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("\nipq_scm_call: SCM_SEC_TEST_1"
-					" failed, ret : %d\n", ret);
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			goto fail;
 		}
 
@@ -917,11 +894,12 @@ fail:
 	return ret;
 }
 
-static int do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int
+do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	uint32_t img_addr;
 	uint32_t img_size;
-	int ret = 0;
+	int ret = CMD_RET_FAILURE;
 	scm_param param;
 
 	/* at least two arguments should be there */
@@ -936,39 +914,45 @@ static int do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			goto fail;
 		}
 
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_TZT_REGION_NOTIFICATION;
-		/* TZT Load Address */
-		param.buff[0] = TZT_LOAD_ADDR;
-		param.arg_type[0] = SCM_WRITE_OP;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_TZT_REGION_NOTIFY(param, TZT_LOAD_ADDR,
+							TZT_LOAD_SIZE);
+			ret = ipq_scm_call(&param);
 
-		/* TZT Load Size */
-		param.buff[1] = TZT_LOAD_SIZE;
-		param.len = 2;
+			if (ret) {
+				printf("\nipq_scm_call: "
+						"SCM_TZT_REGION_NOTIFICATION"
+						" failed, ret : %d\n", ret);
+				ret = CMD_RET_FAILURE;
+				goto fail;
+			}
+		} while (0);
 
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("\nipq_scm_call: SCM_TZT_REGION_NOTIFICATION"
-					" failed, ret : %d\n", ret);
-			ret = CMD_RET_FAILURE;
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			goto fail;
 		}
 
 		img_addr = simple_strtoul(argv[2], NULL, 16);
 		img_size = simple_strtoul(argv[3], NULL, 16);
 
-		memset(&param, 0, sizeof(scm_param));
-		param.type = SCM_TZT_TESTEXEC_IMG;
-		param.buff[0] = MDT_SIZE;
-		param.buff[1] = img_size - MDT_SIZE;
-		param.buff[2] = img_addr;
-		param.len = 3;
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_TZT_EXEC_IMG(param, MDT_SIZE,
+						img_size - MDT_SIZE, img_addr);
+			ret = ipq_scm_call(&param);
 
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("\nipq_scm_call: SCM_TZT_TESTEXEC_IMG"
-					" failed, ret : %d\n", ret);
-			ret = CMD_RET_FAILURE;
+			if (ret) {
+				printf("\nipq_scm_call: SCM_TZT_TESTEXEC_IMG"
+						" failed, ret : %d\n", ret);
+				ret = CMD_RET_FAILURE;
+				goto fail;
+			}
+		} while (0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			goto fail;
 		}
 
@@ -993,52 +977,11 @@ U_BOOT_CMD(tzt, 4, 0, do_tzt,
 	   "tzt load address size - To load tzt image\n"
 	   "tzt xpu - To run xpu config test\n");
 
-#if defined(CONFIG_DPR_VER_1_0) || defined(CONFIG_DPR_VER_2_0)
+#if defined(CONFIG_DPR_VERSION)
 int do_dpr(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	int ret = CMD_RET_USAGE, i;
-	unsigned long loadaddr, filesize;
-	unsigned long default_hex_val = 0xFFFFFFFF;
-	uint32_t dpr_status = 0;
-	scm_param param;
 
-	memset(&param, 0, sizeof(scm_param));
-	if (argc > cmdtp->maxargs || (cmdtp->maxargs == 3 && argc == 2))
-		goto fail;
-
-	if (argc == cmdtp->maxargs)
-		for(i = 0; i < cmdtp->maxargs - 1; i++)
-			param.buff[i] = simple_strtoul(argv[i + 1], NULL, 16);
-	else {
-		loadaddr = env_get_hex("fileaddr", default_hex_val);
-		if (loadaddr == default_hex_val)
-			goto fail;
-
-		param.buff[0] = loadaddr;
-
-		if (cmdtp->maxargs == 3) {
-			filesize = env_get_hex("filesize", default_hex_val);
-			if (filesize == default_hex_val)
-				goto fail;
-
-			param.buff[1] = filesize;
-		}
-	}
-
-	param.type = SCM_TME_DPR_PROCESSING;
-	param.len = cmdtp->maxargs - 1;
-	param.get_ret = 1;
-
-	ret = ipq_scm_call(&param);
-	dpr_status = param.res.result[0];
-	if (ret || dpr_status) {
-		printf("Error in DPR Processing ret : %d, dpr_status : %d\n",
-			ret, dpr_status);
-	} else
-		printf("DPR Process Successful\n");
-
-fail:
-	return ret;
+	return execute_dpr_fun(cmdtp, flag, argc, argv);
 }
 
 #ifdef CONFIG_DPR_VER_1_0
@@ -1047,12 +990,12 @@ U_BOOT_CMD(dpr_execute, 2, 0, do_dpr,
                 "dpr_execute [address] - Processing dpr\n");
 #endif /* CONFIG_DPR_VER_1_0 */
 
-#ifdef CONFIG_DPR_VER_2_0
+#if  defined(CONFIG_DPR_VER_2_0) || defined(CONFIG_DPR_VER_3_0)
 U_BOOT_CMD(dpr_execute, 3, 0, do_dpr,
                 "Debug Policy Request processing\n",
                 "dpr_execute [fileaddr] [filesize] - Processing dpr\n");
-#endif /* CONFIG_DPR_VER_2_0 */
-#endif /* CONFIG_DPR_VER_1_0 or CONFIG_DPR_VER_2_0 */
+#endif /* CONFIG_DPR_VER_2_0 or CONFIG_DPR_VER_3_0*/
+#endif /* CONFIG_DPR_VER_1_0 or CONFIG_DPR_VER_2_0 or CONFIG_DPR_VER_3_0 */
 
 static void uart_read_data(struct udevice *dev)
 {
@@ -1428,7 +1371,8 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 			MAX_CONTEXT_BUFFER_LEN_V1);
 		return ret;
 	}
-	req_ptr = (struct crypto_aes_derive_key_cmd_t_v1 *)memalign(ARCH_DMA_MINALIGN,
+	req_ptr = (struct crypto_aes_derive_key_cmd_t_v1 *)memalign(
+				ARCH_DMA_MINALIGN,
 				sizeof(struct crypto_aes_derive_key_cmd_t_v1));
 	if (!req_ptr) {
 		printf("Error allocating memory for key handle request buf");
@@ -1454,21 +1398,26 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
 	}
 
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_AES_256_GEN_KEY;
-	param.buff[0] = (uintptr_t)req_ptr;
-	param.arg_type[0] = SCM_WRITE_OP;
-	param.buff[1] = sizeof(struct crypto_aes_derive_key_cmd_t_v1);
-	param.len = 2;
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_GENERATE_AES_256_KEY(param, (uintptr_t)req_ptr,
+				sizeof(struct crypto_aes_derive_key_cmd_t_v1));
+		invalidate_dcache_all();
+		ret = ipq_scm_call(&param);
 
-	invalidate_dcache_all();
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("\nipq_scm_call: SCM_AES_256_GEN_KEY"
-				" failed, ret : %d\n", ret);
+		if (ret) {
+			printf("\nipq_scm_call: SCM_AES_256_GEN_KEY"
+					" failed, ret : %d\n", ret);
+			ret = CMD_RET_FAILURE;
+		} else
+			printf("Key handle is %u\n", (unsigned int)*key_handle);
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 		ret = CMD_RET_FAILURE;
-	} else
-		printf("Key handle is %u\n", (unsigned int)*key_handle);
+		goto exit;
+	}
 
 exit:
 	if (key_handle)
@@ -1518,7 +1467,8 @@ static int do_derive_aes_256_max_ctxt_key(struct cmd_tbl *cmdtp, int flag,
 			MAX_CONTEXT_BUFFER_LEN_V2);
 		return ret;
 	}
-	req_ptr = (struct crypto_aes_derive_key_cmd_t_v2 *)memalign(ARCH_DMA_MINALIGN,
+	req_ptr = (struct crypto_aes_derive_key_cmd_t_v2 *)memalign(
+				ARCH_DMA_MINALIGN,
 				sizeof(struct crypto_aes_derive_key_cmd_t_v2));
 	if (!req_ptr) {
 		printf("Error allocating memory for key handle request buf");
@@ -1544,21 +1494,28 @@ static int do_derive_aes_256_max_ctxt_key(struct cmd_tbl *cmdtp, int flag,
 		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
 	}
 
-	memset(&param, 0, sizeof(scm_param));
-	param.type = SCM_AES_256_MAX_CTXT_GEN_KEY;
-	param.buff[0] = (uintptr_t)req_ptr;
-	param.arg_type[0] = SCM_WRITE_OP;
-	param.buff[1] = sizeof(struct crypto_aes_derive_key_cmd_t_v2);
-	param.len = 2;
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX(param,
+				(uintptr_t)req_ptr,
+				sizeof(struct crypto_aes_derive_key_cmd_t_v2));
+		invalidate_dcache_all();
+		ret = ipq_scm_call(&param);
 
-	invalidate_dcache_all();
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("\nipq_scm_call: SCM_AES_256_MAX_CTXT_GEN_KEY"
-				" failed, ret : %d\n", ret);
+		if (ret) {
+			printf("\nipq_scm_call: SCM_AES_256_MAX_CTXT_GEN_KEY"
+					" failed, ret : %d\n", ret);
+			ret = CMD_RET_FAILURE;
+		} else
+			printf("Key handle is %u\n",
+					(unsigned int)*key_handle);
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
 		ret = CMD_RET_FAILURE;
-	} else
-		printf("Key handle is %u\n", (unsigned int)*key_handle);
+		goto exit;
+	}
 
 exit:
 	if (key_handle)
@@ -1589,12 +1546,13 @@ U_BOOT_CMD(
  * Returns zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
  */
-static int do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int
+do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	uint64_t src_addr, dst_addr, ivdata;
 	uint64_t req_len, iv_len, resp_len, type, mode;
 	struct crypto_aes_req_data_t *req_ptr = NULL;
-	scm_param param;
+	scm_param param = {0};
 	int ret = CMD_RET_USAGE;
 
 #ifndef CONFIG_AES_256_DERIVE_KEY
@@ -1605,12 +1563,7 @@ static int do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 		return ret;
 #endif /* CONFIG_AES_256_DERIVE_KEY */
 
-	memset(&param, 0, sizeof(scm_param));
-	if (!strncmp(argv[1], "enc", 3))
-		param.type = SCM_AES_256_ENC;
-	else if (!strncmp(argv[1], "dec", 3))
-		param.type = SCM_AES_256_DEC;
-	else
+	if (strncmp(argv[1], "enc", 3) || strncmp(argv[1], "dec", 3))
 		return ret;
 
 	type = simple_strtoul(argv[2], NULL, 16);
@@ -1636,14 +1589,16 @@ static int do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 	ivdata = simple_strtoull(argv[6], NULL, 16);
 	iv_len = simple_strtoul(argv[7], NULL, 16);
 	if (iv_len != 16) {
-		printf("Error: iv length should be equal to AES block size (16)\n");
+		printf("Error: iv length should be equal to AES block "
+							"size (16)\n");
 		return ret;
 	}
 
 	dst_addr = simple_strtoull(argv[8], NULL, 16);
 	resp_len =  simple_strtoul(argv[9], NULL, 16);
 	if (resp_len < req_len) {
-		printf("Error: response buffer cannot be less then request buffer\n");
+		printf("Error: response buffer cannot be less then "
+							"request buffer\n");
 		return ret;
 	}
 
@@ -1661,25 +1616,37 @@ static int do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 	req_ptr->mode = mode;
 	req_ptr->req_buf = (uint64_t)src_addr;
 	req_ptr->req_len = req_len;
-	req_ptr->ivdata = (mode == TZ_CRYPTO_SERVICE_AES_CBC) ? (uint64_t)ivdata : 0;
+	req_ptr->ivdata = (mode == TZ_CRYPTO_SERVICE_AES_CBC) ? 
+							(uint64_t)ivdata : 0;
 	req_ptr->iv_len = iv_len;
 	req_ptr->resp_buf = (uint64_t)dst_addr;
 	req_ptr->resp_len = resp_len;
 
-	param.buff[0] = (uintptr_t)req_ptr;
-	param.arg_type[0] = SCM_WRITE_OP;
-	param.buff[1] = sizeof(struct crypto_aes_req_data_t);
-	param.len = 2;
+	do {
+		ret = -ENOTSUPP;
+		if (!strncmp(argv[1], "enc", 3))
+			IPQ_SCM_ENCRYPT_AES_256(param, (uintptr_t)req_ptr,
+					sizeof(struct crypto_aes_req_data_t));
+		else if (!strncmp(argv[1], "dec", 3))
+			IPQ_SCM_DECRYPT_AES_256(param, (uintptr_t)req_ptr,
+					sizeof(struct crypto_aes_req_data_t));
 
-	invalidate_dcache_all();
-	ret = ipq_scm_call(&param);
-	if (ret) {
-		printf("\nipq_scm_call: %s failed, ret : %d\n", \
-			(param.type == SCM_AES_256_ENC)? \
-			"SCM_AES_256_ENC" : "SCM_AES_256_DEC", ret);
-		ret = CMD_RET_FAILURE;
-	} else
-		printf("Encryption/Decryption successful\n");
+		invalidate_dcache_all();
+		ret = ipq_scm_call(&param);
+
+		if (ret) {
+			printf("\nipq_scm_call: %s failed, ret : %d\n", \
+				(param.type == SCM_AES_256_ENC)? \
+				"SCM_AES_256_ENC" : "SCM_AES_256_DEC", ret);
+			ret = CMD_RET_FAILURE;
+		} else
+			printf("Encryption/Decryption successful\n");
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		return CMD_RET_FAILURE;
+	}
 
 	if (req_ptr) {
 		free(req_ptr);
