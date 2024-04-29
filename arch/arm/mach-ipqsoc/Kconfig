@@ -236,6 +236,7 @@ config IPQ_MAX_PCIE
 	depends on PCI
 	default 3 if TARGET_IPQ5332
 	default 4 if TARGET_IPQ9574
+	default 4 if TARGET_DEVSOC
 
 config IPQ_SMP_CMD_SUPPORT
 	bool "IPQ SMP command support"
@@ -350,6 +351,7 @@ config TARGET_DEVSOC
 	select SCM_V2
 	select CMD_HASH
 	select SHA384
+	imply IPQ_PCIE
 	help
 	  Support for IPQ DEVSoC.
 

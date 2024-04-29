@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2014, 2015-2017, 2020 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <common.h>
@@ -115,7 +115,7 @@ struct pcie_dw_qti {
 	struct gpio_desc rst_gpio;
 	phys_addr_t parf;
 	phys_addr_t elbi;
-	uint32_t gen;
+	uint32_t max_link_speed;
 	uint32_t lanes;
 	uint32_t id;
 };
@@ -145,28 +145,26 @@ static int pcie_dw_qti_pcie_link_up(struct pcie_dw_qti *pcie)
 {
 	u32 val, ret;
 
-	if (pcie->gen == LINK_SPEED_GEN_3) {
-		writel(DEVICE_TYPE_RC, pcie->parf + PCIE_PARF_DEVICE_TYPE);
+	writel(DEVICE_TYPE_RC, pcie->parf + PCIE_PARF_DEVICE_TYPE);
 
-		writel(BYPASS | MSTR_AXI_CLK_EN | AHB_CLK_EN,
-			pcie->parf + PARF_MHI_CLOCK_RESET_CTRL);
+	writel(BYPASS | MSTR_AXI_CLK_EN | AHB_CLK_EN,
+		pcie->parf + PARF_MHI_CLOCK_RESET_CTRL);
 
-		dw_pcie_dbi_write_enable(&pcie->dw, true);
+	dw_pcie_dbi_write_enable(&pcie->dw, true);
 
-		writel(GEN3_EQUALIZATION_DISABLE | RXEQ_RGRDLESS_RXTS |
-			GEN3_ZRXDC_NONCOMPL,
-			pcie->dw.dbi_base + PCIE30_GEN3_RELATED_OFF);
+	writel(GEN3_EQUALIZATION_DISABLE | RXEQ_RGRDLESS_RXTS |
+		GEN3_ZRXDC_NONCOMPL,
+		pcie->dw.dbi_base + PCIE30_GEN3_RELATED_OFF);
 
-		dw_pcie_dbi_write_enable(&pcie->dw, false);
+	dw_pcie_dbi_write_enable(&pcie->dw, false);
 
-		writel(ECAM_BLOCKER_EN_RANGE2 |
-			MAC_PHY_POWERDOWN_IN_P2_D_MUX_EN |
-			ECAM_REMOVE_OFFSET_EN | ECAM_BLOCKER_EN |
-			MST_WAKEUP_EN | SLV_WAKEUP_EN | MSTR_ACLK_CGC_DIS |
-			SLV_ACLK_CGC_DIS | AUX_PWR_DET |
-			CORE_CLK_2AUX_CLK_MUX_DIS | L23_CLK_RMV_DIS,
-			pcie->parf + PCIE20_PARF_SYS_CTRL);
-	}
+	writel(ECAM_BLOCKER_EN_RANGE2 |
+		MAC_PHY_POWERDOWN_IN_P2_D_MUX_EN |
+		ECAM_REMOVE_OFFSET_EN | ECAM_BLOCKER_EN |
+		MST_WAKEUP_EN | SLV_WAKEUP_EN | MSTR_ACLK_CGC_DIS |
+		SLV_ACLK_CGC_DIS | AUX_PWR_DET |
+		CORE_CLK_2AUX_CLK_MUX_DIS | L23_CLK_RMV_DIS,
+		pcie->parf + PCIE20_PARF_SYS_CTRL);
 
 	dw_pcie_dbi_write_enable(&pcie->dw, true);
 
@@ -187,7 +185,7 @@ static int pcie_dw_qti_pcie_link_up(struct pcie_dw_qti *pcie)
 	writel(0x0002FD7F,
 		pcie->dw.dbi_base + PCIE_TYPE0_SLOT_CAPABILITIES_REG);
 
-	val = PCIE_CAP_MAX_LINK_SPEED(pcie->gen) |
+	val = PCIE_CAP_MAX_LINK_SPEED(pcie->max_link_speed) |
 		PCIE_CAP_MAX_LINK_WIDTH(pcie->lanes) |
 		PCIE_CAP_ASPM_OPT_COMPLIANCE |
 		PCIE_CAP_LINK_BW_NOT_CAP |
@@ -201,7 +199,7 @@ static int pcie_dw_qti_pcie_link_up(struct pcie_dw_qti *pcie)
 
 	val = readl(pcie->dw.dbi_base + PCIE_LINK_CTL_2);
 	val &= ~TARGET_LINK_SPEED_MASK;
-	val |=  PCIE_CAP_CURR_DEEMPHASIS | pcie->gen;
+	val |=  PCIE_CAP_CURR_DEEMPHASIS | pcie->max_link_speed;
 	writel(val, pcie->dw.dbi_base + PCIE_LINK_CTL_2);
 
 	dw_pcie_dbi_write_enable(&pcie->dw, false);
@@ -334,7 +332,7 @@ static int pcie_dw_qti_of_to_plat(struct udevice *dev)
 	if (!pcie->elbi)
 		return -EINVAL;
 
-	pcie->gen = dev_read_u32_default(dev, "gen", 3);
+	pcie->max_link_speed = dev_read_u32_default(dev, "max-link-speed", 3);
 	pcie->lanes = dev_read_u32_default(dev, "num-lanes", 1);
 
 	/* perst reset gpio */
@@ -361,9 +359,16 @@ static const struct pcie_sku ipq5332 = {
 	.clk_bit = {11, 12, 10},
 };
 
+static const struct pcie_sku devsoc = {
+	.reg = 0xA4024,
+	.max_pcie = 4,
+	.clk_bit = {10, 11, 12, 13},
+};
+
 static const struct udevice_id pcie_dw_qti_ids[] = {
 	{ .compatible = "qti,dw-pcie-ipq9574" , .data = (ulong)&ipq9574},
 	{ .compatible = "qti,dw-pcie-ipq5332" , .data = (ulong)&ipq5332},
+	{ .compatible = "qti,dw-pcie-devsoc" , .data = (ulong)&devsoc},
 	{ }
 };
 

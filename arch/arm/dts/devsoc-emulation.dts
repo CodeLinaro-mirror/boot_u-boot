@@ -9,6 +9,38 @@
 	config_name = "config-emulation-fbc";
 
 	soc: soc@0 {
+
+		tlmm: pinctrl@1000000 {
+			pcie0_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_39";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+			pcie1_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_40";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+			pcie2_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_41";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+			pcie3_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_42";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		usb3_0: usb@8af8800 {
 			qti,quirk-ref-clk-per = <0xc804010>;
 			qti,quirk-ref-clk-adj = <0x8c80c8a0>;
@@ -57,6 +89,38 @@
 			phy-handle1 = <&phy1>;
 			phy-handle2 = <&phy2>;
 			status = "okay";
+		};
+
+		pcie0: pcie@70000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie0_pinmux>;
+			max-link-speed = <1>;
+			perst_gpio = <&tlmm 39 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		pcie1: pcie@60000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie1_pinmux>;
+			max-link-speed = <1>;
+			perst_gpio = <&tlmm 40 GPIO_ACTIVE_HIGH>;
+			status = "okay";
+		};
+
+		pcie2: pcie@50000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie2_pinmux>;
+			max-link-speed = <1>;
+			perst_gpio = <&tlmm 41 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		pcie3: pcie@40000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie3_pinmux>;
+			max-link-speed = <1>;
+			perst_gpio = <&tlmm 42 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
 		};
 	};
 };

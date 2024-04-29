@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
 #include <dt-bindings/clock/gcc-devsoc.h>
 #include <dt-bindings/reset/devsoc-reset.h>
@@ -332,6 +333,273 @@
 			tdm_offset = <0xc000>;
 			tdm_mode = <0>;
 			no_tdm_reg = <126>;
+			status = "disabled";
+		};
+
+		pcie0_phy: phy@84000 {
+			compatible = "qti,devsoc-qmp-gen3x1-pcie-phy";
+			reg = <0x00084000 0x1bc>, /* Serdes PLL */
+				<0x00084200 0x16c>, /* Serdes Tx0 */
+				<0x00084400 0x200>, /* Serdes Rx0 */
+				<0x00084800 0x1f0>, /* PCS: Lane0, COM, PCIE */
+				<0x00084c00 0x0f4>; /* pcs_misc */
+
+			clocks = <&gcc GCC_ANOC_PCIE0_1LANE_M_CLK>,
+				 <&gcc GCC_CNOC_PCIE0_1LANE_S_CLK>,
+				 <&gcc GCC_PCIE0_PIPE_CLK>;
+
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		pcie1_phy: phy@8c000 {
+			compatible = "qti,devsoc-qmp-gen3x1-pcie-phy";
+			reg = <0x0008c000 0x1bc>, /* Serdes PLL */
+				<0x0008c200 0x16c>, /* Serdes Tx0 */
+				<0x0008c400 0x200>, /* Serdes Rx0 */
+				<0x0008c800 0x1f0>, /* PCS: Lane0, COM, PCIE */
+				<0x0008cc00 0x0f4>; /* pcs_misc */
+
+			clocks = <&gcc GCC_ANOC_PCIE1_1LANE_M_CLK>,
+				 <&gcc GCC_CNOC_PCIE1_1LANE_S_CLK>,
+				 <&gcc GCC_PCIE1_PIPE_CLK>;
+
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		pcie2_phy: phy@f4000 {
+			compatible = "qti,devsoc-qmp-gen3x2-pcie-phy";
+			reg = <0x000f4000 0x1bc>, /* Serdes PLL */
+				<0x000f4200 0x16c>, /* Serdes Tx0 */
+				<0x000f4400 0x200>, /* Serdes Rx0 */
+				<0x000f5000 0x1f0>, /* PCS: Lane0, COM, PCIE */
+				<0x000f4600 0x16c>, /* Serdes Tx1 */
+				<0x000f4800 0x200>, /* Serdes Rx1 */
+				<0x000f5400 0x0f8>; /* pcs_misc */
+
+			clocks = <&gcc GCC_ANOC_PCIE2_2LANE_M_CLK>,
+				 <&gcc GCC_CNOC_PCIE2_2LANE_S_CLK>,
+				 <&gcc GCC_PCIE2_PIPE_CLK>;
+
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		pcie3_phy: phy@fc000 {
+			compatible = "qti,devsoc-qmp-gen3x2-pcie-phy";
+			reg = <0x000fc000 0x1bc>, /* Serdes PLL */
+				<0x000fc200 0x16c>, /* Serdes Tx0 */
+				<0x000fc400 0x200>, /* Serdes Rx0 */
+				<0x000fd000 0x1f0>, /* PCS: Lane0, COM, PCIE */
+				<0x000fc600 0x16c>, /* Serdes Tx1 */
+				<0x000fc800 0x200>, /* Serdes Rx1 */
+				<0x000fd400 0x0f8>; /* pcs_misc */
+
+			clocks = <&gcc GCC_ANOC_PCIE3_2LANE_M_CLK>,
+				 <&gcc GCC_CNOC_PCIE3_2LANE_S_CLK>,
+				 <&gcc GCC_PCIE3_PIPE_CLK>;
+
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		/* 1L controller */
+		pcie0: pcie@70000000 {
+			compatible = "qti,dw-pcie-devsoc";
+			reg =  <0x70000000 0xf1d>,
+			       <0x70000f20 0xa8>,
+			       <0x70001000 0x1000>,
+			       <0x80000 0x3000>,
+			       <0x70100000 0x1000>;
+			reg-names = "dbi", "elbi", "atu", "parf", "config";
+			device_type = "pci";
+			num-lanes = <1>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			ranges = <0x81000000 0 0x70200000 0x70200000
+				  0 0x00100000>,   /* downstream I/O */
+				 <0x82000000 0 0x70300000 0x70300000
+				  0 0x0fd00000>; /* non-prefetchable memory */
+
+			id = <0>;
+			max-link-speed = <3>;
+			lane_mode;
+			lane-regs = <0x1947544>;
+
+			clocks = <&gcc GCC_PCIE0_AXI_M_CLK>,
+				 <&gcc GCC_PCIE0_AXI_S_CLK>,
+				 <&gcc GCC_PCIE0_AHB_CLK>,
+				 <&gcc GCC_PCIE0_AUX_CLK>,
+				 <&gcc GCC_PCIE0_AXI_S_BRIDGE_CLK>,
+				 <&gcc GCC_PCIE0_PIPE_CLK>,
+				 <&gcc GCC_CNOC_PCIE0_1LANE_S_CLK>,
+				 <&gcc GCC_ANOC_PCIE0_1LANE_M_CLK>,
+				 <&gcc GCC_PCIE0_RCHNG_CLK>;
+
+			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
+					<&gcc GCC_PCIE0_AXI_M_CLK>,
+					<&gcc GCC_PCIE0_AXI_S_CLK>,
+					<&gcc GCC_PCIE0_RCHNG_CLK>;
+
+			assigned-clock-rates = <20000000>,
+						<240000000>,
+						<240000000>,
+						<100000000>;
+
+			resets = <&reset GCC_PCIE0_PHY_BCR>,
+				 <&reset GCC_PCIE0PHY_PHY_BCR>;
+
+			status = "disabled";
+		};
+
+		/* 1L controller */
+		pcie1: pcie@60000000 {
+			compatible = "qti,dw-pcie-devsoc";
+			reg =  <0x60000000 0xf1d>,
+			       <0x60000f20 0xa8>,
+			       <0x60001000 0x1000>,
+			       <0x88000 0x3000>,
+			       <0x60100000 0x1000>;
+			reg-names = "dbi", "elbi", "atu", "parf", "config";
+			device_type = "pci";
+			num-lanes = <1>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			id = <1>;
+			max-link-speed = <3>;
+			lane_mode;
+			lane-regs = <0x1947544>;
+
+			ranges = <0x81000000 0 0x60200000 0x60200000
+				  0 0x00100000>,   /* downstream I/O */
+				 <0x82000000 0 0x60300000 0x60300000
+				  0 0x0fd00000>; /* non-prefetchable memory */
+
+			clocks = <&gcc GCC_PCIE1_AXI_M_CLK>,
+				 <&gcc GCC_PCIE1_AXI_S_CLK>,
+				 <&gcc GCC_PCIE1_AHB_CLK>,
+				 <&gcc GCC_PCIE1_AUX_CLK>,
+				 <&gcc GCC_PCIE1_AXI_S_BRIDGE_CLK>,
+				 <&gcc GCC_PCIE1_PIPE_CLK>,
+				 <&gcc GCC_CNOC_PCIE1_1LANE_S_CLK>,
+				 <&gcc GCC_ANOC_PCIE1_1LANE_M_CLK>,
+				 <&gcc GCC_PCIE1_RCHNG_CLK>;
+
+			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
+					<&gcc GCC_PCIE1_AXI_M_CLK>,
+					<&gcc GCC_PCIE1_AXI_S_CLK>,
+					<&gcc GCC_PCIE1_RCHNG_CLK>;
+
+			assigned-clock-rates = <20000000>,
+						<240000000>,
+						<240000000>,
+						<100000000>;
+
+			resets = <&reset GCC_PCIE1_PHY_BCR>,
+				 <&reset GCC_PCIE1_BCR>,
+				 <&reset GCC_PCIE1PHY_PHY_BCR>;
+
+			status = "disabled";
+		};
+
+		/* 2L controller */
+		pcie2: pcie@50000000 {
+			compatible = "qti,dw-pcie-devsoc";
+			reg =  <0x50000000 0xf1d>,
+			       <0x50000f20 0xa8>,
+			       <0x50001000 0x1000>,
+			       <0xf0000 0x3000>,
+			       <0x50100000 0x1000>;
+			reg-names = "dbi", "elbi", "atu", "parf", "config";
+			device_type = "pci";
+			num-lanes = <2>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			id = <2>;
+			max-link-speed = <3>;
+			lane_mode;
+			lane-regs = <0x1947544>;
+			ranges = <0x81000000 0 0x50200000 0x50200000
+				  0 0x00100000>,   /* downstream I/O */
+				 <0x82000000 0 0x50300000 0x50300000
+				  0 0x0fd00000>; /* non-prefetchable memory */
+
+			clocks = <&gcc GCC_PCIE2_AXI_M_CLK>,
+				 <&gcc GCC_PCIE2_AXI_S_CLK>,
+				 <&gcc GCC_PCIE2_AHB_CLK>,
+				 <&gcc GCC_PCIE2_AUX_CLK>,
+				 <&gcc GCC_PCIE2_AXI_S_BRIDGE_CLK>,
+				 <&gcc GCC_PCIE2_PIPE_CLK>,
+				 <&gcc GCC_CNOC_PCIE2_2LANE_S_CLK>,
+				 <&gcc GCC_ANOC_PCIE2_2LANE_M_CLK>,
+				 <&gcc GCC_PCIE2_RCHNG_CLK>;
+
+			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
+					<&gcc GCC_PCIE2_AXI_M_CLK>,
+					<&gcc GCC_PCIE2_AXI_S_CLK>,
+					<&gcc GCC_PCIE2_RCHNG_CLK>;
+
+			assigned-clock-rates = <20000000>,
+						<266666666>,
+						<240000000>,
+						<100000000>;
+
+			resets = <&reset GCC_PCIE2_PHY_BCR>,
+				 <&reset GCC_PCIE2PHY_PHY_BCR>;
+
+			status = "disabled";
+		};
+
+		/* 2L controller */
+		pcie3: pcie@40000000 {
+			compatible = "qti,dw-pcie-devsoc";
+			reg =  <0x40000000 0xf1d>,
+			       <0x40000f20 0xa8>,
+			       <0x40001000 0x1000>,
+			       <0xf8000 0x3000>,
+			       <0x40100000 0x1000>;
+			reg-names = "dbi", "elbi", "atu", "parf", "config";
+			device_type = "pci";
+			num-lanes = <2>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			id = <3>;
+			max-link-speed = <3>;
+			lane_mode;
+			lane-regs = <0x1947544>;
+			ranges = <0x81000000 0 0x40200000 0x40200000
+				  0 0x00100000>,   /* downstream I/O */
+				 <0x82000000 0 0x40300000 0x40300000
+				  0 0x0fd00000>; /* non-prefetchable memory */
+
+			clocks = <&gcc GCC_PCIE3_AXI_M_CLK>,
+				 <&gcc GCC_PCIE3_AXI_S_CLK>,
+				 <&gcc GCC_PCIE3_AHB_CLK>,
+				 <&gcc GCC_PCIE3_AUX_CLK>,
+				 <&gcc GCC_PCIE3_AXI_S_BRIDGE_CLK>,
+				 <&gcc GCC_PCIE3_PIPE_CLK>,
+				 <&gcc GCC_CNOC_PCIE3_2LANE_S_CLK>,
+				 <&gcc GCC_ANOC_PCIE3_2LANE_M_CLK>,
+				 <&gcc GCC_PCIE3_RCHNG_CLK>;
+
+			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
+					<&gcc GCC_PCIE3_AXI_M_CLK>,
+					<&gcc GCC_PCIE3_AXI_S_CLK>,
+					<&gcc GCC_PCIE3_RCHNG_CLK>;
+
+			assigned-clock-rates = <20000000>,
+						<266666666>,
+						<240000000>,
+						<100000000>;
+
+			resets = <&reset GCC_PCIE3_PHY_BCR>,
+				 <&reset GCC_PCIE3PHY_PHY_BCR>;
+
 			status = "disabled";
 		};
 	};
