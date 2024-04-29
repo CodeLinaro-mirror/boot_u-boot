@@ -822,6 +822,7 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 		goto exit;
 	}
 
+#if IS_ENABLED(CONFIG_SCM_V2)
 	do {
 		ret = -ENOTSUPP;
 		IPQ_SCM_VERIFY_HASH(param, rootfs_img_info.type,
@@ -842,7 +843,7 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 		printf("Unsupported SCM call\n");
 		ret =  CMD_RET_FAILURE;
 	}
-
+#endif
 exit:
 	memset((void *) (uintptr_t)rootfs_hdr, 0, img_info.img_offset);
 
