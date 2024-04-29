@@ -431,7 +431,7 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 	int isnand =  0;
 #if defined(CONFIG_NOR_BLK)
 	struct smem_ptn sp;
-	struct blk_desc *dev;
+	struct blk_desc *dev = NULL;
 #if defined(CONFIG_EFI_PARTITION)
 	gpt_entry *gpt_pte;
 #endif
@@ -444,19 +444,23 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 	}
 #endif
 #if defined(CONFIG_NOR_BLK)
-	dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
-	if (!dev) {
-		printf("No such device \n");
-		return;
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+		dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
+		if (!dev) {
+			printf("No SPIBLK device found \n");
+			return;
+		}
 	}
 #if defined(CONFIG_EFI_PARTITION)
-	gpt_pte = get_gpt_entry(dev);
-	if(!gpt_pte) {
-		printf("Failed to get gpt table entry\n");
-		return;
+	if (dev) {
+		gpt_pte = get_gpt_entry(dev);
+		if (!gpt_pte) {
+			printf("Failed to get gpt table entry\n");
+			return;
+		} else {
+			ncount = sfi->nor_gpt_pte.ncount;
+		}
 	}
-
-	ncount = sfi->nor_gpt_pte.ncount;
 #endif
 	bsize = dev->blksz;
 #endif
@@ -506,20 +510,22 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 			psize =  ((loff_t)p->size) * bsize;
 		}
 #if defined(CONFIG_NOR_BLK)
-		if (isnand) {
-			if (((((loff_t)p->start) * bsize) + psize) >
-				smem_get_flash_size(1))
-				continue;
-		} else {
-			if (((((loff_t)p->start) * bsize) + psize) >
-				smem_get_flash_size(0))
-				continue;
-		}
-#else
-		if (is_smem_part_exceed_flash_size(p,
-				((((loff_t)p->start) * bsize) + psize)))
-			continue;
+		if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+			if (isnand) {
+				if (((((loff_t)p->start) * bsize) + psize) >
+					smem_get_flash_size(1))
+					continue;
+			} else {
+				if (((((loff_t)p->start) * bsize) + psize) >
+					smem_get_flash_size(0))
+					continue;
+			}
+		} else
 #endif
+			if (is_smem_part_exceed_flash_size(p,
+				((((loff_t)p->start) * bsize) + psize)))
+				continue;
+
 		if ((psize > SZ_1M) && (((psize & (SZ_1M - 1)) == 0))) {
 			psize /= SZ_1M;
 			unit = "M@";
@@ -547,14 +553,13 @@ static int ipq_fdt_fixup_spi_nor_params(void *blob,
 {
         int ret, nodeoff = -1;
         uint32_t val, i;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 #if defined(CONFIG_NOR_BLK)
 	struct spi_flash *flash = ipq_spi_probe();
-	if (flash == NULL) {
+	if (flash == NULL && sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
 		printf("Spi nor not found \n");
 		return -1;
 	}
-#else
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 #endif
 
 	for (i = 0; i < node_info_size; i++) {
@@ -573,10 +578,12 @@ static int ipq_fdt_fixup_spi_nor_params(void *blob,
 	}
 
 #if defined(CONFIG_NOR_BLK)
-	val = cpu_to_fdt32(flash->sector_size);
-#else
-	val = cpu_to_fdt32(sfi->flash_block_size);
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH)
+		val = cpu_to_fdt32(flash->sector_size);
+	else
 #endif
+		val = cpu_to_fdt32(sfi->flash_block_size);
+
 	ret = fdt_setprop(blob, nodeoff, "sector-size",
 			&val, sizeof(uint32_t));
 	if (ret) {
@@ -585,10 +592,11 @@ static int ipq_fdt_fixup_spi_nor_params(void *blob,
 	}
 
 #if defined(CONFIG_NOR_BLK)
-	val = cpu_to_fdt32(flash->size);
-#else
-	val = cpu_to_fdt32(sfi->flash_density);
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH)
+		val = cpu_to_fdt32(flash->size);
+	else
 #endif
+		val = cpu_to_fdt32(sfi->flash_density);
 
 	if (val != 0) {
 		ret = fdt_setprop(blob, nodeoff, "density",

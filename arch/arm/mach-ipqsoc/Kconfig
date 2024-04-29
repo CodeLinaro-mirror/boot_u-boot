@@ -344,7 +344,6 @@ config TARGET_DEVSOC
 	select IPQ_CRASHDUMP
 	select IPQ_ELF_AUTH
 	select IPQ_SECURE
-	select NOR_BLK
 	select IPQ_USB
 	select IPQ_EMULATION
 	select DPR_VER_3_0
