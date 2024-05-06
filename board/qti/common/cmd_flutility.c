@@ -167,13 +167,26 @@ static int write_to_flash(struct fl_info *fl)
 			offset, part_size,
 			address, offset, file_size);
 		break;
-	case SMEM_BOOT_SPI_FLASH:
+#ifdef CONFIG_NOR_BLK
 	case SMEM_BOOT_NORGPT_FLASH:
+#ifdef CONFIG_BLOCK_CACHE
+		{
+		struct blk_desc *dev;
+
+		dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
+		if (!dev)
+			return CMD_RET_FAILURE;
+
+		blkcache_invalidate(dev->uclass_id, dev->devnum);
+		}
+#endif
+#endif
+	case SMEM_BOOT_SPI_FLASH:
 		snprintf(runcmd, sizeof(runcmd),
 			"sf probe && "
 			"sf erase 0x%x 0x%x && "
 			"sf write 0x%x 0x%x 0x%x && ",
-			offset, part_size,
+			(offset & ~(SZ_64K - 1)), part_size,
 			address, offset, file_size);
 		break;
 	default:
@@ -385,6 +398,7 @@ static int prepare_nor_gpt(char *part_name, uint32_t *offset,
 	uint32_t flash_size = smem_get_flash_size(0);
 	uint32_t fsize;
 	int ret = 0;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
 	if (strncmp(NOR_GPT_PART_NAME, (const char *)part_name,
 			sizeof(NOR_GPT_PART_NAME))  == 0) {
@@ -393,13 +407,17 @@ static int prepare_nor_gpt(char *part_name, uint32_t *offset,
 			fsize += 1;
 		*part_size = fsize * SZ_64K;
 		*offset = 0;
+		if (sfi->nor_gpt_pte.gpt_pte) {
+			free(sfi->nor_gpt_pte.gpt_pte);
+			sfi->nor_gpt_pte.gpt_pte = NULL;
+		}
 	} else if (strncmp(NOR_GPT_BACKUP_PART_NAME, (const char *)part_name,
 			sizeof(NOR_GPT_BACKUP_PART_NAME)) == 0) {
 		fsize = *file_size / SZ_64K;
 		if (*file_size % SZ_64K)
 			fsize += 1;
 		*part_size = fsize * SZ_64K;
-		*offset = flash_size - *part_size;
+		*offset = flash_size - *file_size;
 	} else	{
 		ret = -1;
 	}
