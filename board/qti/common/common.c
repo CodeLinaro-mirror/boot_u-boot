@@ -448,9 +448,6 @@ int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
 #ifdef CONFIG_IPQ_SPI_NOR
 struct spi_flash *ipq_spi_probe(void)
 {
-	if (flash != NULL)
-		return flash;
-
 #if CONFIG_IS_ENABLED(DM_SPI_FLASH)
 	struct udevice *spi_dev;
 
@@ -645,7 +642,9 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 
 	ret = part_get_info_by_name(dev, blkpart->name, blkpart->info);
 	if (ret < 0) {
-		printf("Partition not found !!!\n");
+		if (env_get("verbose"))
+			printf(" %s Partition not found, ret %d !!!\n",
+				blkpart->name, ret);
 		return -ENODEV;
 	}
 
