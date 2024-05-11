@@ -34,6 +34,74 @@ static const struct bcr_regs_v2 nss_cc_cfg_regs = {
 	.cmd_rcgr = NSS_CC_CFG_CMD_RCGR,
 };
 
+static const struct bcr_regs pcie_aux_regs = {
+	.cfg_rcgr = GCC_PCIE_AUX_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE_AUX_CMD_RCGR,
+	.M = GCC_PCIE_AUX_M,
+	.N = GCC_PCIE_AUX_N,
+	.D = GCC_PCIE_AUX_D,
+};
+
+static const struct bcr_regs_v2 pcie0_axi_m_clk_regs = {
+	.cfg_rcgr = GCC_PCIE0_AXI_M_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE0_AXI_M_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie1_axi_m_clk_regs = {
+	.cfg_rcgr = GCC_PCIE1_AXI_M_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE1_AXI_M_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie2_axi_m_clk_regs = {
+	.cfg_rcgr = GCC_PCIE2_AXI_M_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE2_AXI_M_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie3_axi_m_clk_regs = {
+	.cfg_rcgr = GCC_PCIE3_AXI_M_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3_AXI_M_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie0_axi_s_clk_regs = {
+	.cfg_rcgr = GCC_PCIE0_AXI_S_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE0_AXI_S_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie1_axi_s_clk_regs = {
+	.cfg_rcgr = GCC_PCIE1_AXI_S_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE1_AXI_S_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie2_axi_s_clk_regs = {
+	.cfg_rcgr = GCC_PCIE2_AXI_S_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE2_AXI_S_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie3_axi_s_clk_regs = {
+	.cfg_rcgr = GCC_PCIE3_AXI_S_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3_AXI_S_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie0_rchng_clk_regs = {
+	.cfg_rcgr = GCC_PCIE0_RCHNG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE0_RCHNG_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie1_rchng_clk_regs = {
+	.cfg_rcgr = GCC_PCIE1_RCHNG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE1_RCHNG_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie2_rchng_clk_regs = {
+	.cfg_rcgr = GCC_PCIE2_RCHNG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE2_RCHNG_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 pcie3_rchng_clk_regs = {
+	.cfg_rcgr = GCC_PCIE3_RCHNG_CFG_RCGR,
+	.cmd_rcgr = GCC_PCIE3_RCHNG_CMD_RCGR,
+};
+
 static const struct bcr_regs sdc_regs = {
 	.cfg_rcgr = SDCC1_APPS_CFG_RCGR,
 	.cmd_rcgr = SDCC1_APPS_CMD_RCGR,
@@ -88,6 +156,71 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		/* SDCC1: 192 MHz */
 		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 6, 0, 0,
 				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
+		break;
+	case GCC_PCIE_AUX_CLK:
+		/* GCC_PCIE_AUX_CLK: 20 MHz */
+		clk_rcg_set_rate_mnd(priv->base, &pcie_aux_regs,
+					16, 5, 2, PCIE_GPLL0_OUT_AUX);
+		break;
+	case GCC_PCIE0_AXI_M_CLK:
+		/* GCC_PCIE0_AXI_M_CLK: 240 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie0_axi_m_clk_regs,
+					9, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE1_AXI_M_CLK:
+		/* GCC_PCIE1_AXI_M_CLK: 240 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie1_axi_m_clk_regs,
+					9, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE2_AXI_M_CLK:
+		/* GCC_PCIE2_AXI_M_CLK: 266.67 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie2_axi_m_clk_regs,
+					8, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE3_AXI_M_CLK:
+		/* GCC_PCIE3_AXI_M_CLK: 266.67 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie3_axi_m_clk_regs,
+					8, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE0_AXI_S_CLK:
+		/* GCC_PCIE0_AXI_S_CLK: 240 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie0_axi_s_clk_regs,
+					9, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE1_AXI_S_CLK:
+		/* GCC_PCIE1_AXI_S_CLK: 240 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie1_axi_s_clk_regs,
+					9, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE2_AXI_S_CLK:
+		/* GCC_PCIE2_AXI_S_CLK: 240 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie2_axi_s_clk_regs,
+					9, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE3_AXI_S_CLK:
+		/* GCC_PCIE3_AXI_S_CLK: 240 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie3_axi_s_clk_regs,
+					9, 0, PCIE_GPLL4_OUT_MAIN);
+		break;
+	case GCC_PCIE0_RCHNG_CLK:
+		/* GCC_PCIE0_RCHNG_CLK: 100 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie0_rchng_clk_regs,
+					15, 0, PCIE_GPLL0_OUT_MAIN);
+		break;
+	case GCC_PCIE1_RCHNG_CLK:
+		/* GCC_PCIE1_RCHNG_CLK: 100 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie1_rchng_clk_regs,
+					15, 0, PCIE_GPLL0_OUT_MAIN);
+		break;
+	case GCC_PCIE2_RCHNG_CLK:
+		/* GCC_PCIE2_RCHNG_CLK: 100 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie2_rchng_clk_regs,
+					15, 0, PCIE_GPLL0_OUT_MAIN);
+		break;
+	case GCC_PCIE3_RCHNG_CLK:
+		/* GCC_PCIE3_RCHNG_CLK: 100 MHz */
+		clk_rcg_set_rate_v2(priv->base, &pcie3_rchng_clk_regs,
+					15, 0, PCIE_GPLL0_OUT_MAIN);
 		break;
 	default:
 		ret = 0;
@@ -228,6 +361,98 @@ int msm_enable(struct clk *clk)
 		break;
 	case NSS_CC_PPE_SWITCH_IPE_CLK:
 		clk_enable_cbc(priv->base + NSS_CC_PPE_SWITCH_IPE_CBCR);
+		break;
+	case GCC_PCIE0_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_AHB_CBCR);
+		break;
+	case GCC_PCIE0_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_AUX_CBCR);
+		break;
+	case GCC_PCIE0_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_AXI_M_CBCR);
+		break;
+	case GCC_PCIE0_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE0_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_AXI_S_CBCR);
+		break;
+	case GCC_PCIE0_PIPE_CLK:
+		break;
+	case GCC_PCIE1_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_AHB_CBCR);
+		break;
+	case GCC_PCIE1_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_AUX_CBCR);
+		break;
+	case GCC_PCIE1_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_AXI_M_CBCR);
+		break;
+	case GCC_PCIE1_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE1_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_AXI_S_CBCR);
+		break;
+	case GCC_PCIE1_PIPE_CLK:
+		break;
+	case GCC_PCIE2_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_AHB_CBCR);
+		break;
+	case GCC_PCIE2_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_AUX_CBCR);
+		break;
+	case GCC_PCIE2_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_AXI_M_CBCR);
+		break;
+	case GCC_PCIE2_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE2_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_AXI_S_CBCR);
+		break;
+	case GCC_PCIE2_PIPE_CLK:
+		break;
+	case GCC_PCIE3_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_AHB_CBCR);
+		break;
+	case GCC_PCIE3_AUX_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_AUX_CBCR);
+		break;
+	case GCC_PCIE3_AXI_M_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_AXI_M_CBCR);
+		break;
+	case GCC_PCIE3_AXI_S_BRIDGE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_AXI_S_BRIDGE_CBCR);
+		break;
+	case GCC_PCIE3_AXI_S_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_AXI_S_CBCR);
+		break;
+	case GCC_PCIE3_PIPE_CLK:
+		break;
+	case GCC_CNOC_PCIE0_1LANE_S_CLK:
+		clk_enable_cbc(priv->base + GCC_CNOC_PCIE0_1LANE_S_CBCR);
+		break;
+	case GCC_CNOC_PCIE1_1LANE_S_CLK:
+		clk_enable_cbc(priv->base + GCC_CNOC_PCIE1_1LANE_S_CBCR);
+		break;
+	case GCC_CNOC_PCIE2_2LANE_S_CLK:
+		clk_enable_cbc(priv->base + GCC_CNOC_PCIE2_2LANE_S_CBCR);
+		break;
+	case GCC_CNOC_PCIE3_2LANE_S_CLK:
+		clk_enable_cbc(priv->base + GCC_CNOC_PCIE3_2LANE_S_CBCR);
+		break;
+	case GCC_ANOC_PCIE0_1LANE_M_CLK:
+		clk_enable_cbc(priv->base + GCC_ANOC_PCIE0_1LANE_M_CBCR);
+		break;
+	case GCC_ANOC_PCIE1_1LANE_M_CLK:
+		clk_enable_cbc(priv->base + GCC_ANOC_PCIE1_1LANE_M_CBCR);
+		break;
+	case GCC_ANOC_PCIE2_2LANE_M_CLK:
+		clk_enable_cbc(priv->base + GCC_ANOC_PCIE2_2LANE_M_CBCR);
+		break;
+	case GCC_ANOC_PCIE3_2LANE_M_CLK:
+		clk_enable_cbc(priv->base + GCC_ANOC_PCIE3_2LANE_M_CBCR);
 		break;
 	default:
 	}

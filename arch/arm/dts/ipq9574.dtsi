@@ -625,7 +625,7 @@
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			num-lanes = <1>;
 			id = <0>;
-			gen = <3>;
+			max-link-speed = <3>;
 
 			clocks = <&gcc GCC_PCIE0_AHB_CLK>,
 				 <&gcc GCC_PCIE0_AUX_CLK>,
@@ -665,7 +665,7 @@
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			num-lanes = <1>;
 			id = <1>;
-			gen = <3>;
+			max-link-speed = <3>;
 
 			clocks = <&gcc GCC_PCIE1_AHB_CLK>,
 				 <&gcc GCC_PCIE1_AUX_CLK>,
@@ -705,7 +705,7 @@
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			num-lanes = <2>;
 			id = <2>;
-			gen = <3>;
+			max-link-speed = <3>;
 
 			clocks = <&gcc GCC_PCIE2_AHB_CLK>,
 				 <&gcc GCC_PCIE2_AUX_CLK>,
@@ -744,7 +744,7 @@
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			num-lanes = <2>;
 			id = <3>;
-			gen = <3>;
+			max-link-speed = <3>;
 
 			clocks = <&gcc GCC_PCIE3_AHB_CLK>,
 				 <&gcc GCC_PCIE3_AUX_CLK>,

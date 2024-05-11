@@ -193,6 +193,15 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 	[GCC_USB3PHY_0_PHY_BCR] = {0x2C070, 0},
 	[GCC_USB1_BCR] = {0x3C000, 0},
 	[GCC_QUSB2_1_PHY_BCR] = {0x3C030, 0},
+	[GCC_PCIE0_PHY_BCR] = {0x28060, 0},
+	[GCC_PCIE0PHY_PHY_BCR] = {0x2805C, 0},
+	[GCC_PCIE1_BCR] = {0x29000, 0},
+	[GCC_PCIE1_PHY_BCR] = {0x29060, 0},
+	[GCC_PCIE1PHY_PHY_BCR] = {0x2905C, 0},
+	[GCC_PCIE2_PHY_BCR] = {0x2A060, 0},
+	[GCC_PCIE2PHY_PHY_BCR] = {0x2A05C, 0},
+	[GCC_PCIE3_PHY_BCR] = {0x2B060, 0},
+	[GCC_PCIE3PHY_PHY_BCR] = {0x2B05C, 0},
 };
 #endif
 

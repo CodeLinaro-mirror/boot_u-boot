@@ -416,7 +416,7 @@
 				<0x20100000 0x1000>;
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			id = <0>;
-			gen = <3>;
+			max-link-speed = <3>;
 
 			clocks = <&gcc GCC_PCIE3X1_0_AHB_CLK>,
 				 <&gcc GCC_PCIE3X1_0_AXI_M_CLK>,
@@ -461,7 +461,7 @@
 				<0x18100000 0x1000>;
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			id = <1>;
-			gen = <3>;
+			max-link-speed = <3>;
 			lane_mode;
 			lane-regs = <0x1947544>;
 
@@ -507,7 +507,7 @@
 				<0x10100000 0x1000>;
 			reg-names = "dbi", "elbi", "atu", "parf", "config";
 			id = <2>;
-			gen = <3>;
+			max-link-speed = <3>;
 			lane_mode;
 			lane-regs = <0x1947544>;
 
