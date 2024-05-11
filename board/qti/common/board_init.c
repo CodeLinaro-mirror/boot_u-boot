@@ -176,6 +176,11 @@ unsigned int get_which_flash_param(char *part_name)
 	return flash_var;
 }
 
+__weak void board_mmc_config(uint32_t val)
+{
+	return;
+}
+
 int get_current_board_flash_config(int flash_type)
 {
 	int ret;
@@ -380,6 +385,9 @@ int board_init(void)
 			return -ENOMSG;
 	}
 
+#ifdef CONFIG_IPQ_MMC
+	board_mmc_config(0);
+#endif
 	return 0;
 }
 
@@ -543,11 +551,6 @@ __weak void board_update_RFA_settings(void)
 	return;
 }
 
-__weak void board_mmc_config(void)
-{
-	return;
-}
-
 #ifdef CONFIG_IPQ_MMC
 static void init_mmc(void)
 {
@@ -666,6 +669,7 @@ int board_late_init(void)
 	switch(board_type) {
 	case SMEM_BOOT_NORPLUSEMMC:
 		sfi->flash_secondary_type = SMEM_BOOT_MMC_FLASH;
+		board_mmc_config(1);
 		break;
 	case SMEM_BOOT_NORPLUSNAND:
 		sfi->flash_secondary_type = SMEM_BOOT_QSPI_NAND_FLASH;
@@ -847,9 +851,7 @@ int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 	struct disk_partition disk_info;
 	blkpart_info_t  bpart_info;
 
-#ifdef CONFIG_IPQ_EMULATION
-	board_mmc_config();
-#endif
+	board_mmc_config(1);
 
 	BLK_PART_GET_INFO_S(bpart_info, "0:APPSBLENV", &disk_info,
 					SMEM_BOOT_MMC_FLASH);

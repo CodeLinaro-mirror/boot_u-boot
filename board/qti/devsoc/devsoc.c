@@ -191,9 +191,11 @@ static struct mm_region devsoc_mem_map[] = {
 struct mm_region *mem_map = devsoc_mem_map;
 #endif
 
-void board_mmc_config(void)
+void board_mmc_config(uint32_t val)
 {
-	writel(0x1, 0x194C008);
+#ifdef CONFIG_IPQ_EMULATION
+	writel(val, 0x194C008);
+#endif
 }
 
 int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
