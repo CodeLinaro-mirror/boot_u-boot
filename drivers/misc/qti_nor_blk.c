@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: GPL-2.0-only
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <cpu_func.h>
@@ -10,6 +10,7 @@
 #include <part.h>
 #include <spi.h>
 #include <spi_flash.h>
+#include <memalign.h>
 
 struct spi_flash *spi_detect(void)
 {
@@ -56,8 +57,95 @@ ulong nor_bread(struct udevice *dev, lbaint_t start, lbaint_t blkcnt,
 	return blkcnt;
 }
 
+ulong nor_bwrite(struct udevice *dev, lbaint_t start, lbaint_t blkcnt,
+		 const void *src)
+{
+	struct spi_flash *flash = spi_detect();
+	struct blk_desc *block_dev = dev_get_uclass_plat(dev);
+	int ret, blksz, lblkcnt, totalblkcnt, startoffset, erase_size;
+	uint8_t *buff;
+	const uint8_t *lsrc = src;
+
+	if ((blkcnt == 0) || !flash || !block_dev)
+		return 0;
+
+	lblkcnt = blkcnt;
+
+	erase_size = flash->erase_size;
+
+	blksz = block_dev->blksz;
+
+	block_dev->lba = lldiv(flash->size, blksz);
+
+	totalblkcnt = erase_size / blksz;
+
+	startoffset = start * blksz;
+
+	if ((startoffset & (erase_size - 1)) || ((blkcnt % totalblkcnt))) {
+		buff = (uint8_t *)malloc_cache_aligned(erase_size);
+		if (buff == NULL) {
+			printf(" block write: No memory \n");
+			return 0;
+		}
+	}
+
+	while (lblkcnt) {
+		int offset, gap, tempcnt;
+		bool backup = false;
+
+		if (startoffset & (erase_size - 1)) {
+			offset = startoffset & ~(erase_size - 1);
+			gap = startoffset - offset;
+			tempcnt = totalblkcnt - (gap / blksz);
+			backup = true;
+
+			if (lblkcnt < tempcnt)
+				tempcnt = lblkcnt;
+		} else {
+			if (lblkcnt > totalblkcnt) {
+				offset = startoffset;
+				tempcnt = totalblkcnt;
+			} else {
+				offset = startoffset;
+				tempcnt = lblkcnt;
+				gap = 0;
+				backup = true;
+			}
+		}
+
+		if (backup) {
+			ret = spi_flash_read(flash, offset, erase_size, buff);
+			if (ret)
+				break;
+
+			memcpy(buff + gap, lsrc, tempcnt * blksz);
+		}
+
+		ret = spi_flash_erase(flash, offset, erase_size);
+		if (ret)
+			break;
+
+		ret = spi_flash_write(flash, offset, erase_size,
+					(backup)? buff : lsrc);
+		if (ret)
+			break;
+
+		lblkcnt -= tempcnt;
+
+		startoffset += (tempcnt * blksz);
+
+		lsrc += tempcnt * blksz;
+	}
+
+	if (buff)
+		free(buff);
+
+	return (lblkcnt)? 0 : blkcnt;
+}
+
 static const struct blk_ops nor_blk_ops = {
 	.read	= nor_bread,
+	.write	= nor_bwrite,
 };
 
 U_BOOT_DRIVER(nor_blk) = {
