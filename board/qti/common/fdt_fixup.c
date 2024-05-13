@@ -620,11 +620,12 @@ static int ipq_set_mtdids(uint32_t flash_type)
 		return env_set("mtdids", NAND_MTDIDS);
 	case SMEM_BOOT_SPI_FLASH:
 	case SMEM_BOOT_NORGPT_FLASH:
+	case SMEM_BOOT_NORPLUSEMMC:
 		return env_set("mtdids", NOR_MTDIDS);
 	case SMEM_BOOT_NORPLUSNAND:
 		return env_set("mtdids", NORPLUSNAND_MTDIDS);
 	default:
-		printf("Invalid flash type\n");
+		printf("Invalid flash type : 0x%X\n", flash_type);
 	}
 
 	return -1;
@@ -649,6 +650,7 @@ static void ipq_fdt_fixup_mtdparts(void *blob)
 		break;
 	case SMEM_BOOT_SPI_FLASH:
 	case SMEM_BOOT_NORGPT_FLASH:
+	case SMEM_BOOT_NORPLUSEMMC:
 		/* NOR density & sector-size fix-up */
 		ipq_fdt_fixup_spi_nor_params(blob, fnodes, *fnode_entires);
 		snprintf(parts_str, sizeof(parts_str), "mtdparts=spi0.0");
