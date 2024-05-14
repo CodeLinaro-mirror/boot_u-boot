@@ -43,6 +43,7 @@ dram_bank_info_t * board_dram_bank_info = devsoc_dram_bank_info;
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
 	{ "micron,n25q128a11", MTD_DEV_TYPE_NOR},
+	{ "spansion,s25fs128s1", MTD_DEV_TYPE_NOR},
 	{ "qcom,devsoc-nand", MTD_DEV_TYPE_NAND},
 };
 
