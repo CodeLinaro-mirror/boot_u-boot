@@ -18,14 +18,27 @@
 #include <common.h>
 #include <command.h>
 #include <part.h>
-#include <linux/mtd/mtd.h>
-#include <nand.h>
+
+#ifdef CONFIG_IPQ_MMC
 #include <mmc.h>
 #include <sdhci.h>
-#include <ubi_uboot.h>
-#include <fdtdec.h>
+#ifdef CONFIG_GPT_UPDATE_PARAMS
+#include <u-boot/crc.h>
+#endif
+#endif
+
+#ifdef CONFIG_IPQ_NAND
 #include <nand.h>
+#include <ubi_uboot.h>
+#include <linux/mtd/mtd.h>
+#endif
+
+#include <fdtdec.h>
 #include <elf.h>
+
+#ifdef CONFIG_GPT_UPDATE_PARAMS
+#include <memalign.h>
+#endif
 
 #include "ipq_board.h"
 
@@ -52,6 +65,13 @@ extern struct sdhci_host mmc_host;
 #define HEADER_VERSION 4
 
 #define SHA1_SIG_LEN 41
+
+#ifdef CONFIG_GPT_UPDATE_PARAMS
+enum {
+	GPT,
+	GPTBACKUP
+};
+#endif
 
 enum {
 	CMD_FLASH = 1,
@@ -87,6 +107,7 @@ struct header {
 } __attribute__ ((__packed__));
 
 static int g_flash = 0;
+int g_gptsel = -1;
 
 #ifdef CONFIG_CMD_UBI
 static void detach_ubi(void)
@@ -341,6 +362,128 @@ int write_ubi_vol(char* ubi_vol_name, uint32_t load_addr, uint32_t file_size)
 }
 #endif /* CONFIG_CMD_UBI */
 
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+static void recalc_primary_gpt_mbr_params(legacy_mbr *mbr,
+						struct blk_desc *blk_dev)
+{
+	lbaint_t val = le64_to_cpu(blk_dev->lba - 1);
+	mbr->partition_record[0].nr_sects =  cpu_to_le64(val);
+}
+
+static void recalc_gpt_header(uint8_t gpt_sel, gpt_header *gpt_h,
+				struct blk_desc *blk_dev)
+{
+	u32 calc_crc32;
+	lbaint_t val;
+
+	switch (gpt_sel) {
+	case GPT:
+		val = le64_to_cpu(blk_dev->lba - 1);
+		gpt_h->alternate_lba = cpu_to_le64(val);
+		break;
+	case GPTBACKUP:
+		val = le64_to_cpu(blk_dev->lba - 1);
+		gpt_h->my_lba = cpu_to_le64(val);
+
+		val = le64_to_cpu(blk_dev->lba - 33);
+		gpt_h->partition_entry_lba = cpu_to_le64(val);
+		break;
+	default:
+		return;
+	};
+
+	val = le64_to_cpu(blk_dev->lba - 1 - 33);
+	gpt_h->last_usable_lba = cpu_to_le64(val);
+
+	gpt_h->header_crc32 = 0;
+
+	if (blk_dev->uclass_id == UCLASS_MMC)
+		calc_crc32 = crc32(0, (const unsigned char *)gpt_h,
+			       le32_to_cpu(gpt_h->header_size));
+	else
+		calc_crc32 = crc32(0 ^ 0xFFFFFFFF, (const unsigned char *)gpt_h,
+			       le32_to_cpu(gpt_h->header_size)) ^ 0xFFFFFFFF;
+
+	gpt_h->header_crc32 = cpu_to_le32(calc_crc32);
+}
+
+ulong blk_derase_and_write(struct blk_desc *desc, lbaint_t start,
+			   lbaint_t blkcnt, const void *buffer)
+{
+	int ret = 0;
+	ret = blk_derase(desc, start, blkcnt);
+	if (ret == blkcnt) {
+		ret = blk_dwrite(desc, start, blkcnt, buffer);
+		if (ret != blkcnt) {
+			printf("block write failed, ret %d", ret);
+			return ret;
+		}
+	} else
+		printf("block erase failed, ret %d", ret);
+
+	return ret;
+}
+
+static void gpt_update_params(struct blk_desc *blk_dev,	uint8_t gptsel)
+{
+	gpt_header gpt_h;
+	legacy_mbr mbr;
+	uint8_t *buf = NULL;
+
+	buf = (uint8_t*) malloc_cache_aligned(blk_dev->blksz);
+	if(!buf) {
+		printf("memory allocation failed ...");
+		return;
+	}
+
+	switch(gptsel) {
+	case GPT:
+		if (blk_dread(blk_dev, 0, 1, (void *)buf) != 1) {
+			printf("gpt mbr read failed ...\n");
+			break;
+		}
+
+		memcpy(&mbr, buf, sizeof(legacy_mbr));
+		recalc_primary_gpt_mbr_params(&mbr, blk_dev);
+		memcpy(buf, &mbr, sizeof(legacy_mbr));
+
+		if (blk_derase_and_write(blk_dev, 0, 1, buf) != 1)
+			break;
+
+		if (blk_dread(blk_dev, 1, 1, (void *)buf) != 1) {
+			printf("gpt header read failed ...\n");
+			break;
+		}
+
+		memcpy(&gpt_h, buf, sizeof(gpt_header));
+		recalc_gpt_header(GPT, &gpt_h, blk_dev);
+		memcpy(buf, &gpt_h, sizeof(gpt_header));
+
+		if (blk_derase_and_write(blk_dev, 1, 1, buf) != 1)
+			break;
+		break;
+	case GPTBACKUP:
+		if (blk_dread(blk_dev, blk_dev->lba - 1, 1, (void *)buf) != 1) {
+			printf("gptbackup header read failed ...\n");
+			break;
+		}
+
+		memcpy(&gpt_h, buf, sizeof(gpt_header));
+		recalc_gpt_header(GPTBACKUP, &gpt_h, blk_dev);
+		memcpy(buf, &gpt_h, sizeof(gpt_header));
+
+		if (blk_derase_and_write(blk_dev, blk_dev->lba - 1,
+					  1, buf) != 1)
+			break;
+	};
+
+	if (buf) {
+		free(buf);
+		buf = NULL;
+	}
+}
+#endif
+
 #ifdef CONFIG_MMC
 static int prepare_mmc_flash(char *part_name, uint32_t *offset,
 				uint32_t *part_size, uint32_t* file_size)
@@ -361,12 +504,18 @@ static int prepare_mmc_flash(char *part_name, uint32_t *offset,
 		*offset = 0;
 		*part_size = fsize;
 		*file_size = fsize;
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+		g_gptsel = GPT;
+#endif
 	} else if (strncmp(GPT_BACKUP_PART_NAME, (const char *)part_name,
 			sizeof(GPT_BACKUP_PART_NAME)) == 0) {
 		fsize = *file_size / blk_dev->blksz;
 		*offset = (ulong) blk_dev->lba - fsize;
 		*part_size = fsize;
 		*file_size = fsize;
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+		g_gptsel = GPTBACKUP;
+#endif
 	} else	{
 
 		BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
@@ -411,6 +560,9 @@ static int prepare_nor_gpt(char *part_name, uint32_t *offset,
 			free(sfi->nor_gpt_pte.gpt_pte);
 			sfi->nor_gpt_pte.gpt_pte = NULL;
 		}
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+		g_gptsel = GPT;
+#endif
 	} else if (strncmp(NOR_GPT_BACKUP_PART_NAME, (const char *)part_name,
 			sizeof(NOR_GPT_BACKUP_PART_NAME)) == 0) {
 		fsize = *file_size / SZ_64K;
@@ -418,6 +570,9 @@ static int prepare_nor_gpt(char *part_name, uint32_t *offset,
 			fsize += 1;
 		*part_size = fsize * SZ_64K;
 		*offset = flash_size - *file_size;
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+		g_gptsel = GPTBACKUP;
+#endif
 	} else	{
 		ret = -1;
 	}
@@ -437,6 +592,10 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	bool is_ubi = false;
 	struct fl_info fl;
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+	struct blk_desc *blk_dev;
+	uint32_t uclass_id, default_size;
+#endif
 #if defined(CONFIG_NOR_BLK)
 	struct disk_partition disk_info = {0};
 	blkpart_info_t  bpart_info;
@@ -579,6 +738,10 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 #endif
 #ifdef CONFIG_NOR_BLK
 	case SMEM_BOOT_NORGPT_FLASH:
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+		uclass_id = UCLASS_SPI;
+		default_size = DEFAULT_NOR_FLASH_SIZE;
+#endif
 		ret = prepare_nor_gpt(part_name, &offset, &part_size,
 						&file_size);
 		if (ret == 0)
@@ -615,6 +778,10 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_MMC
 	case SMEM_BOOT_MMC_FLASH:
 mmc:
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+		uclass_id = UCLASS_MMC;
+		default_size = DEFAULT_MMC_FLASH_SIZE;
+#endif
 		ret = prepare_mmc_flash(part_name, &offset, &part_size,
 						&file_size);
 		break;
@@ -669,8 +836,25 @@ mmc:
 
 	if (ret)
 		return CMD_RET_FAILURE;
-	else
-		return CMD_RET_SUCCESS;
+
+#if defined(CONFIG_GPT_UPDATE_PARAMS)
+	if (unlikely(g_gptsel != -1)) {
+		blk_dev = blk_get_devnum_by_uclass_id(uclass_id, 0);
+		if (!blk_dev) {
+			printf("blk_desc uclass_id %d"
+			" not found ...\n", uclass_id);
+			return CMD_RET_FAILURE;
+		}
+
+		if (blk_dev->lba != default_size)
+			gpt_update_params(blk_dev, g_gptsel);
+
+		g_gptsel = -1;
+	}
+
+#endif
+	return CMD_RET_SUCCESS;
+
 usage_err:
 	return CMD_RET_USAGE;
 }

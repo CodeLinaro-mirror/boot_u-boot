@@ -129,6 +129,11 @@ extern uint32_t g_load_addr;
 #define CFG_NR_CPUS				4
 #endif
 
+#ifdef CONFIG_GPT_UPDATE_PARAMS
+#define DEFAULT_MMC_FLASH_SIZE 0xE90000
+#define DEFAULT_NOR_FLASH_SIZE 0x2000
+#endif
+
 #ifdef CONFIG_NET_RETRY_COUNT
 #undef CONFIG_NET_RETRY_COUNT
 #define CONFIG_NET_RETRY_COUNT			500

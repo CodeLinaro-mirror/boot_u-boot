@@ -252,6 +252,11 @@ config AES_256_DERIVE_KEY
 	depends on CMD_AES_256
 	default n
 
+config GPT_UPDATE_PARAMS
+	bool "Update GPT parameters"
+	depends on IPQ_MMC || NOR_BLK
+	default n
+
 choice
 	prompt "IPQ board select"
 
@@ -342,6 +347,7 @@ config TARGET_IPQ5424
 	select IPQ_ELF_AUTH
 	select IPQ_SECURE
 	select IPQ_USB
+	imply GPT_UPDATE_PARAMS
 	select DPR_VER_3_0
 	select SCM_V2
 	select CMD_HASH
