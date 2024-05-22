@@ -215,6 +215,41 @@ void lowlevel_init(void)
 	return;
 }
 
+void ipq_fdt_serial_fixup(void *blob)
+{
+	int serial_nodeoff = -EINVAL;
+	uint32_t flash_type = gd->board_type & FLASH_TYPE_MASK;
+
+#ifdef LINUX_6_x_SERIAL2_DTS_NODE
+	serial_nodeoff = fdt_path_offset(blob, LINUX_6_x_SERIAL2_DTS_NODE);
+#endif
+
+	if (flash_type == SMEM_BOOT_MMC_FLASH) {
+		if (serial_nodeoff > 0) {
+
+#ifdef LINUX_6_x_SERIAL2_DTS_NODE
+			parse_fdt_fixup(LINUX_6_x_SERIAL2_DTS_NODE"%"\
+					STATUS_DISABLED,blob);
+#endif
+		}
+	}
+
+	return;
+}
+
+void ipq_fdt_fixup_board(void *blob)
+{
+	unsigned long machid = gd->bd->bi_arch_number;
+
+	switch (machid) {
+	case MACH_TYPE_IPQ9574_RDP418_EMMC:
+		ipq_fdt_serial_fixup(blob);
+		break;
+	}
+
+	return;
+}
+
 void ipq_uboot_fdt_fixup(uint32_t machid)
 {
 	int ret, len = 0, config_nos = 0;
