@@ -10,6 +10,7 @@
 #include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
 #include <dt-bindings/clock/gcc-ipq5424.h>
 #include <dt-bindings/reset/ipq5424-reset.h>
+#include <dt-bindings/net/qti-ipqsoc.h>
 #include <dt-bindings/phy/phy.h>
 
 / {

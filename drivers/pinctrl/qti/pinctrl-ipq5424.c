@@ -41,6 +41,8 @@ static const struct pinctrl_function msm_pinctrl_functions[] = {
 	{"sdc_clk", 1},
 	{"sdc_cmd", 1},
 	{"sdc_data", 1},
+	{"mdc", 1},
+	{"mdio", 1},
 };
 
 static const char *ipq5424_get_function_name(struct udevice *dev,
