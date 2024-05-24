@@ -83,7 +83,7 @@ typedef void (*fdt_fixup_t)(void *blob);
  *       setenv fdtedit3
  *		/reserved-memory/tzapp@49B00000/%64?2?reg%0x49A00000?0x500000
  */
-static void parse_fdt_fixup(char* buf, void *blob)
+void parse_fdt_fixup(char* buf, void *blob)
 {
 	int nodeoff, value, num_values, i;
 	char *node, *property, *node_value, *sliced_string;
@@ -379,6 +379,11 @@ __weak void ipq_fdt_fixup_socinfo(void *blob)
 	if (ret)
 		printf("%s: cannot set soc_version_minor %d\n",
 		       __func__, ipq_socinfo->soc_version_minor);
+	return;
+}
+
+__weak void ipq_fdt_fixup_board(void *blob)
+{
 	return;
 }
 
@@ -798,6 +803,7 @@ static const fdt_fixup_t fixup_functions[] = {
 #endif
 	ipq_fdt_fixup_usb_dev_mode,
 	ipq_fdt_fixup_dload_disable,
+	ipq_fdt_fixup_board,
 	NULL
 };
 

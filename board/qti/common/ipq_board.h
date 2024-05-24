@@ -1189,6 +1189,7 @@ int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size);
 unsigned int get_rootfs_active_partition(void);
 int mibib_ptable_init(unsigned int* addr);
 void get_kernel_fs_part_details(int flash_type);
+void parse_fdt_fixup(char* buf, void *blob);
 #if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
 int ipq_part_get_info_by_name(blkpart_info_t *blkpart);
 gpt_entry* get_gpt_entry(struct blk_desc *dev_desc);

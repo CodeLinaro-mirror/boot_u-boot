@@ -77,6 +77,7 @@ typedef enum {
 
 #define LINUX_6_x_NAND_DTS_NODE		"/soc@0/nand@79b0000/"
 #define LINUX_6_x_MMC_DTS_NODE		"/soc@0/mmc@7804000/"
+#define LINUX_6_x_SERIAL2_DTS_NODE	"/soc@0/serial@78b2000/"
 #define LINUX_6_x_USB_DTS_NODE		"/soc@0/usb3@8a00000/usb@8a00000/"
 #define LINUX_6_x_USB_DR_MODE_FIXUP	"/soc@0/usb3@8a00000/usb@8a00000%dr_mode%?peripheral"
 #define LINUX_6_x_USB_MAX_SPEED_FIXUP	"/soc@0/usb3@8a00000/usb@8a00000%maximum-speed%?high-speed"
