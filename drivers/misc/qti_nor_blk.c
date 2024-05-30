@@ -143,9 +143,21 @@ ulong nor_bwrite(struct udevice *dev, lbaint_t start, lbaint_t blkcnt,
 	return (lblkcnt)? 0 : blkcnt;
 }
 
+unsigned long nor_berase(struct udevice *dev, lbaint_t start, lbaint_t blkcnt)
+{
+	/*
+	* The single block erase cannot be done since the
+	* NOR erase size is 64 KB and the block size is 4096 bytes.
+	* The start and block count might be unaligned
+	* so the block erase taken cared in nor_bwrite function
+	*/
+	return blkcnt;
+}
+
 static const struct blk_ops nor_blk_ops = {
 	.read	= nor_bread,
 	.write	= nor_bwrite,
+	.erase = nor_berase,
 };
 
 U_BOOT_DRIVER(nor_blk) = {
