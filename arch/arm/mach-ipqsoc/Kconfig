@@ -352,6 +352,7 @@ config TARGET_DEVSOC
 	select CMD_HASH
 	select SHA384
 	imply IPQ_PCIE
+	imply IPQ_CRASHDUMP_TO_USB
 	help
 	  Support for IPQ DEVSoC.
 
