@@ -854,6 +854,7 @@ static int run_xpu_config_test(void)
 			goto fail;
 		}
 
+		xputzt.param2 = i++;
 		do {
 			ret = -ENOTSUPP;
 			IPQ_SCM_XPU_SEC_TEST_1(param, (uintptr_t)&xputzt,
