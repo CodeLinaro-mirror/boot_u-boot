@@ -35,6 +35,12 @@ static const struct pinctrl_function msm_pinctrl_functions[] = {
 	{"spi1_cs1", 2},
 	{"spi1_cs2", 2},
 	{"spi1_cs3", 2},
+	{"qspi_clk", 2},
+	{"qspi_cs_n", 2},
+	{"qspi_data", 2},
+	{"sdc_clk", 1},
+	{"sdc_cmd", 1},
+	{"sdc_data", 1},
 };
 
 static const char *devsoc_get_function_name(struct udevice *dev,

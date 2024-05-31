@@ -10,6 +10,7 @@
 #include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
 #include <dt-bindings/clock/gcc-devsoc.h>
 #include <dt-bindings/reset/devsoc-reset.h>
+#include <dt-bindings/phy/phy.h>
 
 / {
 
@@ -146,7 +147,7 @@
 			write_pipe_grp = <0>;
 			cmd_pipe = <2>;
 			cmd_pipe_grp = <1>;
-			status = "okay";
+			status = "disabled";
 			u-boot,dm-pre-reloc;
 		};
 
@@ -168,7 +169,7 @@
 			mmc-ddr-1_8v;
 			mmc-hs200-1_8v;
 			bus_pwr_off_rst;
-			status = "okay";
+			status = "disabled";
 		};
 
 		qmp_ssphy_0: ssphy@7D000 {
@@ -449,6 +450,8 @@
 			resets = <&reset GCC_PCIE0_PHY_BCR>,
 				 <&reset GCC_PCIE0PHY_PHY_BCR>;
 
+			phys = <&pcie0_phy PHY_TYPE_PCIE>;
+			phy-names = "pcie-phy";
 			status = "disabled";
 		};
 
@@ -498,6 +501,8 @@
 				 <&reset GCC_PCIE1_BCR>,
 				 <&reset GCC_PCIE1PHY_PHY_BCR>;
 
+			phys = <&pcie1_phy PHY_TYPE_PCIE>;
+			phy-names = "pcie-phy";
 			status = "disabled";
 		};
 
@@ -546,6 +551,8 @@
 			resets = <&reset GCC_PCIE2_PHY_BCR>,
 				 <&reset GCC_PCIE2PHY_PHY_BCR>;
 
+			phys = <&pcie2_phy PHY_TYPE_PCIE>;
+			phy-names = "pcie-phy";
 			status = "disabled";
 		};
 
@@ -594,6 +601,8 @@
 			resets = <&reset GCC_PCIE3_PHY_BCR>,
 				 <&reset GCC_PCIE3PHY_PHY_BCR>;
 
+			phys = <&pcie3_phy PHY_TYPE_PCIE>;
+			phy-names = "pcie-phy";
 			status = "disabled";
 		};
 	};

@@ -94,6 +94,8 @@
 		pcie0: pcie@70000000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&pcie0_pinmux>;
+			/delete-property/ phys;
+			/delete-property/ phy-names;
 			max-link-speed = <1>;
 			perst_gpio = <&tlmm 39 GPIO_ACTIVE_HIGH>;
 			status = "disabled";
@@ -102,6 +104,8 @@
 		pcie1: pcie@60000000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&pcie1_pinmux>;
+			/delete-property/ phys;
+			/delete-property/ phy-names;
 			max-link-speed = <1>;
 			perst_gpio = <&tlmm 40 GPIO_ACTIVE_HIGH>;
 			status = "okay";
@@ -110,6 +114,8 @@
 		pcie2: pcie@50000000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&pcie2_pinmux>;
+			/delete-property/ phys;
+			/delete-property/ phy-names;
 			max-link-speed = <1>;
 			perst_gpio = <&tlmm 41 GPIO_ACTIVE_HIGH>;
 			status = "disabled";
@@ -118,6 +124,8 @@
 		pcie3: pcie@40000000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&pcie3_pinmux>;
+			/delete-property/ phys;
+			/delete-property/ phy-names;
 			max-link-speed = <1>;
 			perst_gpio = <&tlmm 42 GPIO_ACTIVE_HIGH>;
 			status = "disabled";
