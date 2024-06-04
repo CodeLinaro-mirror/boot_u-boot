@@ -1690,7 +1690,7 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 			return;
 		}
 
-		if (!ret)
+		if (!ret && dumped)
 			printf("crashdump data writing in flash successful\n");
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
