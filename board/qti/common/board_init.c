@@ -86,6 +86,7 @@ char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 
 struct udevice *smem;
 
+ipq_smem_target_info_t ipq_smem_target_info;
 ipq_smem_flash_info_t ipq_smem_flash_info;
 struct smem_ptable *ptable;
 socinfo_t ipq_socinfo;
@@ -95,6 +96,11 @@ extern int part_get_info_efi(struct blk_desc *dev_desc, int part,
 		struct disk_partition *info);
 
 void set_ethmac_addr(void);
+
+__weak int ipq_uboot_fdt_fixup_smem(void *blob)
+{
+	return 0;
+}
 
 __weak void ipq_uboot_fdt_fixup(uint32_t machid)
 {
@@ -117,6 +123,11 @@ __weak void board_cache_init(void)
 #if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
 	dcache_enable();
 #endif
+}
+
+ipq_smem_target_info_t * get_ipq_smem_target_info(void)
+{
+	return &ipq_smem_target_info;
 }
 
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void)
@@ -284,6 +295,11 @@ void setup_arch_cntfreq(void)
 	return;
 }
 #endif
+
+int fdtdec_board_setup(const void *fdt_blob)
+{
+	return ipq_uboot_fdt_fixup_smem((void*)fdt_blob);
+}
 
 int board_init(void)
 {
@@ -477,6 +493,7 @@ int board_early_init_f(void)
 
 int board_fix_fdt(void *rw_fdt_blob)
 {
+	ipq_uboot_fdt_fixup_smem(rw_fdt_blob);
 	ipq_uboot_fdt_fixup(g_board_machid);
 	return 0;
 }

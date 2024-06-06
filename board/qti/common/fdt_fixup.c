@@ -348,6 +348,11 @@ __weak void fdt_fixup_flash(void *blob)
 	return;
 }
 
+__weak void ipq_fdt_fixup_smem(void *blob)
+{
+	return;
+}
+
 __weak void ipq_fdt_fixup_socinfo(void *blob)
 {
 	uint32_t cpu_type;
@@ -793,6 +798,7 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 
 static const fdt_fixup_t fixup_functions[] = {
 	ipq_fdt_fixup_socinfo,
+	ipq_fdt_fixup_smem,
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 	ipq_fdt_fixup_mtdparts,
 #endif

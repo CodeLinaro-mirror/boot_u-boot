@@ -77,6 +77,12 @@ typedef enum {
 #define STATUS_DISABLED			"status%?disabled"
 
 /*
+ * TCSR Registers
+ */
+#define TCSR_TZ_WONCE0				0x193D000
+#define TCSR_TZ_WONCE1				0x193D004
+
+/*
  * OTP Register
  */
 #define PHYA0_RFA_RFA_RFA_OTP_OTP_XO_0		0xC5D44AC

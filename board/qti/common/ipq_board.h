@@ -970,6 +970,16 @@ typedef struct {
 #endif
 } ipq_smem_flash_info_t;
 
+typedef struct {
+	uint32_t identifier;
+	uint32_t smem_size;
+	uint64_t smem_base_addr;
+	uint16_t smem_max_items;
+	uint16_t smem_rsvd;
+} ipq_smem_target_info_t;
+
+#define IPQ_SMEM_TARGET_INFO_IDENTIFIER		0x49494953
+
 struct smem_ptn {
 	char name[SMEM_PTN_NAME_MAX];
 	unsigned start;
@@ -1180,6 +1190,7 @@ typedef struct {
  */
 unsigned int get_which_flash_param(char *part_name);
 int get_current_board_flash_config(int flash_type);
+ipq_smem_target_info_t * get_ipq_smem_target_info(void);
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void);
 socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
