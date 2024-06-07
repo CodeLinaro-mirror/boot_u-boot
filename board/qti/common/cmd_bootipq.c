@@ -771,7 +771,7 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 	image_info img_info;
 	auth_cmd_buf rootfs_img_info;
 	scm_param param;
-	struct image_region root_data = {0, 0};
+	struct image_region root_data[1] = {0};
 	char hash_buff[SHA384_SUM_LEN] = {0};
 
 	if (parse_elf_image_phdr(&img_info, rootfs_hdr))
@@ -788,10 +788,15 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 
 	/* copy rootfs from the boot device */
 	copy_rootfs(request, img_info.img_size);
-	root_data.data  = (void *)(uintptr_t)img_info.img_load_addr;
-	root_data.size  = img_info.img_size;
+	root_data[0].data  = (void *)(uintptr_t)img_info.img_load_addr;
+	root_data[0].size  = img_info.img_size;
 
-	hash_calculate("sha384", &root_data, 1, hash_buff);
+	ret = hash_calculate("sha384", root_data, 1, hash_buff);
+	if(ret)
+	{
+		printf("hash_calculate failed, ret %d", ret);
+		return CMD_RET_FAILURE;
+	}
 
 #if IS_ENABLED(CONFIG_SCM_V1)
 	rootfs_img_info.size = img_info.img_offset + img_info.img_size;
@@ -921,11 +926,13 @@ int image_authentication(void)
 clear_mem:
 #endif
 #ifndef CONFIG_IPQ_ELF_AUTH
-	memset((void *) (uintptr_t)mbn_ptr->signature_ptr, 0,
-		(mbn_ptr->signature_size + mbn_ptr->cert_chain_size));
+	if (mbn_ptr->signature_ptr)
+		memset((void *) (uintptr_t)mbn_ptr->signature_ptr, 0,
+			(mbn_ptr->signature_size + mbn_ptr->cert_chain_size));
 #else
-	memset((void *) (uintptr_t)kernel_img_info.kernel_load_addr,  0,
-		img_info.img_offset);
+	if (kernel_img_info.kernel_load_addr)
+		memset((void *) (uintptr_t)kernel_img_info.kernel_load_addr,  0,
+			img_info.img_offset);
 #endif
 
 	if (ret == -ENOTSUPP) {
