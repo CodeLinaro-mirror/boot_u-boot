@@ -1044,7 +1044,6 @@ struct port_info {
 	uint8_t gmac_type;
 	uint8_t cur_uniphy_mode;
 	uint8_t cur_gmac_type;
-	uint8_t uniphy_sku_stat;
 	bool isforce_speed;
 	bool xgmac;
 	bool isconfigured;
