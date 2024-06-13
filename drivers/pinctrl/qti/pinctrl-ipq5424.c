@@ -43,20 +43,20 @@ static const struct pinctrl_function msm_pinctrl_functions[] = {
 	{"sdc_data", 1},
 };
 
-static const char *devsoc_get_function_name(struct udevice *dev,
+static const char *ipq5424_get_function_name(struct udevice *dev,
 					     unsigned int selector)
 {
 	return msm_pinctrl_functions[selector].name;
 }
 
-static const char *devsoc_get_pin_name(struct udevice *dev,
+static const char *ipq5424_get_pin_name(struct udevice *dev,
 					unsigned int selector)
 {
 	snprintf(pin_name, MAX_PIN_NAME_LEN, "GPIO_%u", selector);
 	return pin_name;
 }
 
-static unsigned int devsoc_get_function_mux(unsigned int selector)
+static unsigned int ipq5424_get_function_mux(unsigned int selector)
 {
 	return msm_pinctrl_functions[selector].val;
 }
@@ -64,7 +64,7 @@ static unsigned int devsoc_get_function_mux(unsigned int selector)
 struct msm_pinctrl_data pinctrl_data = {
 	.pin_count = 52,
 	.functions_count = ARRAY_SIZE(msm_pinctrl_functions),
-	.get_function_name = devsoc_get_function_name,
-	.get_function_mux = devsoc_get_function_mux,
-	.get_pin_name = devsoc_get_pin_name,
+	.get_function_name = ipq5424_get_function_name,
+	.get_function_mux = ipq5424_get_function_mux,
+	.get_pin_name = ipq5424_get_pin_name,
 };

@@ -3,10 +3,10 @@
  * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#ifndef _DEVSOC_H_
-#define _DEVSOC_H_
+#ifndef _IPQ5424_H_
+#define _IPQ5424_H_
 
-#include <configs/devsoc.h>
+#include <configs/ipq5424.h>
 #include <asm/u-boot.h>
 
 typedef enum {
@@ -31,8 +31,8 @@ typedef enum {
 } smem_mem_type_t;
 
 /* MACH IDs for various RDPs */
-#define MACH_TYPE_DEVSOC_EMU			0x8050001
-#define MACH_TYPE_DEVSOC_EMU_FBC		0xF060000
+#define MACH_TYPE_IPQ5424_EMU			0x8050001
+#define MACH_TYPE_IPQ5424_EMU_FBC		0xF060000
 
 /* Crashdump Magic registers & values */
 #define TCSR_BOOT_MISC_REG			((u32*)0x195C100)
@@ -58,4 +58,4 @@ typedef enum {
 
 #define OEM_SEC_BOOT_ENABLE	BIT(7)
 
-#endif /* _DEVSOC_H_ */
+#endif /* _IPQ5424_H_ */

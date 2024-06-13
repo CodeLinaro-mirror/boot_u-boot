@@ -359,7 +359,7 @@ static const struct pcie_sku ipq5332 = {
 	.clk_bit = {11, 12, 10},
 };
 
-static const struct pcie_sku devsoc = {
+static const struct pcie_sku ipq5424 = {
 	.reg = 0xA4024,
 	.max_pcie = 4,
 	.clk_bit = {10, 11, 12, 13},
@@ -368,7 +368,7 @@ static const struct pcie_sku devsoc = {
 static const struct udevice_id pcie_dw_qti_ids[] = {
 	{ .compatible = "qti,dw-pcie-ipq9574" , .data = (ulong)&ipq9574},
 	{ .compatible = "qti,dw-pcie-ipq5332" , .data = (ulong)&ipq5332},
-	{ .compatible = "qti,dw-pcie-devsoc" , .data = (ulong)&devsoc},
+	{ .compatible = "qti,dw-pcie-ipq5424" , .data = (ulong)&ipq5424},
 	{ }
 };
 

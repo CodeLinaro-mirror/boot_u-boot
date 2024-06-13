@@ -1,15 +1,15 @@
-if TARGET_DEVSOC
+if TARGET_IPQ5424
 
 config SYS_BOARD
-	default "devsoc"
+	default "ipq5424"
 
 config SYS_VENDOR
 	default "qti"
 
 config SYS_SOC
-	default "devsoc"
+	default "ipq5424"
 
 config SYS_CONFIG_NAME
-	default "devsoc"
+	default "ipq5424"
 
 endif

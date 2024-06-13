@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef __DEVSOC_RESET_H__
-#define __DEVSOC_RESET_H__
+#ifndef __IPQ5424_RESET_H__
+#define __IPQ5424_RESET_H__
 
 #define GCC_SDCC1_BCR		0
 #define GCC_USB_BCR		1

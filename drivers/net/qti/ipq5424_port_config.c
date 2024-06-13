@@ -13,15 +13,15 @@
  * index are based on Mac speed
  */
 
-static struct ipq_eth_port_config devsoc_port_config[] = {
+static struct ipq_eth_port_config ipq5424_port_config[] = {
 	{
 		UNUSED_PHY_TYPE,
 	},
 };
 
-struct ipq_eth_port_config *port_config = devsoc_port_config;
+struct ipq_eth_port_config *port_config = ipq5424_port_config;
 
-static struct ipq_tdm_config devsoc_tdm_config [] = {
+static struct ipq_tdm_config ipq5424_tdm_config [] = {
 	{
 		{0x21, 0x30, 0x22, 0x31, 0x20, 0x32, 0x23, 0x30, 0x21,
 		0x33, 0x22, 0x31, 0x20, 0x32, 0x23, 0x30, 0x21, 0x33,
@@ -42,7 +42,7 @@ static struct ipq_tdm_config devsoc_tdm_config [] = {
 	},
 };
 
-struct ipq_tdm_config *tdm_config = devsoc_tdm_config;
+struct ipq_tdm_config *tdm_config = ipq5424_tdm_config;
 
 struct ipq_eth_sku *ipq_uniphy = NULL;
 

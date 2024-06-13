@@ -12,9 +12,9 @@ config CLK_IPQ9574
 	help
 	  Enable this to support the clocks on QTI IPQ9574 Soc.
 
-config CLK_DEVSOC
-	depends on DM && PINCTRL_QTI && TARGET_DEVSOC
+config CLK_IPQ5424
+	depends on DM && PINCTRL_QTI && TARGET_IPQ5424
 	default y
-	bool "Clock controller driver for QTI DEVSOC"
+	bool "Clock controller driver for QTI IPQ5424"
 	help
-	  Enable this to support the clocks on DEVSoCs.
+	  Enable this to support the clocks on IPQ5424 Soc.

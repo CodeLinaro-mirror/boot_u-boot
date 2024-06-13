@@ -3,8 +3,8 @@
  * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
-#ifndef _MACH_SYSMAP_DEVSOC_H
-#define _MACH_SYSMAP_DEVSOC_H
+#ifndef _MACH_SYSMAP_IPQ5424_H
+#define _MACH_SYSMAP_IPQ5424_H
 
 /* GCC clock control registers */
 #define GCC_NSSCFG_CBCR			(0x1702C)

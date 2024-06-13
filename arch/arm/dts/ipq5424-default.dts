@@ -3,7 +3,7 @@
 * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
 */
 
-#include "devsoc.dtsi"
+#include "ipq5424.dtsi"
 
 / {
 	config_name = "config-default";

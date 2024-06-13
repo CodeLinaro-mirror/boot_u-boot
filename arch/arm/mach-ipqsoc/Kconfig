@@ -168,7 +168,7 @@ config IPQ_SPI_NOR
 	bool "Enable SPI NOR flash support in IPQ SOC"
 	select SPI
 	select SPI_QUP if TARGET_IPQ9574 || TARGET_IPQ5332
-	select MSM_GENI_SPI if TARGET_DEVSOC
+	select MSM_GENI_SPI if TARGET_IPQ5424
 	select DM_SPI
 	select DM_SPI_FLASH
 	select SPI_FLASH_STMICRO
@@ -236,7 +236,7 @@ config IPQ_MAX_PCIE
 	depends on PCI
 	default 3 if TARGET_IPQ5332
 	default 4 if TARGET_IPQ9574
-	default 4 if TARGET_DEVSOC
+	default 4 if TARGET_IPQ5424
 
 config IPQ_SMP_CMD_SUPPORT
 	bool "IPQ SMP command support"
@@ -317,8 +317,8 @@ config TARGET_IPQ9574
 	  - USB 3.0/I2C/UART/PCIe Gen3 2Lane
 	  - 1G/2.5G/10G Ethernet Ports
 
-config TARGET_DEVSOC
-	bool "QTI DEVSOC"
+config TARGET_IPQ5424
+	bool "QTI IPQ5424"
 	select SMEM_VERSION_C
 	select SCM
 	select OF_BOARD_SETUP
@@ -349,13 +349,13 @@ config TARGET_DEVSOC
 	imply IPQ_PCIE
 	imply IPQ_CRASHDUMP_TO_USB
 	help
-	  Support for IPQ DEVSoC.
+	  Support for IPQ5424 SoC.
 
 endchoice
 
 source "board/qti/common/Kconfig"
 source "board/qti/ipq5332/Kconfig"
 source "board/qti/ipq9574/Kconfig"
-source "board/qti/devsoc/Kconfig"
+source "board/qti/ipq5424/Kconfig"
 
 endif

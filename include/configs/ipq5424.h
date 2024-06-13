@@ -4,7 +4,7 @@
  */
 
 #include <linux/sizes.h>
-#include <asm/arch/sysmap-devsoc.h>
+#include <asm/arch/sysmap-ipq5424.h>
 
 #ifndef __ASSEMBLY__
 #include <compiler.h>
@@ -81,14 +81,14 @@ extern uint32_t g_load_addr;
 #define PHY_ANEG_TIMEOUT			100
 #define FDT_HIGH				0x88500000
 
-#define DEVSOC_UBOOT_END_ADDRESS		CONFIG_TEXT_BASE + \
+#define IPQ5424_UBOOT_END_ADDRESS		CONFIG_TEXT_BASE + \
 							CONFIG_TEXT_SIZE
-#define DEVSOC_DDR_SIZE				(0x3UL * SZ_2G)
-#define DEVSOC_DDR_UPPER_SIZE_MAX		(DEVSOC_DDR_SIZE - \
+#define IPQ5424_DDR_SIZE				(0x3UL * SZ_2G)
+#define IPQ5424_DDR_UPPER_SIZE_MAX		(IPQ5424_DDR_SIZE - \
 						(CFG_SYS_SDRAM_BASE - \
-						DEVSOC_UBOOT_END_ADDRESS))
+						IPQ5424_UBOOT_END_ADDRESS))
 
-#define DEVSOC_DDR_LOWER_SIZE			(CONFIG_TEXT_BASE - \
+#define IPQ5424_DDR_LOWER_SIZE			(CONFIG_TEXT_BASE - \
 							CFG_SYS_SDRAM_BASE)
 #define ROOT_FS_PART_NAME			"rootfs"
 
@@ -96,7 +96,7 @@ extern uint32_t g_load_addr;
 
 #define MTDPARTS_MAXLEN				4096
 
-#define NONCACHED_MEM_REGION_ADDR		((DEVSOC_UBOOT_END_ADDRESS + \
+#define NONCACHED_MEM_REGION_ADDR		((IPQ5424_UBOOT_END_ADDRESS + \
 						SZ_1M - 1) & ~(SZ_1M - 1))
 #define NONCACHED_MEM_REGION_SIZE		SZ_1M
 

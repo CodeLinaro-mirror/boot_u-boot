@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Clock drivers for QTI DEVSOC
+ * Clock drivers for QTI IPQ5424
  *
  * (C) Copyright 2022 Sumit Garg <sumit.garg@linaro.org>
  *
@@ -17,7 +17,7 @@
 #include <dm/device-internal.h>
 #include "clock-snapdragon.h"
 
-#include <dt-bindings/clock/gcc-devsoc.h>
+#include <dt-bindings/clock/gcc-ipq5424.h>
 
 static const struct bcr_regs_v2 nss_cc_ppe_regs = {
 	.cfg_rcgr = NSS_CC_PPE_CFG_RCGR,

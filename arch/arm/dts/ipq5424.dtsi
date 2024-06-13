@@ -8,14 +8,14 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/pinctrl-ipqsoc.h>
-#include <dt-bindings/clock/gcc-devsoc.h>
-#include <dt-bindings/reset/devsoc-reset.h>
+#include <dt-bindings/clock/gcc-ipq5424.h>
+#include <dt-bindings/reset/ipq5424-reset.h>
 #include <dt-bindings/phy/phy.h>
 
 / {
 
-	model = "Qualcomm Technologies, Inc. DEVSOC";
-	compatible = "qti,devsoc";
+	model = "Qualcomm Technologies, Inc. IPQ5424";
+	compatible = "qti,ipq5424";
 
 	reserved-memory {
 		#address-cells = <1>;
@@ -54,7 +54,7 @@
 		};
 
 		gcc: clock-controller@1800000 {
-			compatible = "qti,gcc-devsoc";
+			compatible = "qti,gcc-ipq5424";
 			reg = <0x1800000 0x40000>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
@@ -63,7 +63,7 @@
 		};
 
 		nss: clock-controller@39B00000 {
-			compatible = "qti,gcc-devsoc";
+			compatible = "qti,gcc-ipq5424";
 			reg = <0x39B00000 0x80000>;
 			#address-cells = <0x1>;
 			#size-cells = <0x1>;
@@ -338,7 +338,7 @@
 		};
 
 		pcie0_phy: phy@84000 {
-			compatible = "qti,devsoc-qmp-gen3x1-pcie-phy";
+			compatible = "qti,ipq5424-qmp-gen3x1-pcie-phy";
 			reg = <0x00084000 0x1bc>, /* Serdes PLL */
 				<0x00084200 0x16c>, /* Serdes Tx0 */
 				<0x00084400 0x200>, /* Serdes Rx0 */
@@ -354,7 +354,7 @@
 		};
 
 		pcie1_phy: phy@8c000 {
-			compatible = "qti,devsoc-qmp-gen3x1-pcie-phy";
+			compatible = "qti,ipq5424-qmp-gen3x1-pcie-phy";
 			reg = <0x0008c000 0x1bc>, /* Serdes PLL */
 				<0x0008c200 0x16c>, /* Serdes Tx0 */
 				<0x0008c400 0x200>, /* Serdes Rx0 */
@@ -370,7 +370,7 @@
 		};
 
 		pcie2_phy: phy@f4000 {
-			compatible = "qti,devsoc-qmp-gen3x2-pcie-phy";
+			compatible = "qti,ipq5424-qmp-gen3x2-pcie-phy";
 			reg = <0x000f4000 0x1bc>, /* Serdes PLL */
 				<0x000f4200 0x16c>, /* Serdes Tx0 */
 				<0x000f4400 0x200>, /* Serdes Rx0 */
@@ -388,7 +388,7 @@
 		};
 
 		pcie3_phy: phy@fc000 {
-			compatible = "qti,devsoc-qmp-gen3x2-pcie-phy";
+			compatible = "qti,ipq5424-qmp-gen3x2-pcie-phy";
 			reg = <0x000fc000 0x1bc>, /* Serdes PLL */
 				<0x000fc200 0x16c>, /* Serdes Tx0 */
 				<0x000fc400 0x200>, /* Serdes Rx0 */
@@ -407,7 +407,7 @@
 
 		/* 1L controller */
 		pcie0: pcie@70000000 {
-			compatible = "qti,dw-pcie-devsoc";
+			compatible = "qti,dw-pcie-ipq5424";
 			reg =  <0x70000000 0xf1d>,
 			       <0x70000f20 0xa8>,
 			       <0x70001000 0x1000>,
@@ -457,7 +457,7 @@
 
 		/* 1L controller */
 		pcie1: pcie@60000000 {
-			compatible = "qti,dw-pcie-devsoc";
+			compatible = "qti,dw-pcie-ipq5424";
 			reg =  <0x60000000 0xf1d>,
 			       <0x60000f20 0xa8>,
 			       <0x60001000 0x1000>,
@@ -508,7 +508,7 @@
 
 		/* 2L controller */
 		pcie2: pcie@50000000 {
-			compatible = "qti,dw-pcie-devsoc";
+			compatible = "qti,dw-pcie-ipq5424";
 			reg =  <0x50000000 0xf1d>,
 			       <0x50000f20 0xa8>,
 			       <0x50001000 0x1000>,
@@ -558,7 +558,7 @@
 
 		/* 2L controller */
 		pcie3: pcie@40000000 {
-			compatible = "qti,dw-pcie-devsoc";
+			compatible = "qti,dw-pcie-ipq5424";
 			reg =  <0x40000000 0xf1d>,
 			       <0x40000f20 0xa8>,
 			       <0x40001000 0x1000>,

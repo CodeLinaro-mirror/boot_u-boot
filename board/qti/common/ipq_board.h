@@ -19,8 +19,8 @@
 #ifdef CONFIG_TARGET_IPQ5332
 #include "../ipq5332/ipq5332.h"
 #endif
-#ifdef CONFIG_TARGET_DEVSOC
-#include "../devsoc/devsoc.h"
+#ifdef CONFIG_TARGET_IPQ5424
+#include "../ipq5424/ipq5424.h"
 #endif
 
 #ifndef IPQ_NAND_FLASH_VALID_BIT

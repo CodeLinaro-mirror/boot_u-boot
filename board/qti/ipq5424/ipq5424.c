@@ -24,7 +24,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static dram_bank_info_t devsoc_dram_bank_info[CONFIG_NR_DRAM_BANKS] = {
+static dram_bank_info_t ipq5424_dram_bank_info[CONFIG_NR_DRAM_BANKS] = {
 	{
 		.start = CFG_SYS_SDRAM_BASE0,
 		.size = CFG_SYS_SDRAM_BASE0_SZ,
@@ -37,14 +37,14 @@ static dram_bank_info_t devsoc_dram_bank_info[CONFIG_NR_DRAM_BANKS] = {
 #endif
 };
 
-dram_bank_info_t * board_dram_bank_info = devsoc_dram_bank_info;
+dram_bank_info_t * board_dram_bank_info = ipq5424_dram_bank_info;
 
 #if CONFIG_FDT_FIXUP_PARTITIONS
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
 	{ "micron,n25q128a11", MTD_DEV_TYPE_NOR},
 	{ "spansion,s25fs128s1", MTD_DEV_TYPE_NOR},
-	{ "qcom,devsoc-nand", MTD_DEV_TYPE_NAND},
+	{ "qcom,ipq5424-nand", MTD_DEV_TYPE_NAND},
 };
 
 int ipq_fnode_entires = ARRAY_SIZE(ipq_fnodes);
@@ -55,8 +55,8 @@ int * fnode_entires = &ipq_fnode_entires;
 
 #ifdef CONFIG_DTB_RESELECT
 struct machid_dts_map machid_dts[] = {
-	{ MACH_TYPE_DEVSOC_EMU, "devsoc-emulation"},
-	{ MACH_TYPE_DEVSOC_EMU_FBC, "devsoc-emulation"},
+	{ MACH_TYPE_IPQ5424_EMU, "ipq5424-emulation"},
+	{ MACH_TYPE_IPQ5424_EMU_FBC, "ipq5424-emulation"},
 };
 
 int machid_dts_nos = ARRAY_SIZE(machid_dts);
@@ -137,7 +137,7 @@ void lowlevel_init(void)
  * Set XN (PTE_BLOCK_PXN | PTE_BLOCK_UXN)bit for all dram regions
  * and Peripheral block except uboot code region
  */
-static struct mm_region devsoc_mem_map[] = {
+static struct mm_region ipq5424_mem_map[] = {
 	{
 		/* Peripheral block */
 		.virt = 0x0UL,
@@ -189,7 +189,7 @@ static struct mm_region devsoc_mem_map[] = {
 	}
 };
 
-struct mm_region *mem_map = devsoc_mem_map;
+struct mm_region *mem_map = ipq5424_mem_map;
 #endif
 
 int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])

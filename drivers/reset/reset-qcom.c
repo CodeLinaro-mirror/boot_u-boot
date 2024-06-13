@@ -183,8 +183,8 @@ static const struct qcom_reset_map gcc_qcom_resets[] = {
 };
 #endif
 
-#ifdef CONFIG_TARGET_DEVSOC
-#include <dt-bindings/reset/devsoc-reset.h>
+#ifdef CONFIG_TARGET_IPQ5424
+#include <dt-bindings/reset/ipq5424-reset.h>
 static const struct qcom_reset_map gcc_qcom_resets[] = {
 	[GCC_SDCC1_BCR] = {0x33000, 0},
 	[GCC_USB_BCR] = {0x2C000, 0},

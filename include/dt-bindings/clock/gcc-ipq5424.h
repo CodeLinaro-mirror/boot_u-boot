@@ -3,8 +3,8 @@
  * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#ifndef _DT_BINDINGS_CLK_GCC_DEVSOC_H
-#define _DT_BINDINGS_CLK_GCC_DEVSOC_H
+#ifndef _DT_BINDINGS_CLK_GCC_IPQ5424_H
+#define _DT_BINDINGS_CLK_GCC_IPQ5424_H
 
 /* GCC controlled clock IDs */
 #define GCC_QUPV3_UART0_CLK				0
