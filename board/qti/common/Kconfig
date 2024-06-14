@@ -24,6 +24,11 @@ config IPQ_CRASHDUMP_TO_MEMORY
 	depends on IPQ_CRASHDUMP
 	default n
 
+config IPQ_CRASHDUMP_TO_NVMEMORY
+	bool "IPQ Collect Crashdump over Non-Volatile Memory (eMMC / NAND)"
+	depends on IPQ_CRASHDUMP
+	default n
+
 config IPQ_CRASHDUMP_TO_FLASH
 	bool "IPQ Collect Crashdump over FLASH"
 	depends on IPQ_CRASHDUMP && IPQ_MINIDUMP

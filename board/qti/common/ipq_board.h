@@ -45,6 +45,9 @@
 #endif
 #define BOARD_DTS_MAX_NAMELEN	30
 
+#define DUMP2MEM_MAGIC1_COOKIE			0x4D494E49
+#define DUMP2MEM_MAGIC2_COOKIE			0x44554D50
+
 /*
  * Execute DPR
  */
@@ -1084,6 +1087,7 @@ enum {
 	DUMP_TO_TFTP = 0,
 	DUMP_TO_USB,
 	DUMP_TO_MEM,
+	DUMP_TO_NVMEM,
 	DUMP_TO_FLASH,
 };
 
