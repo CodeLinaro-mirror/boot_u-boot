@@ -15,6 +15,9 @@
  */
 
 #include "nss-switch.h"
+#ifdef CONFIG_PHY_AQUANTIA
+#include <command.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -3133,3 +3136,45 @@ U_BOOT_DRIVER(eth_ipq) = {
 	.plat_auto = sizeof(struct eth_pdata),
 	.flags = DM_FLAG_ALLOC_PRIV_DMA,
 };
+
+#ifdef CONFIG_PHY_AQUANTIA
+static int do_aqloadfw(struct cmd_tbl *cmdtp, int flag, int argc,
+			char *const argv[])
+{
+	struct udevice *dev = eth_get_dev_by_name("nss-switch");
+	struct ipq_eth_dev *priv = dev_get_priv(dev);
+	int i, ret = CMD_RET_FAILURE;
+	uint8_t phyaddr;
+
+	if (argc != 2)
+		return CMD_RET_USAGE;
+
+	phyaddr = simple_strtoul(argv[1], NULL, 16);
+
+	for (i = 0; i < CONFIG_ETH_MAX_MAC; ++i) {
+		struct port_info *port = priv->port[i];
+		if (port == NULL)
+			continue;
+
+		if (port->phy_id != AQ_PHY_TYPE)
+			continue;
+
+		if (port->phyaddr != phyaddr)
+			continue;
+
+		if (!ipq_aquantia_load_fw(port->phydev)) {
+			mdelay(100);
+			ret = CMD_RET_SUCCESS;
+		}
+		break;
+	}
+
+	return ret;
+}
+
+U_BOOT_CMD(
+	aq_load_fw, 2, 0, do_aqloadfw,
+	"Load firmware to AQ port",
+	"phy_addr --> phy address of AQ port\n"
+	);
+#endif /* CONFIG_PHY_AQUANTIA */
