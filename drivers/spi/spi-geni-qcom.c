@@ -910,12 +910,17 @@ static int qupv3_spi_probe(struct udevice *dev)
 	struct udevice *bdev;
 #endif
 
+	priv->max_hz = dev_read_u32_default(dev, "clock-frequency", 0);
 	priv->base = dev_read_addr(dev);
 	if (priv->base == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
 	ret = clk_get_by_index(dev, 0, &priv->clk);
 	if (ret)
+		return ret;
+
+	ret = clk_set_rate(&priv->clk, priv->max_hz);
+	if (ret < 0)
 		return ret;
 
 	ret = clk_enable(&priv->clk);
@@ -928,7 +933,6 @@ static int qupv3_spi_probe(struct udevice *dev)
 #endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 	priv->num_cs = dev_read_u32_default(dev, "num-cs", 1);
-	priv->max_hz = dev_read_u32_default(dev, "spi-max-frequency", 0);
 	priv->dma_disable = dev_read_bool(dev, "qup-dma-disable");
 
 	geni_set_oversampling(dev);
