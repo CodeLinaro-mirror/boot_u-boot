@@ -30,6 +30,10 @@
 #include <ubifs_uboot.h>
 #endif
 
+#ifdef CONFIG_IPQ_MMC
+#include <mmc.h>
+#endif
+
 #include "ipq_board.h"
 
 #ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
@@ -1731,4 +1735,108 @@ static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
 U_BOOT_CMD(qpic_nand, 2, 1, do_qpic_switch_layout,
 	   "Switch between SBL and Linux kernel page on 4K NAND Flash.",
 	   "qpic_nand (sbl | linux)");
+#endif
+
+#if defined(CONFIG_IPQ_MMC) && defined(CONFIG_SUPPORT_EMMC_BOOT)
+static int do_switch_to_boot(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	int ret = CMD_RET_FAILURE;
+	char runcmd[32] = {0};
+	int boot_sel = 0;
+	struct mmc *mmc = find_mmc_device(0);
+
+	if (!mmc) {
+		printf("no mmc device at slot 0\n");
+		return ret;
+	}
+
+	if (mmc->part_config == MMCPART_NOAVAILABLE) {
+		printf("No part_config info for ver. 0x%x\n", mmc->version);
+		return ret;
+	}
+
+	switch (argc) {
+	case 1:
+		boot_sel = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
+		if (!((boot_sel == 1) || (boot_sel == 2))) {
+			printf("BOOT0 / BOOT1 is not selected ...\n");
+			return ret;
+		}
+		break;
+	case 2:
+		boot_sel = simple_strtoul(argv[1], NULL, 10) + 1;
+		if (!((boot_sel == 1) || (boot_sel == 2)))
+			return CMD_RET_USAGE;
+		break;
+	};
+
+	snprintf(runcmd, sizeof(runcmd), "mmc dev 0 %d", boot_sel);
+	ret = run_command(runcmd, 0);
+	if (ret) {
+		printf("switching to boot%d partition layout"
+		" failed, ret %d\n", boot_sel, ret);
+		goto exit;
+	}
+
+	snprintf(runcmd, sizeof(runcmd), "mmc partconf 0 0 %d %d",
+		 boot_sel, boot_sel);
+	ret = run_command(runcmd, 0);
+	if (ret) {
+		printf("set boot%d select failed, ret %d\n", boot_sel, ret);
+
+#ifndef CONFIG_BLK
+		snprintf(runcmd, sizeof(runcmd), "mmc dev 0 %d",
+				mmc->block_dev.hwpart);
+#else
+		snprintf(runcmd, sizeof(runcmd), "mmc dev 0 %d",
+				mmc_get_blk_desc(mmc)->hwpart);
+#endif
+		ret = run_command(runcmd, 0);
+		if (ret) {
+			printf("switching back to the existing partition layout"
+			" failed, ret %d\n", ret);
+			goto exit;
+		}
+	} else
+		printf("Switched to boot%d partition layout successfully ...\n",
+			boot_sel - 1);
+exit:
+	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(switch_to_boot, 2, 0, do_switch_to_boot,
+	   "switch to the boot partition layout\n",
+	   "- switch to the current boot partition layout\n"
+	   "switch_boot 0 - switch to the boot0 layout\n"
+	   "switch_boot 1 - switch to the boot1 layout\n");
+
+static int do_switch_to_user(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	int ret = CMD_RET_FAILURE;
+	char runcmd[32] = {0};
+	struct mmc *mmc = find_mmc_device(0);
+
+	if (!mmc) {
+		printf("no mmc device at slot 0\n");
+		return ret;
+	}
+
+	if (mmc->part_config == MMCPART_NOAVAILABLE) {
+		printf("No part_config info for ver. 0x%x\n", mmc->version);
+		return ret;
+	}
+
+	snprintf(runcmd, sizeof(runcmd), "mmc dev 0 0");
+	ret = run_command(runcmd, 0);
+	if (!ret)
+		printf("Switched to user partition layout successfully ...\n");
+
+	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(switch_to_user, 1, 0, do_switch_to_user,
+	   "switch to the user partition layout\n",
+	   "- switch to the user partition layout\n");
 #endif
