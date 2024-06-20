@@ -766,12 +766,12 @@ static int authenticate_rootfs(uintptr_t kernel_addr,
 
 static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 {
-	int ret = -1;
+	int ret = -1, len;
 	uint32_t request;
 	image_info img_info;
 	auth_cmd_buf rootfs_img_info;
 	scm_param param;
-	struct image_region root_data[1] = {0};
+	struct image_region root_data = {0, 0};
 	char hash_buff[SHA384_SUM_LEN] = {0};
 
 	if (parse_elf_image_phdr(&img_info, rootfs_hdr))
@@ -788,10 +788,11 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 
 	/* copy rootfs from the boot device */
 	copy_rootfs(request, img_info.img_size);
-	root_data[0].data  = (void *)(uintptr_t)img_info.img_load_addr;
-	root_data[0].size  = img_info.img_size;
+	root_data.data  = (void *)(uintptr_t)img_info.img_load_addr;
+	root_data.size  = img_info.img_size;
 
-	ret = hash_calculate("sha384", root_data, 1, hash_buff);
+	len = sizeof(root_data) / sizeof(struct image_region);
+	ret = hash_calculate("sha384", &root_data, len, hash_buff);
 	if(ret)
 	{
 		printf("hash_calculate failed, ret %d", ret);
