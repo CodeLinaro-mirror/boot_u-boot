@@ -302,6 +302,9 @@ int ubi_vol_present(char* ubi_vol_name)
 	struct ubi_device *ubi = NULL;
 	struct ubi_volume *vol;
 	char runcmd[256];
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	get_kernel_fs_part_details(g_flash? g_flash : sfi->flash_type);
 
 	if (init_ubi_part())
 		goto ubi_detach;
@@ -701,8 +704,7 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 			break;
 		case -1:
 #ifdef CONFIG_CMD_UBI
-			if (sfi->rootfs.offset != 0xBAD0FF5E)
-				is_ubi = ubi_vol_present(part_name);
+			is_ubi = ubi_vol_present(part_name);
 			if (is_ubi) {
 				flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
 				ret = 0;
@@ -753,8 +755,7 @@ int do_flash(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 		ret = ipq_part_get_info_by_name(&bpart_info);
 		if (ret) {
 #ifdef CONFIG_CMD_UBI
-			if (sfi->rootfs.offset != 0xBAD0FF5E)
-				is_ubi = ubi_vol_present(part_name);
+			is_ubi = ubi_vol_present(part_name);
 			if (is_ubi) {
 				flash_type = SMEM_BOOT_QSPI_NAND_FLASH;
 				ret = 0;
