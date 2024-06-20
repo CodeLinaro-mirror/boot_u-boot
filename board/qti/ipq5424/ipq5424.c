@@ -12,7 +12,6 @@
 #include <mtd_node.h>
 #include <sysreset.h>
 #include <linux/psci.h>
-#include <mach/ipq_scm.h>
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
 #endif

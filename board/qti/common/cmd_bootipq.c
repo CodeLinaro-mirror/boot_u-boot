@@ -20,7 +20,6 @@
 #include <memalign.h>
 #include <cpu_func.h>
 #include <bootm.h>
-#include <mach/ipq_scm.h>
 #include <linux/bug.h>
 #include <asm/io.h>
 #ifdef CONFIG_IPQ_SPI_NOR

@@ -101,11 +101,6 @@ config SCM_V2
 	bool "U-boot SCM framework version 2"
 	default n
 
-config SCM_VERSION
-	int "U-boot SCM framework current version"
-	default 1 if SCM_V1
-	default 2 if SCM_V2
-
 config IPQ_TINY
 	bool "IPQ Tiny bootloader config"
 	imply ETH_LOW_MEM

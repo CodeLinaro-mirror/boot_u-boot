@@ -11,7 +11,6 @@
 #include <malloc.h>
 #include <memalign.h>
 #include <bootm.h>
-#include <mach/ipq_scm.h>
 #ifdef CONFIG_IPQ_MMC
 #include <mmc.h>
 #endif
@@ -220,9 +219,8 @@ bool is_secure_boot_v1(void)
 
 	return status;
 }
-#endif
 
-#ifdef CONFIG_SCM_V2
+#elif CONFIG_SCM_V2
 bool is_secure_boot_v2(void)
 {
 	scm_param param;
@@ -275,6 +273,13 @@ bool is_secure_boot_v2(void)
 		free(fuse);
 	return status;
 }
+
+#else
+bool is_secure_boot_fake(void)
+{
+	return false;
+}
+
 #endif
 
 #if CONFIG_IPQ_MMC

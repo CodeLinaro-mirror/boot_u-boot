@@ -46,7 +46,6 @@ static const char * const qcom_scm_convention_names[] = {
 };
 #endif
 
-#ifdef CONFIG_IPQ_SECURE
 static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 				struct arm_smccc_res *res)
 {
@@ -211,14 +210,7 @@ static int qcom_scm_call(const struct qcom_scm_desc *desc,
 		return -EINVAL;
 	}
 }
-#endif
 
-#ifndef CONFIG_IPQ_SECURE
-__weak int ipq_scm_call(scm_param *param)
-{
-	return 0;
-}
-#else
 int ipq_scm_call(scm_param *param)
 {
 
@@ -258,18 +250,6 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_INFO;
 		desc.cmd = QCOM_SCM_INFO_IS_CALL_AVAIL;
 		break;
-	case SCM_KERNEL_AUTH:
-		desc.svc = QCOM_SCM_SVC_BOOT;
-		desc.cmd = QCOM_KERNEL_AUTH_CMD;
-		break;
-	case SCM_SECURE_AUTH:
-		desc.svc = QCOM_SCM_SVC_BOOT;
-		desc.cmd = QCOM_SCM_SEC_AUTH_CMD;
-		break;
-	case SCM_CHECK_SECURE_FUSE:
-		desc.svc = QCOM_SCM_SVC_FUSE;
-		desc.cmd = QCOM_QFPROM_IS_AUTHENTICATE_CMD;
-		break;
 	case SCM_SET_ACTIVE_PART:
 		desc.svc = QCOM_SCM_SVC_BOOT;
 		desc.cmd = QCOM_PART_INFO_CMD;
@@ -277,14 +257,6 @@ int ipq_scm_call(scm_param *param)
 	case SCM_CHECK_ATF_SUPPORT:
 		desc.svc = QCOM_SCM_SVC_INFO;
 		desc.cmd = QCOM_GET_SECURE_STATE_CMD;
-		break;
-	case SCM_FUSE_IPQ:
-		desc.svc = QCOM_SCM_SVC_FUSE;
-		desc.cmd = QCOM_TZ_BLOW_FUSE_SECDAT_CMD;
-		break;
-	case SCM_LIST_FUSE:
-		desc.svc = QCOM_SCM_SVC_FUSE;
-		desc.cmd = QCOM_TZ_READ_FUSE_VALUE_CMD;
 		break;
 	case SCM_TME_DPR_PROCESSING:
 		desc.svc = QCOM_SCM_SVC_FUSE;
@@ -337,6 +309,28 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_BOOT;
 		desc.cmd = QCOM_ROOTFS_HASH_VERIFY_CMD;
 		break;
+#ifdef CONFIG_IPQ_SECURE
+	case SCM_KERNEL_AUTH:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_KERNEL_AUTH_CMD;
+		break;
+	case SCM_SECURE_AUTH:
+		desc.svc = QCOM_SCM_SVC_BOOT;
+		desc.cmd = QCOM_SCM_SEC_AUTH_CMD;
+		break;
+	case SCM_CHECK_SECURE_FUSE:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_QFPROM_IS_AUTHENTICATE_CMD;
+		break;
+	case SCM_LIST_FUSE:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_TZ_READ_FUSE_VALUE_CMD;
+		break;
+	case SCM_FUSE_IPQ:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_TZ_BLOW_FUSE_SECDAT_CMD;
+		break;
+#endif
 	default:
 		printf("Invalid call ID: %d\n", param->type);
 		ret = -EINVAL;
@@ -360,4 +354,3 @@ int ipq_scm_call(scm_param *param)
 	return ret;
 
 }
-#endif

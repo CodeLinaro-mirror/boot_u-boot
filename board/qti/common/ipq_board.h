@@ -23,6 +23,12 @@
 #include "../ipq5424/ipq5424.h"
 #endif
 
+#ifdef CONFIG_SCM
+#include <mach/ipq_scm.h>
+#else
+#define ipq_scm_call(...)		-ENODATA
+#endif
+
 #ifndef IPQ_NAND_FLASH_VALID_BIT
 #define IPQ_NAND_FLASH_VALID_BIT	3
 #endif
@@ -57,6 +63,8 @@
 #define is_secure_boot()	is_secure_boot_v1()
 #elif CONFIG_SCM_V2
 #define is_secure_boot()	is_secure_boot_v2()
+#else
+#define is_secure_boot()	is_secure_boot_fake()
 #endif
 
 
@@ -137,7 +145,7 @@
 /*
  * Helps to read fuse valuse
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_READ_FUSE_V1(_param, _a, _b)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -376,7 +384,7 @@
 /*
  * blow fuse
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_CHECK_SCM_SUPPORT_V1(_param, _a)			\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -392,7 +400,7 @@
 /*
  * Enable SDI path
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_ENABLE_SDI_V1(_param, _a, _b)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -410,7 +418,7 @@
 /*
  * I/O write
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_IO_WRITE_V1(_param, _a, _b)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -539,7 +547,7 @@
 		_IPQ_SCM_SECURE_AUTHENTICATE(param, a, b, c, d, e)
 #endif
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_READ_FUSE(param, a, b)					\
 		_IPQ_SCM_READ_FUSE_V1(param, a, b)
 #else
@@ -651,7 +659,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_CHECK_SCM_SUPPORT(param, a)				\
 		_IPQ_SCM_CHECK_SCM_SUPPORT_V1(param, a)
 #else
@@ -660,7 +668,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_ENABLE_SDI(param, a, b)					\
 		_IPQ_SCM_ENABLE_SDI_V1(param, a, b)
 #else
@@ -669,7 +677,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_IO_WRITE(param, a, b)					\
 		_IPQ_SCM_IO_WRITE_V1(param, a, b)
 #else
@@ -1214,9 +1222,10 @@ long long ubi_get_volume_size(char *volume);
 bool is_atf_enbled(void);
 #ifdef CONFIG_SCM_V1
 bool is_secure_boot_v1(void);
-#endif
-#ifdef CONFIG_SCM_V2
+#elif CONFIG_SCM_V2
 bool is_secure_boot_v2(void);
+#else
+bool is_secure_boot_fake(void);
 #endif
 uint8_t * get_boot_mode(void);
 #ifdef CONFIG_CMD_NAND
