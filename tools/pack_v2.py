@@ -92,14 +92,14 @@ memory_size = "default"
 skip_4k_nand = "false"
 atf = "false"
 tiny_16m = "false"
-supported_arch = ["devsoc", "devsoc_64", "ipq5332", "ipq5332_64"]
+supported_arch = ["ipq5424", "ipq5424_64", "ipq5332", "ipq5332_64"]
 supported_flash_type = {}
 supported_flash_type["ipq5332"] = { "nand", "nor", "tiny-nor", "emmc", "norplusnand", "norplusemmc", "tiny-nor-debug" };
-supported_flash_type["devsoc"] = { "nand", "nor", "emmc", "norplusnand", "norplusemmc", "norplusnand-gpt", "norplusemmc-gpt" };
+supported_flash_type["ipq5424"] = { "nand", "nor", "emmc", "norplusnand", "norplusemmc", "norplusnand-gpt", "norplusemmc-gpt" };
 gpt_flash = ["nor-gpt", "emmc"]
 soc_hw_versions = {}
 soc_hw_versions["ipq5332"] = { 0x201A0100, 0x201A0101 };
-soc_hw_versions["devsoc"] = { 0xE0010100 };
+soc_hw_versions["ipq5424"] = { 0xE0010100 };
 
 #
 # Python 2.6 and earlier did not have OrderedDict use the backport
