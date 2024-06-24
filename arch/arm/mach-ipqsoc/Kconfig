@@ -348,11 +348,9 @@ config TARGET_IPQ5424
 	select PHY_AQUANTIA
 	select IPQ_CRASHDUMP
 	select IPQ_ELF_AUTH
-	select IPQ_SECURE
 	select IPQ_USB
 	imply GPT_UPDATE_PARAMS
 	select DPR_VER_3_0
-	select SCM_V2
 	select CMD_HASH
 	select SHA384
 	imply IPQ_PCIE
