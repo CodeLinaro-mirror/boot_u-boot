@@ -25,30 +25,6 @@
 #define USEC_PER_SEC	1000000L
 
 /* Registers*/
-#define GENI_FORCE_DEFAULT_REG	0x20
-#define GENI_SER_M_CLK_CFG	0x48
-#define GENI_SER_S_CLK_CFG	0x4C
-#define SE_HW_PARAM_0	0xE24
-#define SE_GENI_STATUS	0x40
-#define SE_GENI_S_CMD0	0x630
-#define SE_GENI_S_CMD_CTRL_REG	0x634
-#define SE_GENI_S_IRQ_CLEAR	0x648
-#define SE_GENI_S_IRQ_STATUS	0x640
-#define SE_GENI_S_IRQ_EN	0x644
-#define SE_GENI_M_CMD0	0x600
-#define SE_GENI_M_CMD_CTRL_REG	0x604
-#define SE_GENI_M_IRQ_CLEAR	0x618
-#define SE_GENI_M_IRQ_STATUS	0x610
-#define SE_GENI_M_IRQ_EN	0x614
-#define SE_GENI_TX_FIFOn	0x700
-#define SE_GENI_RX_FIFOn	0x780
-#define SE_GENI_TX_FIFO_STATUS	0x800
-#define SE_GENI_RX_FIFO_STATUS	0x804
-#define SE_GENI_TX_WATERMARK_REG	0x80C
-#define SE_GENI_TX_PACKING_CFG0	0x260
-#define SE_GENI_TX_PACKING_CFG1	0x264
-#define SE_GENI_RX_PACKING_CFG0	0x284
-#define SE_GENI_RX_PACKING_CFG1	0x288
 #define SE_UART_RX_STALE_CNT	0x294
 #define SE_UART_TX_TRANS_LEN	0x270
 #define SE_UART_TX_STOP_BIT_LEN	0x26c
@@ -59,61 +35,19 @@
 #define SE_UART_RX_TRANS_CFG	0x280
 #define SE_UART_RX_PARITY_CFG	0x2a8
 
-#define M_TX_FIFO_WATERMARK_EN	(BIT(30))
 #define DEF_TX_WM	2
 /* GENI_FORCE_DEFAULT_REG fields */
-#define FORCE_DEFAULT	(BIT(0))
-
-#define S_CMD_ABORT_EN	(BIT(5))
 
 #define UART_START_READ	0x1
 
-/* GENI_M_CMD_CTRL_REG */
-#define M_GENI_CMD_CANCEL	(BIT(2))
-#define M_GENI_CMD_ABORT	(BIT(1))
-#define M_GENI_DISABLE	(BIT(0))
-
-#define M_CMD_ABORT_EN	(BIT(5))
-#define M_CMD_DONE_EN	(BIT(0))
-#define M_CMD_DONE_DISABLE_MASK	(~M_CMD_DONE_EN)
-
-#define S_GENI_CMD_ABORT	(BIT(1))
-
-/* GENI_S_CMD0 fields */
-#define S_OPCODE_MSK	(GENMASK(31, 27))
-#define S_PARAMS_MSK	(GENMASK(26, 0))
-
-/* GENI_STATUS fields */
-#define M_GENI_CMD_ACTIVE	(BIT(0))
-#define S_GENI_CMD_ACTIVE	(BIT(12))
-#define M_CMD_DONE_EN	(BIT(0))
-#define S_CMD_DONE_EN	(BIT(0))
-
 #define M_OPCODE_SHIFT	27
 #define S_OPCODE_SHIFT	27
-#define M_TX_FIFO_WATERMARK_EN	(BIT(30))
 #define UART_START_TX	0x1
 #define UART_CTS_MASK	(BIT(1))
-#define M_SEC_IRQ_EN	(BIT(31))
 #define TX_FIFO_WC_MSK	(GENMASK(27, 0))
-#define RX_FIFO_WC_MSK	(GENMASK(24, 0))
-
-#define S_RX_FIFO_WATERMARK_EN	(BIT(26))
-#define S_RX_FIFO_LAST_EN	(BIT(27))
-#define M_RX_FIFO_WATERMARK_EN	(BIT(26))
-#define M_RX_FIFO_LAST_EN	(BIT(27))
-
-/* GENI_SER_M_CLK_CFG/GENI_SER_S_CLK_CFG */
-#define SER_CLK_EN	(BIT(0))
-#define CLK_DIV_MSK	(GENMASK(15, 4))
-#define CLK_DIV_SHFT	4
 
 /* SE_HW_PARAM_0 fields */
-#define TX_FIFO_WIDTH_MSK	(GENMASK(29, 24))
-#define TX_FIFO_WIDTH_SHFT	24
 #define TX_FIFO_DEPTH_MSK_256B	(GENMASK(23, 16))
-#define TX_FIFO_DEPTH_MSK	(GENMASK(21, 16))
-#define TX_FIFO_DEPTH_SHFT	16
 
 /* GENI SE QUP Registers */
 #define QUP_HW_VER_REG		0x4
@@ -204,29 +138,6 @@ static int geni_serial_set_clock_rate(struct udevice *dev, u64 rate)
 }
 
 /**
- * geni_se_get_tx_fifo_depth() - Get the TX fifo depth of the serial engine
- * @base:	Pointer to the concerned serial engine.
- *
- * This function is used to get the depth i.e. number of elements in the
- * TX fifo of the serial engine.
- *
- * Return: TX fifo depth in units of FIFO words.
- */
-static inline u32 geni_se_get_tx_fifo_depth(const struct udevice *dev)
-{
-	struct msm_serial_data *priv = dev_get_priv(dev);
-	u32 tx_fifo_depth;
-	u32 tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK;
-
-	if (priv->geni_se_version >= QUP_SE_VERSION_3_10)
-		tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK_256B;
-
-	tx_fifo_depth = ((readl(priv->base + SE_HW_PARAM_0) &
-				tx_fifo_depth_msk) >> TX_FIFO_DEPTH_SHFT);
-	return tx_fifo_depth;
-}
-
-/**
  * geni_se_get_tx_fifo_width() - Get the TX fifo width of the serial engine
  * @base:	Pointer to the concerned serial engine.
  *
@@ -301,7 +212,8 @@ static bool qcom_geni_serial_poll_bit(const struct udevice *dev, int offset,
 		baud = priv->baud;
 		if (!baud)
 			baud = 115200;
-		tx_fifo_depth = geni_se_get_tx_fifo_depth(dev);
+		tx_fifo_depth = geni_se_get_tx_fifo_depth(priv->base,
+							priv->geni_se_version);
 		tx_fifo_width = geni_se_get_tx_fifo_width(priv->base);
 		fifo_bits = tx_fifo_depth * tx_fifo_width;
 		/*
@@ -564,6 +476,7 @@ static inline void geni_serial_init(struct udevice *dev)
 static int msm_serial_probe(struct udevice *dev)
 {
 	struct msm_serial_data *priv = dev_get_priv(dev);
+	int ret = -1;
 
 	geni_set_oversampling(dev);
 
@@ -573,7 +486,9 @@ static int msm_serial_probe(struct udevice *dev)
 
 #ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
 	/* need to enable clk with default rate */
-	geni_se_fw_load(priv->base, QUPV3_SE_UART);
+	ret = geni_se_fw_load(priv->base, QUPV3_SE_UART);
+	if(ret)
+		return ret;
 #endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 	geni_serial_init(dev);
