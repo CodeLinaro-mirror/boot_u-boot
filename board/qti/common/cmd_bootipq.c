@@ -101,12 +101,14 @@ static boot_info_t boot_info;
 extern int ubi_volume_read(char *volume, char *buf, size_t size);
 #endif
 
+#ifdef CONFIG_IPQ_ELF_AUTH
 void update_load_addr(image_info *img_info)
 {
 	boot_info.load_address = img_info->img_load_addr;
 	boot_info.load_address -= img_info->img_offset;
 	boot_info.meta_data_size = img_info->img_offset;
 }
+#endif
 
 #ifdef CONFIG_MMC
 static struct mmc *__init_mmc_dev(int dev, bool force_init,

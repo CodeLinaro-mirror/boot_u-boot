@@ -18,3 +18,10 @@ config ETH_IPQ5424
 	bool "Ethernet driver for QTI IPQ5424"
 	help
 	  Enable this to support the ethernet in QTI IPQ5424 Soc.
+
+config ETH_LOW_MEM
+	depends on DM && QTI_NSS_SWITCH
+	default n
+	bool "Enable low memory configuration on IPQ ethernet driver"
+	help
+	  Enable low memory configuration on IPQ SoC ethernet driver

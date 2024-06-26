@@ -106,6 +106,11 @@ config SCM_VERSION
 	default 1 if SCM_V1
 	default 2 if SCM_V2
 
+config IPQ_TINY
+	bool "IPQ Tiny bootloader config"
+	imply ETH_LOW_MEM
+	default n
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
@@ -123,17 +128,17 @@ config IPQ_DEFAULTS
 	select IPQ_FLUTILS
 	select IPQ_FDT_FIXUP
 	select CMD_XIMG
-	select CMD_MEMTEST
+	imply CMD_MEMTEST
 	select CMD_CACHE
 	select DMA
 	select DMA_CHANNELS
 	select BAM_DMA
 	select BOARD_TYPES
-	select IPQ_SECURE
-	select VERSION_ROLLBACK_PARTITION_INFO
+	imply IPQ_SECURE
+	imply VERSION_ROLLBACK_PARTITION_INFO
 	select LZMA
 	imply IPQ_SMP_CMD_SUPPORT
-	select CMD_AES_256
+	imply CMD_AES_256
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -263,18 +268,18 @@ config TARGET_IPQ5332
 	imply IPQ_I2C
 	select IPQ_NET
 	select QTI_NSS_SWITCH
-	select PHY_QTI_8X8X
-	select PHY_QTI_8081
-	select IPQ_ELF_AUTH
-	select PHY_AQUANTIA
+	imply PHY_QTI_8X8X
+	imply PHY_QTI_8081
+	imply PHY_AQUANTIA
 	imply IPQ_PCIE
 	select PHY if IPQ_USB
         select PHY_QTI_USB_HS_M31 if IPQ_USB
         select PHY_QTI_UNI_SSPHY if IPQ_USB
-        select IPQ_QCN9224_FUSING
-	select DPR_VER_2_0
+        imply IPQ_QCN9224_FUSING
+	imply IPQ_ELF_AUTH
+	imply DPR_VER_2_0
 	select CAPIN_CAPOUT_SUPPORT
-	select AES_256_DERIVE_KEY
+	imply AES_256_DERIVE_KEY
 	select SCM_V1
 	help
 	  Support for the IPQ53XX SoC.
@@ -293,19 +298,19 @@ config TARGET_IPQ9574
 	imply IPQ_I2C
 	select IPQ_NET
 	select QTI_NSS_SWITCH
-	select PHY_QTI_8075
-	select PHY_QTI_8X8X
-	select PHY_QTI_8081
-	select PHY_AQUANTIA
-	select IPQ_ELF_AUTH
+	imply PHY_QTI_8075
+	imply PHY_QTI_8X8X
+	imply PHY_QTI_8081
+	imply PHY_AQUANTIA
 	imply IPQ_PCIE
 	select PHY if IPQ_PCIE || IPQ_USB
 	select PHY_QTI_QMP_PCIE
         select PHY_QTI_QUSB2 if IPQ_USB
         select PHY_QTI_QMP_USB3 if IPQ_USB
-        select IPQ_QCN9224_FUSING
-	select DPR_VER_1_0
-	select AES_256_DERIVE_KEY
+        imply IPQ_QCN9224_FUSING
+	imply IPQ_ELF_AUTH
+	imply DPR_VER_1_0
+	imply AES_256_DERIVE_KEY
 	select QSPI_LAYOUT_SWITCH if IPQ_NAND
 	select SCM_V1
 	help

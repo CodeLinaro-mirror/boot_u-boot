@@ -32,13 +32,18 @@ int mac_speed_config [] = {10, 100, 1000, 10000, 2500, 5000};
 extern int get_eth_mac_address(uchar *enetaddr, int no_of_macs);
 extern int ipq_aquantia_load_fw(struct phy_device *phydev);
 
+#ifdef CONFIG_ETH_LOW_MEM
+#define mem_init()			;
+#define mem_alloc(size, align)		malloc_cache_aligned(size)
+#else
+
 static unsigned long nc_end;
 static unsigned long nc_next;
 
 /*
  * Non-Cached Memory APIs
  */
-static int nc_mem_init(void)
+static int mem_init(void)
 {
 	unsigned long nc_start = NONCACHED_MEM_REGION_ADDR;
 	nc_end = nc_start + NONCACHED_MEM_REGION_SIZE;
@@ -49,7 +54,7 @@ static int nc_mem_init(void)
 	return 0;
 }
 
-static phys_addr_t nc_mem_alloc(size_t size, size_t align)
+static phys_addr_t mem_alloc(size_t size, size_t align)
 {
 	phys_addr_t next = ALIGN(nc_next, align);
 
@@ -59,6 +64,7 @@ static phys_addr_t nc_mem_alloc(size_t size, size_t align)
 	nc_next = next + size;
 	return next;
 }
+#endif
 
 /*
  * Uniphy configuration
@@ -1565,7 +1571,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		rxfill_ring = &ehw->rxfill_ring[i];
 		rxfill_ring->count = EDMA_RX_RING_SIZE;
 		rxfill_ring->id = ehw->rxfill_ring_start + i;
-		rxfill_ring->desc = (void *)nc_mem_alloc(
+		rxfill_ring->desc = (void *)mem_alloc(
 				EDMA_RXFILL_DESC_SIZE *
 				rxfill_ring->count,
 				ARCH_DMA_MINALIGN);
@@ -1581,7 +1587,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 			rxfill_ring->id, rxfill_ring->desc, (unsigned int)
 			rxfill_ring->dma);
 
-		rx_buf = (void *)nc_mem_alloc(EDMA_RX_BUFF_SIZE *
+		rx_buf = (void *)mem_alloc(EDMA_RX_BUFF_SIZE *
 					rxfill_ring->count,
 					ARCH_DMA_MINALIGN);
 
@@ -1628,7 +1634,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 			&ehw->rxfill_ring[index - ehw->rxfill_ring_start];
 		rxdesc_ring->rxfill = ehw->rxfill_ring;
 
-		rxdesc_ring->desc = (void *)nc_mem_alloc(
+		rxdesc_ring->desc = (void *)mem_alloc(
 				EDMA_RXDESC_DESC_SIZE *
 				rxdesc_ring->count,
 				ARCH_DMA_MINALIGN);
@@ -1642,7 +1648,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		/*
 		 * Allocate secondary Rx ring descriptors
 		 */
-		rxdesc_ring->sdesc = (void *)nc_mem_alloc(
+		rxdesc_ring->sdesc = (void *)mem_alloc(
 				EDMA_RX_SEC_DESC_SIZE *
 				rxdesc_ring->count,
 				ARCH_DMA_MINALIGN);
@@ -1661,7 +1667,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		txdesc_ring = &ehw->txdesc_ring[i];
 		txdesc_ring->count = EDMA_TX_RING_SIZE;
 		txdesc_ring->id = ehw->txdesc_ring_start + i;
-		txdesc_ring->desc = (void *)nc_mem_alloc(
+		txdesc_ring->desc = (void *)mem_alloc(
 				EDMA_TXDESC_DESC_SIZE *
 				txdesc_ring->count,
 				ARCH_DMA_MINALIGN);
@@ -1672,7 +1678,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		}
 		txdesc_ring->dma = virt_to_phys(txdesc_ring->desc);
 
-		tx_buf = (void *)nc_mem_alloc(EDMA_TX_BUFF_SIZE *
+		tx_buf = (void *)mem_alloc(EDMA_TX_BUFF_SIZE *
 					txdesc_ring->count,
 					ARCH_DMA_MINALIGN);
 		if (tx_buf == NULL) {
@@ -1706,7 +1712,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		/*
 		 * Allocate secondary Tx ring descriptors
 		 */
-		txdesc_ring->sdesc = (void *)nc_mem_alloc(
+		txdesc_ring->sdesc = (void *)mem_alloc(
 				EDMA_TX_SEC_DESC_SIZE *
 				txdesc_ring->count,
 				ARCH_DMA_MINALIGN);
@@ -1725,7 +1731,7 @@ static int ipq_edma_setup_ring_resources(struct ipq_edma_hw *ehw)
 		txcmpl_ring = &ehw->txcmpl_ring[i];
 		txcmpl_ring->count = EDMA_TX_RING_SIZE;
 		txcmpl_ring->id = ehw->txcmpl_ring_start + i;
-		txcmpl_ring->desc = (void *)nc_mem_alloc(
+		txcmpl_ring->desc = (void *)mem_alloc(
 				EDMA_TXCMPL_DESC_SIZE *
 				txcmpl_ring->count,
 				ARCH_DMA_MINALIGN);
@@ -1807,7 +1813,7 @@ static void ipq_edma_disable_intr(struct ipq_edma_hw *ehw)
  */
 static int ipq_edma_alloc_rings(struct ipq_edma_hw *ehw)
 {
-	ehw->rxfill_ring = (void *)nc_mem_alloc((sizeof(
+	ehw->rxfill_ring = (void *)mem_alloc((sizeof(
 				struct ipq_edma_rxfill_ring) *
 				ehw->rxfill_rings),
 				ARCH_DMA_MINALIGN);
@@ -1816,7 +1822,7 @@ static int ipq_edma_alloc_rings(struct ipq_edma_hw *ehw)
 		return -ENOMEM;
 	}
 
-	ehw->rxdesc_ring = (void *)nc_mem_alloc((sizeof(
+	ehw->rxdesc_ring = (void *)mem_alloc((sizeof(
 				struct ipq_edma_rxdesc_ring) *
 				ehw->rxdesc_rings),
 				ARCH_DMA_MINALIGN);
@@ -1825,7 +1831,7 @@ static int ipq_edma_alloc_rings(struct ipq_edma_hw *ehw)
 		return -ENOMEM;
 	}
 
-	ehw->txdesc_ring = (void *)nc_mem_alloc((sizeof(
+	ehw->txdesc_ring = (void *)mem_alloc((sizeof(
 				struct ipq_edma_txdesc_ring) *
 				ehw->txdesc_rings),
 				ARCH_DMA_MINALIGN);
@@ -1834,7 +1840,7 @@ static int ipq_edma_alloc_rings(struct ipq_edma_hw *ehw)
 		return -ENOMEM;
 	}
 
-	ehw->txcmpl_ring = (void *)nc_mem_alloc((sizeof(
+	ehw->txcmpl_ring = (void *)mem_alloc((sizeof(
 				struct ipq_edma_txcmpl_ring) *
 				ehw->txcmpl_rings),
 				ARCH_DMA_MINALIGN);
@@ -2419,6 +2425,10 @@ static int ipq_eth_start(struct udevice *dev)
 	ulong active_port = env_get_ulong("active_port", 10,
 						CONFIG_ETH_MAX_MAC);
 
+#ifdef CONFIG_ETH_LOW_MEM
+	dcache_disable();
+#endif
+
 	if (IS_ENABLED(CONFIG_TFTP_PORT))
 		env_set_ulong("tftpsrcp", tftp_acl_our_port);
 
@@ -2709,6 +2719,10 @@ static void ipq_eth_stop(struct udevice *dev)
 			phy_shutdown(phydev);
 		}
 	}
+
+#ifdef CONFIG_ETH_LOW_MEM
+	dcache_enable();
+#endif
 }
 
 static int ipq_eth_write_hwaddr(struct udevice *dev)
@@ -2850,7 +2864,7 @@ static int ipq_eth_probe(struct udevice *dev)
 	int phy_no = 0;
 #endif
 
-	nc_mem_init();
+	mem_init();
 
 	ret = reset_get_bulk(dev, &resets);
 	if (ret && ret != -ENOENT) {
