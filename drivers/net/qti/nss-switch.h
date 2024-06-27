@@ -101,8 +101,13 @@
 #define EDMA_SW_VER_2_ID			0x02
 
 /* Number of descriptors in each ring is defined with below macro */
+#ifdef CONFIG_ETH_LOW_MEM
+#define EDMA_TX_RING_SIZE			32
+#define EDMA_RX_RING_SIZE			32
+#else
 #define EDMA_TX_RING_SIZE			128
 #define EDMA_RX_RING_SIZE			128
+#endif
 #define EDMA_TX_BUFF_SIZE			2048
 #define EDMA_RX_BUFF_SIZE			2048
 

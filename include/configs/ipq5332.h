@@ -13,7 +13,7 @@ extern uint32_t g_load_addr;
 #endif
 
 /*
- * Memory layout
+ * Memory layout - Default
  *
    4000_0000-->	 _____________________  DRAM Base
 	        |		      |
@@ -42,6 +42,40 @@ extern uint32_t g_load_addr;
 	        |                     |
 	        |                     |
    8000_0000--> |_____________________| DRAM End
+ *
+ *
+ * Memory layout - Tiny
+ *
+   4000_0000-->	 _____________________  DRAM Base
+	        |		      |
+	        |		      |
+	        |		      |
+   4A20_0000--> |_____________________|
+	        |                     |
+	        |    STACK - 240KB    |
+	        |_____________________|
+	        |		      |
+	        |      Global Data    |
+	        |_____________________|
+	        |		      |
+	        |      Board Data     |
+   4A24_0000--> |_____________________|
+	        |		      |
+	        |    HEAP - 1152KB    |
+	        |      (inc. ENV)     |
+   4A36_0000--> |_____________________|
+	        |		      |
+                |    TEXT - 640KB     |
+   4A40_0000--> |_____________________|
+	        |                     |
+	        |                     |
+   8000_0000--> |_____________________| DRAM End
+ *
+ *
+ * Memory layout - Tiny v2
+ *
+ * Use address 4AF0_0000 to 4B10_0000, memory layout is similar to tiny.
+ *
 */
 
 #define CONFIG_HAS_CUSTOM_SYS_INIT_SP_ADDR
@@ -77,6 +111,7 @@ extern uint32_t g_load_addr;
 
 #define CONFIG_ROOTFS_LOAD_ADDR		CFG_SYS_SDRAM_BASE + (16 << 20)
 
+#ifndef CONFIG_ETH_LOW_MEM
 #define NONCACHED_MEM_REGION_ADDR		((IPQ5332_UBOOT_END_ADDRESS + \
 						SZ_1M - 1) & ~(SZ_1M - 1))
 #define NONCACHED_MEM_REGION_SIZE		SZ_1M
@@ -103,6 +138,8 @@ extern uint32_t g_load_addr;
 #error "###: CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR"
 #endif
 #endif
+
+#endif /* ifnot defined CONFIG_ETH_LOW_MEM */
 
 #ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
 #define CFG_NR_CPUS				4

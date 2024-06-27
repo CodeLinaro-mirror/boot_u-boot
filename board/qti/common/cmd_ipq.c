@@ -16,12 +16,12 @@
 #include <dm.h>
 #include <dm/device-internal.h>
 #include <elf.h>
+#include <linux/iopoll.h>
 #ifdef CONFIG_IPQ_QCN9224_FUSING
 #include <init.h>
 #include <pci.h>
 #include <dt-bindings/pci/pci.h>
 #include <asm/io.h>
-#include <linux/iopoll.h>
 #endif
 #include <serial.h>
 #ifdef CONFIG_QSPI_LAYOUT_SWITCH
@@ -1621,7 +1621,7 @@ do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	req_ptr->mode = mode;
 	req_ptr->req_buf = (uint64_t)src_addr;
 	req_ptr->req_len = req_len;
-	req_ptr->ivdata = (mode == TZ_CRYPTO_SERVICE_AES_CBC) ? 
+	req_ptr->ivdata = (mode == TZ_CRYPTO_SERVICE_AES_CBC) ?
 							(uint64_t)ivdata : 0;
 	req_ptr->iv_len = iv_len;
 	req_ptr->resp_buf = (uint64_t)dst_addr;
