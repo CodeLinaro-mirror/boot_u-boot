@@ -80,15 +80,11 @@ typedef struct {
 #define	WLAN_MOD_DUMP_NAME_PREFIX		"WLAN_MOD"
 
 #define CFG_QTI_KERN_WDT_ADDR			*((unsigned int *)0x08600658)
-#define CFG_CPU_CONTEXT_DUMP_SIZE		4096
 
 #define QTI_WDT_SCM_TLV_TYPE_SIZE		1
 #define QTI_WDT_SCM_TLV_LEN_SIZE		2
 #define QTI_WDT_SCM_TLV_TYPE_LEN_SIZE		(QTI_WDT_SCM_TLV_TYPE_SIZE +\
 						QTI_WDT_SCM_TLV_LEN_SIZE)
-#define TME_CTXT_SIZE				(300 * 1024)
-#define TLV_BUF_OFFSET				(500 * 1024) - TME_CTXT_SIZE
-#define CFG_TLV_DUMP_SIZE			(12 * 1024)
 
 typedef struct {
 	uint8_t *msg_buf;
