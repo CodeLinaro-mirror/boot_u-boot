@@ -331,6 +331,10 @@ int ipq_scm_call(scm_param *param)
 		desc.cmd = QCOM_TZ_BLOW_FUSE_SECDAT_CMD;
 		break;
 #endif
+	case SCM_CHECK_FEATURE_ID:
+		desc.svc = QCOM_SCM_SVC_INFO;
+		desc.cmd = QCOM_CHECK_FEATURE_CMD;
+		break;
 	default:
 		printf("Invalid call ID: %d\n", param->type);
 		ret = -EINVAL;

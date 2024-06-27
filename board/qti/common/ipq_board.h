@@ -434,6 +434,22 @@
 #endif
 
 /*
+ * I/O read
+ */
+#if CONFIG_SCM
+#define _IPQ_SCM_IO_READ_V1(_param, _a)					\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_IO_READ;				\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _IPQ_SCM_IO_READ(...) break;
+#endif
+
+/*
  * Read PHYA0 region
  */
 #if IS_ENABLED(CONFIG_SCM_V1)
@@ -522,6 +538,18 @@
 	} while (0)
 #else
 #define _check_atf_support(...)	break;
+#endif
+
+#ifdef CONFIG_SCM
+#define _CHECK_FEATURE_V1(_param, _a)					\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CHECK_FEATURE_ID;			\
+		(_param).buff[0] = _a;					\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _CHECK_FEATURE(...) break;
 #endif
 
 #if defined(CONFIG_SCM_V1)
@@ -685,6 +713,11 @@
 		_IPQ_SCM_IO_WRITE(param, a, b)
 #endif
 
+#if CONFIG_SCM
+#define IPQ_SCM_IO_READ(param, a)	_IPQ_SCM_IO_READ_V1(param, a)
+#else
+#define IPQ_SCM_IO_READ(param, a)	_IPQ_SCM_IO_READ(param, a)
+#endif
 
 #if defined(CONFIG_SCM_V1)
 #define IPQ_SCM_READ_PHY_REG(param, a)					\
@@ -719,6 +752,11 @@
 		_IPQ_SCM_EXECUTE_DPR(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
 #endif
 
+#ifdef CONFIG_SCM
+#define CHECK_FEATURE(param, a)		_CHECK_FEATURE_V1(param, a)
+#else
+#define CHECK_FEATURE(param, a)		_CHECK_FEATURE(param, a)
+#endif
 
 #if defined(CONFIG_SCM_V1)
 #define check_atf_support(param)					\
