@@ -916,18 +916,30 @@ class Pack(object):
 
                     try:
                         if ptype == "nand" and pname == "rootfs":
-                            ubi_volumes = []
                             MODE_APPEND = "_64" if MODE == "64" else ""
-                            UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name +".cfg"
-                            self.__ubi_cfg_parser(UBINIZE_SRC_CFG_NAME, ubi_volumes)
-                            print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, ubi_volumes)
+                            if memory_size == "default":
+                                profile_suffix = ""
+                            else:
+                                profile_suffix = "-" + memory_size
 
-                            for vol_info in ubi_volumes:
-                                if vol_info["vol_type"] == "dynamic":
-                                    size = "dynamic"
-                                else:
-                                    size = vol_info["vol_size"]
-                                part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook, post_cmd_hook])
+                            UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name + profile_suffix + ".cfg"
+                            if (os.path.isfile(UBINIZE_SRC_CFG_NAME) == False):
+                                print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, "is not found")
+                                UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name + ".cfg"
+
+                            if (os.path.isfile(UBINIZE_SRC_CFG_NAME) == False):
+                                print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, "is not found", "so skipping ubi cfg parsing")
+                            else:
+                                ubi_volumes = []
+                                self.__ubi_cfg_parser(UBINIZE_SRC_CFG_NAME, ubi_volumes)
+                                print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, ubi_volumes)
+
+                                for vol_info in ubi_volumes:
+                                    if vol_info["vol_type"] == "dynamic":
+                                        size = "dynamic"
+                                    else:
+                                        size = vol_info["vol_size"]
+                                    part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook, post_cmd_hook])
                     except KeyError as e:
                         pass
 
@@ -1078,20 +1090,32 @@ class Pack(object):
 
                 # incase of nand rootfs partition, parse ubi volumes from ubinize config add those as partition
                 if ptype == "nand" and pname == "rootfs":
-                    ubi_volumes = []
                     MODE_APPEND = "_64" if MODE == "64" else ""
-                    UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name +".cfg"
-                    self.__ubi_cfg_parser(UBINIZE_SRC_CFG_NAME, ubi_volumes)
-                    print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, ubi_volumes)
+                    if memory_size == "default":
+                        profile_suffix = ""
+                    else:
+                        profile_suffix = "-" + memory_size
 
-                    for vol_info in ubi_volumes:
-                        pre_cmd_hook_list = []
-                        post_cmd_hook_list = []
-                        if vol_info["vol_type"] == "dynamic":
-                            size = "dynamic"
-                        else:
-                            size = vol_info["vol_size"]
-                        part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook_list, post_cmd_hook_list])
+                    UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name + profile_suffix + ".cfg"
+                    if (os.path.isfile(UBINIZE_SRC_CFG_NAME) == False):
+                        print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, "is not found")
+                        UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name + ".cfg"
+
+                    if (os.path.isfile(UBINIZE_SRC_CFG_NAME) == False):
+                        print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, "is not found", "so skipping ubi cfg parsing")
+                    else:
+                        ubi_volumes = []
+                        self.__ubi_cfg_parser(UBINIZE_SRC_CFG_NAME, ubi_volumes)
+                        print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, ubi_volumes)
+
+                        for vol_info in ubi_volumes:
+                            pre_cmd_hook_list = []
+                            post_cmd_hook_list = []
+                            if vol_info["vol_type"] == "dynamic":
+                                size = "dynamic"
+                            else:
+                                size = vol_info["vol_size"]
+                            part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook_list, post_cmd_hook_list])
 
             images[layout]["part_info"] = part_img_map
             images[layout]["flinfo"] = flinfo
@@ -1266,6 +1290,9 @@ class Pack(object):
             if (os.path.isfile(UBINIZE_SRC_CFG_NAME) == False):
                 print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, "is not found")
                 UBINIZE_SRC_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ARCH_NAME + "-ubinize" + MODE_APPEND + layout_name + ".cfg"
+                if (os.path.isfile(UBINIZE_SRC_CFG_NAME) == False):
+                    print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, "is not found", "so skipping ubi root generation")
+                    continue
 
             print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, UBINIZE_SRC_CFG_NAME, nand_type)
 
