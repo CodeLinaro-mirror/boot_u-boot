@@ -1068,10 +1068,10 @@ class Pack(object):
                 pname = partition.findall('name')[0].text
                 pinfo = self.__get_part_info(pname)
                 psize = pinfo.length
-                if pinfo.which_flash == 1:
+                if ftype in [ "nand" , "nand-4k" ] or pinfo.which_flash == 1:
                     ptype = "nand"
                 else:
-                    ptype = ftype
+                    ptype = "nor"
 
                 fnames = partition.findall('img_name')
                 if len(fnames) == 0:
@@ -1220,13 +1220,25 @@ class Pack(object):
                         if tag_name in ubi_tag_name.keys():
                             tag_name = ubi_tag_name[tag_name]
 
-                    tag = override_cfg.find(".//" + tag_name)
-                    if tag == None:
-                        tag = override_cfg.find(".//" + tag_name + "_" + MODE)
+                    tag_list = override_cfg.findall(".//" + tag_name)
+                    print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, tag_name, tag_list)
 
-                    if tag != None:
-                        fname = tag.text
+                    if tag_list != None:
+                        for tag in tag_list:
+                            tag_ftype = tag.get("flash")
+                            tag_mode = tag.get("mode")
 
+                            if tag_ftype != None and tag_mode != None:
+                                tag_ftype = tag_ftype.split(",")
+                                print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, tag_ftype, tag_mode, self.flash_type, MODE)
+                                if self.flash_type in tag_ftype and tag_mode == MODE:
+                                    fname = tag.text
+                                    break
+                            else:
+                                fname = tag.text
+                                break
+
+                print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, fname)
                 if fname == "":
                     continue
 
