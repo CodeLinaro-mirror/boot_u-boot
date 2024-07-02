@@ -98,6 +98,7 @@ int __scm_smc_call(const struct qcom_scm_desc *desc,
 
 		if (!args_phys)
 			return -ENOMEM;
+		memset(args_phys, 0, alloc_len);
 
 		if (qcom_smccc_convention == ARM_SMCCC_SMC_32) {
 			__le32 *args = args_phys;
@@ -112,6 +113,11 @@ int __scm_smc_call(const struct qcom_scm_desc *desc,
 				args[i] = cpu_to_le64(desc->args[i +
 						      SCM_SMC_FIRST_EXT_IDX]);
 		}
+#if !defined(CONFIG_SYS_DCACHE_OFF)
+		flush_dcache_range((uintptr_t)args_phys,
+					(uintptr_t)args_phys +
+					alloc_len);
+#endif
 
 		smc.args[SCM_SMC_LAST_REG_IDX] = (uintptr_t)args_phys;
 	}
