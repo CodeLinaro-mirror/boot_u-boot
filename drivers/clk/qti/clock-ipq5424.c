@@ -154,6 +154,38 @@ static const struct bcr_regs sdc_regs = {
 	.D = SDCC1_APPS_D,
 };
 
+static const struct bcr_regs gcc_usb0_master_clk_regs = {
+	.cfg_rcgr = GCC_USB0_MASTER_CFG_RCGR,
+	.cmd_rcgr = GCC_USB0_MASTER_CMD_RCGR,
+	.M = GCC_USB0_MASTER_M,
+	.N = GCC_USB0_MASTER_N,
+	.D = GCC_USB0_MASTER_D
+};
+
+static const struct bcr_regs gcc_usb0_aux_clk_regs = {
+	.cfg_rcgr = GCC_USB0_AUX_CFG_RCGR,
+	.cmd_rcgr = GCC_USB0_AUX_CMD_RCGR,
+	.M = GCC_USB0_AUX_M,
+	.N = GCC_USB0_AUX_N,
+	.D = GCC_USB0_AUX_D,
+};
+
+static const struct bcr_regs gcc_usb0_mock_utmi_clk_regs = {
+	.cfg_rcgr = GCC_USB0_MOCK_UTMI_CFG_RCGR,
+	.cmd_rcgr = GCC_USB0_MOCK_UTMI_CMD_RCGR,
+	.M = GCC_USB0_MOCK_UTMI_M,
+	.N = GCC_USB0_MOCK_UTMI_N,
+	.D = GCC_USB0_MOCK_UTMI_D,
+};
+
+static const struct bcr_regs gcc_usb1_mock_utmi_clk_regs = {
+	.cfg_rcgr = GCC_USB1_MOCK_UTMI_CFG_RCGR,
+	.cmd_rcgr = GCC_USB1_MOCK_UTMI_CMD_RCGR,
+	.M = GCC_USB1_MOCK_UTMI_M,
+	.N = GCC_USB1_MOCK_UTMI_N,
+	.D = GCC_USB1_MOCK_UTMI_D,
+};
+
 int msm_set_parent(struct clk *clk, struct clk* parent)
 {
 	assert(clk);
@@ -206,12 +238,26 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 				0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
 	case GCC_USB0_MASTER_CLK:
+		/* Default: 200MHz */
+		clk_rcg_set_rate_mnd(priv->base, &gcc_usb0_master_clk_regs, 4,
+				0, 0, USB0_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
 	case GCC_USB0_MOCK_UTMI_CLK:
+		/* Default: 60MHz */
+		writel(1, priv->base + GCC_USB0_MOCK_UTMI_DIV_CDIVR);
+		clk_rcg_set_rate_mnd(priv->base, &gcc_usb0_mock_utmi_clk_regs,
+				10, 0, 0, USB0_SRC_SEL_GPLL4_OUT_AUX);
 		break;
 	case GCC_USB0_AUX_CLK:
+		/* Default: 24MHz */
+		clk_rcg_set_rate_mnd(priv->base, &gcc_usb0_aux_clk_regs, 1,
+				0, 0, USB0_SRC_SEL_XO);
 		break;
 	case GCC_USB1_MOCK_UTMI_CLK:
+		/* Default: 60MHz */
+		writel(1, priv->base + GCC_USB1_MOCK_UTMI_DIV_CDIVR);
+		clk_rcg_set_rate_mnd(priv->base, &gcc_usb1_mock_utmi_clk_regs,
+				10, 0, 0, USB0_SRC_SEL_GPLL4_OUT_AUX);
 		break;
 
 	/* NSS clocks */

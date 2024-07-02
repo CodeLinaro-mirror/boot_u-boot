@@ -211,7 +211,7 @@
 				<&gcc GCC_USB0_MOCK_UTMI_CLK>,
 				<&gcc GCC_USB0_AUX_CLK>;
 			assigned-clock-rates = <200000000>,
-				<24000000>,
+				<60000000>,
 				<24000000>;
 			clocks = <&gcc GCC_USB0_MASTER_CLK>,
 				<&gcc GCC_USB0_SLEEP_CLK>,
@@ -236,7 +236,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			assigned-clocks = <&gcc GCC_USB1_MOCK_UTMI_CLK>;
-			assigned-clock-rates = <24000000>;
+			assigned-clock-rates = <60000000>;
 			clocks = <&gcc GCC_USB1_MASTER_CLK>,
 				<&gcc GCC_CNOC_USB_CLK>,
 				<&gcc GCC_USB1_SLEEP_CLK>,
