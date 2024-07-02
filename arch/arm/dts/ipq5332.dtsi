@@ -404,6 +404,7 @@
 			no_tdm_reg = <30>;
 			tdm_tm_support;
 			50mhz;
+			bridge_mode;
 			status = "disabled";
 		};
 

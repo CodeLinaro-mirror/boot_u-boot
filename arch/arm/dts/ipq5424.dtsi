@@ -479,6 +479,7 @@
 			tdm_offset = <0xc000>;
 			tdm_mode = <0>;
 			no_tdm_reg = <126>;
+			bridge_mode;
 			status = "disabled";
 		};
 

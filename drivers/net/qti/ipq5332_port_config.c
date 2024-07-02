@@ -4,6 +4,9 @@
  */
 
 #include "nss-switch.h"
+
+uint32_t nb_vsi_config[CONFIG_ETH_MAX_MAC] = {0x03, 0x05};
+
 /*
  * .id of the PHY TYPE
  * .clk_rate {10, 100, 1000, 10000, 2500, 5000}
