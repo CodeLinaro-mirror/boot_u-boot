@@ -458,7 +458,7 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 /**
  * ipq_read_tcsr_boot_misc() - read boot tcsr register
  */
-static int ipq_read_tcsr_boot_misc(void)
+__weak int ipq_read_tcsr_boot_misc(void)
 {
 	u32 *dmagic = TCSR_BOOT_MISC_REG;
 	return *dmagic;

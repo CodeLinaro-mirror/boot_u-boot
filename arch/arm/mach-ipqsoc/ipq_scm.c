@@ -35,7 +35,8 @@ enum qcom_scm_convention {
 	SMC_CONVENTION_ARM_64,
 };
 
-enum qcom_scm_convention qcom_scm_convention = SMC_CONVENTION_UNKNOWN;
+enum qcom_scm_convention qcom_scm_convention
+__attribute__ ((section(".data"))) = SMC_CONVENTION_UNKNOWN;
 
 #ifdef DEBUG
 static const char * const qcom_scm_convention_names[] = {
