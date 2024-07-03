@@ -348,6 +348,8 @@ config TARGET_IPQ5424
 	select IPQ_FDT_FIXUP
 	select IPQ_NET
 	select QTI_NSS_SWITCH
+	select PHY_QTI_8X8X
+	select PHY_AQUANTIA
 	select IPQ_CRASHDUMP
 	select IPQ_ELF_AUTH
 	select IPQ_SECURE
