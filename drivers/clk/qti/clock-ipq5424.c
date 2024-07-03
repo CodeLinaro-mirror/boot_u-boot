@@ -19,6 +19,50 @@
 
 #include <dt-bindings/clock/gcc-ipq5424.h>
 
+static const struct bcr_regs gcc_qupv3_uart0_regs = {
+	.cfg_rcgr = GCC_QUPV3_UART0_CFG_RCGR,
+	.cmd_rcgr = GCC_QUPV3_UART0_CMD_RCGR,
+	.M = GCC_QUPV3_UART0_M,
+	.N = GCC_QUPV3_UART0_N,
+	.D = GCC_QUPV3_UART0_D,
+};
+
+static const struct bcr_regs gcc_qupv3_uart1_regs = {
+	.cfg_rcgr = GCC_QUPV3_UART1_CFG_RCGR,
+	.cmd_rcgr = GCC_QUPV3_UART1_CMD_RCGR,
+	.M = GCC_QUPV3_UART1_M,
+	.N = GCC_QUPV3_UART1_N,
+	.D = GCC_QUPV3_UART1_D,
+};
+
+static const struct bcr_regs gcc_qupv3_spi0_regs = {
+	.cfg_rcgr = GCC_QUPV3_SPI0_CFG_RCGR,
+	.cmd_rcgr = GCC_QUPV3_SPI0_CMD_RCGR,
+	.M = GCC_QUPV3_SPI0_M,
+	.N = GCC_QUPV3_SPI0_N,
+	.D = GCC_QUPV3_SPI0_D,
+};
+
+static const struct bcr_regs gcc_qupv3_spi1_regs = {
+	.cfg_rcgr = GCC_QUPV3_SPI1_CFG_RCGR,
+	.cmd_rcgr = GCC_QUPV3_SPI1_CMD_RCGR,
+	.M = GCC_QUPV3_SPI1_M,
+	.N = GCC_QUPV3_SPI1_N,
+	.D = GCC_QUPV3_SPI1_D,
+};
+
+static const struct bcr_regs_v2 gcc_qupv3_i2c0_regs = {
+	.cfg_rcgr = GCC_QUPV3_I2C0_CFG_RCGR,
+	.cmd_rcgr = GCC_QUPV3_I2C0_CMD_RCGR,
+	.div_cdivr = GCC_QUPV3_I2C0_DIV_CDIVR,
+};
+
+static const struct bcr_regs_v2 gcc_qupv3_i2c1_regs = {
+	.cfg_rcgr = GCC_QUPV3_I2C1_CFG_RCGR,
+	.cmd_rcgr = GCC_QUPV3_I2C1_CMD_RCGR,
+	.div_cdivr = GCC_QUPV3_I2C1_DIV_CDIVR,
+};
+
 static const struct bcr_regs_v2 nss_cc_ppe_regs = {
 	.cfg_rcgr = NSS_CC_PPE_CFG_RCGR,
 	.cmd_rcgr = NSS_CC_PPE_CMD_RCGR,
@@ -129,7 +173,38 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 	struct msm_clk_priv *priv = dev_get_priv(clk->dev);
 	int ret;
 
+
 	switch (clk->id) {
+	case GCC_QUPV3_SE0_CLK:
+		/* Default: 1.8432MHz */
+		clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_uart0_regs,
+				0, 36, 15625, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_QUPV3_SE1_CLK:
+		/* Default: 1.8432MHz */
+		clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_uart1_regs,
+				0, 36, 15625, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_QUPV3_SE2_CLK:
+		/* Default: 64MHz */
+		clk_rcg_set_rate_v2(priv->base, &gcc_qupv3_i2c0_regs, 24, 1,
+				QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_QUPV3_SE3_CLK:
+		/* Default: 64MHz */
+		clk_rcg_set_rate_v2(priv->base, &gcc_qupv3_i2c1_regs, 24, 1,
+				QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_QUPV3_SE4_CLK:
+		/* Default: 50MHz */
+		clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_spi0_regs, 16, 0,
+				0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_QUPV3_SE5_CLK:
+		/* Default: 50MHz */
+		clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_spi1_regs, 16, 0,
+				0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
 	case GCC_USB0_MASTER_CLK:
 		break;
 	case GCC_USB0_MOCK_UTMI_CLK:
@@ -234,6 +309,24 @@ int msm_enable(struct clk *clk)
 	struct msm_clk_priv *priv = dev_get_priv(clk->dev);
 
 	switch (clk->id) {
+	case GCC_QUPV3_SE0_CLK:
+		clk_enable_cbc(priv->base + GCC_QUPV3_UART0_CBCR);
+		break;
+	case GCC_QUPV3_SE1_CLK:
+		clk_enable_cbc(priv->base + GCC_QUPV3_UART1_CBCR);
+		break;
+	case GCC_QUPV3_SE2_CLK:
+		clk_enable_cbc(priv->base + GCC_QUPV3_I2C0_CBCR);
+		break;
+	case GCC_QUPV3_SE3_CLK:
+		clk_enable_cbc(priv->base + GCC_QUPV3_I2C1_CBCR);
+		break;
+	case GCC_QUPV3_SE4_CLK:
+		clk_enable_cbc(priv->base + GCC_QUPV3_SPI0_CBCR);
+		break;
+	case GCC_QUPV3_SE5_CLK:
+		clk_enable_cbc(priv->base + GCC_QUPV3_SPI1_CBCR);
+		break;
 	case GCC_NSSCFG_CLK:
 		clk_enable_cbc(priv->base + GCC_NSSCFG_CBCR);
 		break;
