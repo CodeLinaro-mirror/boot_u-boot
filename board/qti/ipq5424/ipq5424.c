@@ -239,3 +239,14 @@ int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 fail:
 	return ret;
 }
+
+void ipq_fdt_fixup_sku_based_usb_config(void *blob)
+{
+	if (!(readl(USB_SOFTSKU_STATUS) & USB_SOFTSKU_STATUS_DISABLE))
+		return;
+
+	parse_fdt_fixup("/soc@0/phy@7b000/%phandle%0xe0", blob);
+	parse_fdt_fixup("/soc@0/usb3@8a00000/dwc3@8a00000/%phys%0xe0", blob);
+	parse_fdt_fixup("/soc@0/usb3@8a00000/dwc3@8a00000/%phy-names%?usb2-phy", blob);
+	parse_fdt_fixup("/soc@0/usb3@8a00000/%qcom,select-utmi-as-pipe-clk%1", blob);
+}
