@@ -144,7 +144,8 @@ config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
 	select I2C
 	select DM_I2C
-	select SYS_I2C_QUP
+	select SYS_I2C_QUP if TARGET_IPQ9574 || TARGET_IPQ5332
+	select MSM_GENI_I2C if TARGET_IPQ5424
 	select CMD_I2C
 
 config IPQ_MMC
@@ -361,6 +362,7 @@ config TARGET_IPQ5424
 	select SHA384
 	imply IPQ_PCIE
 	imply IPQ_CRASHDUMP_TO_USB
+	imply IPQ_I2C
 	help
 	  Support for IPQ5424 SoC.
 

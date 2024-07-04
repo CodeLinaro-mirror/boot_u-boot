@@ -602,6 +602,15 @@ config SYS_I2C_QUP
 	  Technical Reference Manual, chapter "6.1 Qualcomm Universal
 	  Peripherals Engine (QUP)".
 
+config MSM_GENI_I2C
+	bool "Qualcomm SPI controller with QUPv3 interface"
+	depends on ARCH_IPQSOC
+	help
+          This driver supports GENI serial engine based I2C controller in
+          master mode on the Qualcomm Technologies Inc.'s SoCs. If you say
+          yes to this option, support will be included for the built-in I2C
+          interface on the Qualcomm Technologies Inc.'s SoCs.
+
 config SYS_I2C_S3C24X0
 	bool "Samsung I2C driver"
 	depends on (ARCH_EXYNOS4 || ARCH_EXYNOS5) && DM_I2C
