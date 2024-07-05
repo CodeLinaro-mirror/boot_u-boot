@@ -74,7 +74,7 @@ extern uint32_t g_load_addr;
  *
  * Memory layout - Tiny v2
  *
- * Use address 4AF0_0000 to 4B10_0000, memory layout is similar to tiny.
+ * Use address 4AD0_0000 to 4AF0_0000, memory layout is similar to tiny.
  *
 */
 
