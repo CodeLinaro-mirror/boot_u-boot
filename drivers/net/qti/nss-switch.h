@@ -90,11 +90,6 @@
 #define DUPLEX					BIT(5)
 #define SPEED					(BIT(0) | BIT(1) | BIT(2))
 
-#define PLL_POWER_ON_AND_RESET			0x9B780
-#define PLL_REFERENCE_CLOCK			0x9B784
-#define FREQUENCY_MASK				0xfffffdf0
-#define INTERNAL_48MHZ_CLOCK			0x7
-
 #define CLKOUT_50M_CTRL_OPTION			0x610
 
 #define EDMA_SW_VER_1_ID			0x01
