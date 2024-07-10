@@ -460,19 +460,20 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 			printf("No SPIBLK device found \n");
 			return;
 		}
-	}
+
 #if defined(CONFIG_EFI_PARTITION)
-	if (dev) {
-		gpt_pte = get_gpt_entry(dev);
-		if (!gpt_pte) {
-			printf("Failed to get gpt table entry\n");
-			return;
-		} else {
-			ncount = sfi->nor_gpt_pte.ncount;
+		if (dev) {
+			gpt_pte = get_gpt_entry(dev);
+			if (!gpt_pte) {
+				printf("Failed to get gpt table entry\n");
+				return;
+			} else {
+				ncount = sfi->nor_gpt_pte.ncount;
+			}
 		}
-	}
 #endif
-	bsize = dev->blksz;
+		bsize = dev->blksz;
+	}
 #endif
 	ret = snprintf(part, len, "%s:", mtdid);
 	part += ret;
