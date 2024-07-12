@@ -70,6 +70,7 @@
 #define GCC_CMN_12GPLL_SYS_CBCR				(0x3A008)
 
 #define QUPV3_SRC_SEL_GPLL0_OUT_MAIN			(1 << 8)
+#define QUPV3_SRC_SEL_GPLL0_OUT_MAIN_DIV		(1 << 10)
 #define USB0_SRC_SEL_XO					(0 << 8)
 #define USB0_SRC_SEL_GPLL0_OUT_MAIN			(1 << 8)
 #define USB0_SRC_SEL_GPLL4_OUT_AUX			(1 << 8)

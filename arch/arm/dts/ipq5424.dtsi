@@ -123,7 +123,7 @@
 				assigned-clocks = <&gcc GCC_QUPV3_SE2_CLK>;
 				assigned-clock-rates = <64000000>;
 				clocks = <&gcc GCC_QUPV3_SE2_CLK>;
-				clock-names = "i2c-clk";
+				clock-names = "se-clk";
 				status = "disabled";
 			};
 
@@ -136,7 +136,7 @@
 				assigned-clocks = <&gcc GCC_QUPV3_SE3_CLK>;
 				assigned-clock-rates = <64000000>;
 				clocks = <&gcc GCC_QUPV3_SE3_CLK>;
-				clock-names = "i2c-clk";
+				clock-names = "se-clk";
 				status = "disabled";
 			};
 
