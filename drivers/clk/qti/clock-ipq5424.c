@@ -201,6 +201,16 @@ static const struct bcr_regs gcc_usb1_mock_utmi_clk_regs = {
 	.D = GCC_USB1_MOCK_UTMI_D,
 };
 
+static const struct bcr_regs_v2 gcc_qpic_io_macro_regs = {
+	.cfg_rcgr = GCC_QPIC_IO_MACRO_CFG_RCGR,
+	.cmd_rcgr = GCC_QPIC_IO_MACRO_CMD_RCGR,
+};
+
+static const struct bcr_regs_v2 gcc_qpic_regs = {
+	.cfg_rcgr = GCC_QPIC_CFG_RCGR,
+	.cmd_rcgr = GCC_QPIC_CMD_RCGR,
+};
+
 int msm_set_parent(struct clk *clk, struct clk* parent)
 {
 	assert(clk);
@@ -383,6 +393,44 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 			clk->rate = CLK_312_5_MHZ;
 		else
 			ret = -EINVAL;
+		break;
+	case GCC_QPIC_CLK:
+		/* GCC_QPIC_CLK: 100 MHz  */
+		clk_rcg_set_rate_v2(priv->base, &gcc_qpic_regs,
+				0xF, 0,
+				GCC_QPIC_IO_MACRO_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_QPIC_IO_MACRO_CLK:
+		int src, div = 0, cdiv = 0;
+		src = GCC_QPIC_IO_MACRO_SRC_SEL_GPLL0_OUT_MAIN;
+		switch (rate) {
+		case IO_MACRO_CLK_24_MHZ:
+			src = GCC_QPIC_IO_MACRO_SRC_SEL_XO_CLK;
+			div = 0;
+			break;
+		case IO_MACRO_CLK_100_MHZ:
+			div = 15;
+			break;
+		case IO_MACRO_CLK_200_MHZ:
+			div = 7;
+			break;
+		case IO_MACRO_CLK_228_MHZ:
+			div = 6;
+			break;
+		case IO_MACRO_CLK_266_MHZ:
+			div = 5;
+			break;
+		case IO_MACRO_CLK_320_MHZ:
+			div = 4;
+			break;
+		case IO_MACRO_CLK_400_MHZ:
+			div = 3;
+			break;
+		default:
+			return -EINVAL;
+		}
+		clk_rcg_set_rate_v2(priv->base, &gcc_qpic_io_macro_regs,
+				div, cdiv, src);
 		break;
 	default:
 		ret = 0;
@@ -686,6 +734,18 @@ int msm_enable(struct clk *clk)
 	case UNIPHY1_NSS_TX_CLK:
 	case UNIPHY2_NSS_RX_CLK:
 	case UNIPHY2_NSS_TX_CLK:
+		break;
+	case GCC_QPIC_SLEEP_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_SLEEP_CBCR);
+		break;
+	case GCC_QPIC_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_AHB_CBCR);
+		break;
+	case GCC_QPIC_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_CBCR);
+		break;
+	case GCC_QPIC_IO_MACRO_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
 		break;
 	default:
 	}

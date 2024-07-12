@@ -108,7 +108,7 @@
 						"GPIO_3";
 					function = "qspi_data";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
-					bias-pull-down;
+					bias-pull-up;
 				};
 
 				qspi_cs_n {
@@ -122,7 +122,7 @@
 					pins = "GPIO_5";
 					function = "qspi_clk";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
-					bias-pull-down;
+					bias-disable;
 				};
 			};
 
