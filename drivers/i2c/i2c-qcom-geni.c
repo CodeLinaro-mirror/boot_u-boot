@@ -162,9 +162,9 @@ static void get_geni_se_version(struct udevice *dev)
  * source_clock = 19.2 MHz
  */
 static const struct geni_i2c_clk_fld geni_i2c_clk_map[] = {
-	{KHZ(100), 7, 10, 11, 26},
-	{KHZ(400), 2,  5, 12, 24},
-	{KHZ(1000), 1, 3,  9, 18},
+	{KHZ(100), 7, 14, 18, 40},
+	{KHZ(400), 4,  3, 11, 20},
+	{KHZ(1000), 2, 3,  6, 15},
 };
 
 static int geni_i2c_clk_map_idx(struct geni_i2c_dev *gi2c)
@@ -410,9 +410,11 @@ static int geni_i2c_probe_chip(struct udevice *dev, uint chip_addr,
 	do{
 		--time_left;
 		udelay(10);
-	}while(time_left && !(readl(gi2c->base + SE_GENI_M_IRQ_STATUS) & 0x1));
-	return readl(gi2c->base + SE_GENI_M_IRQ_STATUS) & SE_I2C_ERR ? 	\
-								-ENODEV : 0;
+	} while(time_left && !(readl(gi2c->base + SE_GENI_M_IRQ_STATUS) & 0x1));
+
+	return !time_left ||
+		(readl(gi2c->base + SE_GENI_M_IRQ_STATUS) & SE_I2C_ERR) ?
+		-ENODEV : 0;
 
 }
 
@@ -427,7 +429,7 @@ static int geni_i2c_probe(struct udevice *pdev)
 	if (gi2c->base == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
-	ret = clk_get_by_name(pdev, "i2c-clk", &gi2c->clk);
+	ret = clk_get_by_name(pdev, "se-clk", &gi2c->clk);
 	if (ret)
 		return ret;
 
@@ -467,11 +469,7 @@ static int geni_i2c_probe(struct udevice *pdev)
 		geni_se_init(gi2c, gi2c->tx_wm, tx_depth);
 		geni_se_config_packing(gi2c->base, BITS_PER_BYTE,
 				       true, true, true);
-
-		printf("i2c fifo/se-dma mode. fifo depth:%d\n", tx_depth);
 	}
-
-	printf("Geni-I2C adaptor successfully added\n");
 
 	return 0;
 
