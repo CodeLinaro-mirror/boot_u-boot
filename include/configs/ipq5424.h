@@ -97,12 +97,14 @@ extern uint32_t g_load_addr;
 
 #define MTDPARTS_MAXLEN				4096
 
+#define QFPROM_CORR_TME_OEM_ATE_ROW0_LSB	0xA40E0
+#define QFPROM_CORR_TME_OEM_ATE_ROW1_LSB	0xA40E8
+
+#ifndef CONFIG_ETH_LOW_MEM
 #define NONCACHED_MEM_REGION_ADDR		((IPQ5424_UBOOT_END_ADDRESS + \
 						SZ_1M - 1) & ~(SZ_1M - 1))
 #define NONCACHED_MEM_REGION_SIZE		SZ_1M
 
-#define QFPROM_CORR_TME_OEM_ATE_ROW0_LSB	0xA40E0
-#define QFPROM_CORR_TME_OEM_ATE_ROW1_LSB	0xA40E8
 /*
  * Refer above memory layout,
  * Non-Cached Memory should not begin at above 0x8A400000 since upcoming
@@ -125,6 +127,8 @@ extern uint32_t g_load_addr;
 #error "###: CONFIG_MULTI_DTB_FIT_USER_DEF_ADDR != NONCACHED_MEM_REGION_ADDR"
 #endif
 #endif
+
+#endif /* ifnot defined CONFIG_ETH_LOW_MEM */
 
 #ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
 #define CFG_NR_CPUS				4
