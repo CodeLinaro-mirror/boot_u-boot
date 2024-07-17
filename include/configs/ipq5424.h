@@ -53,10 +53,11 @@ extern uint32_t g_load_addr;
 #define CFG_SYS_BAUDRATE_TABLE			{ 115200, 230400,	\
 							460800, 921600 }
 
-#define CFG_EMUL_FREQUENCY_DIVIDER		150
+#define CFG_EMULATION
 
 /* override the counter frequency incase of emulation platform */
-#ifdef CFG_EMUL_FREQUENCY_DIVIDER
+#ifdef CFG_EMULATION
+#define CFG_EMUL_FREQUENCY_DIVIDER		150
 #define CFG_SYS_HZ_CLOCK			(CONFIG_COUNTER_FREQUENCY / \
 						CFG_EMUL_FREQUENCY_DIVIDER)
 #else
