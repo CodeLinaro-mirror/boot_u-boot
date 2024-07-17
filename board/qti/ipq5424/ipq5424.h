@@ -34,6 +34,12 @@ typedef enum {
 #define MACH_TYPE_IPQ5424_EMU			0x8050001
 #define MACH_TYPE_IPQ5424_EMU_FBC		0xF060000
 
+/*
+ * TCSR Registers
+ */
+#define TCSR_TZ_WONCE0				0x195C000
+#define TCSR_TZ_WONCE1				0x195C004
+
 /* Crashdump Magic registers & values */
 #define TCSR_BOOT_MISC_REG			((u32*)0x195C100)
 
