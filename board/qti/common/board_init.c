@@ -793,7 +793,8 @@ int dram_init(void)
 
 phys_size_t get_effective_memsize(void)
 {
-	phys_size_t ram_size = min(gd->ram_size, board_dram_bank_info[0].size);
+	phys_size_t ram_size = min(gd->ram_size,
+			(phys_size_t)CFG_SYS_SDRAM_BASE0_SIZE);
 
 #ifndef CONFIG_ARM64
 	if (((uint64_t)gd->ram_base + ram_size) > ULONG_MAX)
@@ -804,22 +805,31 @@ phys_size_t get_effective_memsize(void)
 
 int dram_init_banksize(void)
 {
-	uint8_t i = 0;
-	gd->bd->bi_dram[i].start = board_dram_bank_info[i].start;
-	gd->bd->bi_dram[i].size = get_effective_memsize();
+	uint8_t i = 0, bidx = 0;
+	struct usable_ram_partition_table *ram_ptable;
+	struct ram_partition_entry *p;
 
-#if (CONFIG_NR_DRAM_BANKS > 1)
-	phys_size_t total_dram_sz = gd->ram_size - gd->bd->bi_dram[i].size;
-
-	for (i = 1; i < CONFIG_NR_DRAM_BANKS; i++) {
-		if (!total_dram_sz)
-			break;
-		gd->bd->bi_dram[i].start = board_dram_bank_info[i].start;
-		gd->bd->bi_dram[i].size = min(total_dram_sz,
-				board_dram_bank_info[i].size);
-		total_dram_sz -= gd->bd->bi_dram[i].size;
+	ram_ptable = smem_get_item(SMEM_USABLE_RAM_PARTITION_TABLE);
+	if (IS_ERR_OR_NULL(ram_ptable)) {
+		printf("Failed to get SMEM item: " \
+				"SMEM_USABLE_RAM_PARTITION_TABLE\n");
+		return -ENODEV;
 	}
-#endif
+
+	/* Check validy of RAM */
+	for (i = 0; i < CONFIG_RAM_NUM_PART_ENTRIES; i++) {
+		p = &ram_ptable->ram_part_entry[i];
+		if (p->partition_category == RAM_PARTITION_SDRAM &&
+				p->partition_type == RAM_PARTITION_SYS_MEMORY)
+		{
+			gd->bd->bi_dram[bidx].start = p->start_address;
+			gd->bd->bi_dram[bidx].size = p->length;
+			debug("Detected memory bank %u: "
+				"start: 0x%llx size: 0x%llx\n",
+					bidx, p->start_address, p->length);
+			bidx++;
+		}
+        }
 
 	return 0;
 }
