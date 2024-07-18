@@ -62,6 +62,11 @@ int * fnode_entires = &ipq_fnode_entires;
 struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_EMU, "ipq5424-emulation"},
 	{ MACH_TYPE_IPQ5424_EMU_FBC, "ipq5424-emulation"},
+	{ MACH_TYPE_IPQ5424_RDP464, "ipq5424-rdp464"},
+	{ MACH_TYPE_IPQ5424_RDP466, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP485, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
+	{ MACH_TYPE_IPQ5424_DB_MR01_1, "ipq5424-db-mr01.1"},
 };
 
 int machid_dts_nos = ARRAY_SIZE(machid_dts);
