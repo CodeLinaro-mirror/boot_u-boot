@@ -29,21 +29,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static dram_bank_info_t ipq5424_dram_bank_info[CONFIG_NR_DRAM_BANKS] = {
-	{
-		.start = CFG_SYS_SDRAM_BASE0,
-		.size = CFG_SYS_SDRAM_BASE0_SZ,
-	},
-#if (CONFIG_NR_DRAM_BANKS > 1)
-	{
-		.start = CFG_SYS_SDRAM_BASE1,
-		.size = CFG_SYS_SDRAM_BASE1_SZ,
-	},
-#endif
-};
-
-dram_bank_info_t * board_dram_bank_info = ipq5424_dram_bank_info;
-
 #if CONFIG_FDT_FIXUP_PARTITIONS
 struct node_info ipq_fnodes[] = {
 	{ "n25q128a11", MTD_DEV_TYPE_NOR},
@@ -74,7 +59,7 @@ static crashdump_infos_t dumpinfo_n[] = {
 	{
 		/* DDR Bank 0 */
 		.name = "EBICS.BIN",
-		.start_addr = CFG_SYS_SDRAM_BASE0,
+		.start_addr = CFG_SYS_SDRAM_BASE,
 		.size = 0xBAD0FF5E,
 		.dump_level = FULLDUMP,
 		.split_bin_sz = SZ_1G,
@@ -85,7 +70,7 @@ static crashdump_infos_t dumpinfo_n[] = {
 	{
 		/* DDR Bank 1 */
 		.name = "EBICS.BIN",
-		.start_addr = CFG_SYS_SDRAM_BASE1,
+		.start_addr = 0xBAD0FF5E,
 		.size = 0xBAD0FF5E,
 		.dump_level = FULLDUMP,
 		.split_bin_sz = SZ_1G,
@@ -267,8 +252,8 @@ static struct mm_region ipq5424_mem_map[] = {
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 	}, {
 #if (CONFIG_NR_DRAM_BANKS > 1)
-		.virt = CFG_SYS_SDRAM_BASE1,
-		.phys = CFG_SYS_SDRAM_BASE1,
+		.virt = CFG_SYS_SDRAM_BASE1_ADDR,
+		.phys = CFG_SYS_SDRAM_BASE1_ADDR,
 		.size = 0x0UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE |
