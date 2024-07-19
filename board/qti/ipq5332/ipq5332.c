@@ -196,31 +196,34 @@ int board_get_smem_target_info(void)
 	uint32_t tcsr_wonce1_val;
 	uint64_t ipq_smem_target_info_addr;
 #ifdef CONFIG_SCM
-	int feat_avail;
+	int feat_avail = 0;
 	scm_param param;
 	int ret;
 
-	/* The TCSR WONCE register is protected in latest TZ.
-	 * Old TZ will allow direct read.
-	 * Use the CHECK_FEATURE call to know if TZ supports
-	 * direct or scm read. Based on return value, read the
-	 * TCSR WONCE register appropriately.
-	 */
-	do {
-		ret = -ENOTSUPP;
-		CHECK_FEATURE(param, 0x6);
-		param.get_ret = true;
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("Feature check scm failed\n");
+	if (!g_recovery_path)
+	{
+		/* The TCSR WONCE register is protected in latest TZ.
+		 * Old TZ will allow direct read.
+		 * Use the CHECK_FEATURE call to know if TZ supports
+		 * direct or scm read. Based on return value, read the
+		 * TCSR WONCE register appropriately.
+		 */
+		do {
+			ret = -ENOTSUPP;
+			CHECK_FEATURE(param, 0x6);
+			param.get_ret = true;
+			ret = ipq_scm_call(&param);
+			if (ret) {
+				printf("Feature check scm failed\n");
+				return -EFAULT;
+			}
+			feat_avail = le32_to_cpu(param.res.result[0]);
+		} while(0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			return -EFAULT;
 		}
-		feat_avail = le32_to_cpu(param.res.result[0]);
-	} while(0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
-		return -EFAULT;
 	}
 
 	if (feat_avail == 0x401000)
@@ -295,31 +298,35 @@ int ipq_read_tcsr_boot_misc(void)
 	u32 dmagic;
 #ifdef CONFIG_SCM
 	scm_param param;
-	int feat_avail;
+	int feat_avail = 0;
 	int ret;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
-	/* The TCSR DLOAD register is protected in latest TZ
-	 * for the IPQ5332 target.
-	 * Old TZ will allow direct read.
-	 * Use the qca_scm_is_feature_available() call to know
-	 * if TZ supports direct or scm read. Based on return
-	 * value, read the TCSR WONCE register appropriately.
-	 */
-	do {
-		ret = -ENOTSUPP;
-		CHECK_FEATURE(param, 0x6);
-		param.get_ret = true;
-		ret = ipq_scm_call(&param);
-		if (ret) {
-			printf("Feature check scm failed\n");
+	if (sfi->flash_type != SMEM_BOOT_NO_FLASH)
+	{
+		/* The TCSR DLOAD register is protected in latest TZ
+		 * for the IPQ5332 target.
+		 * Old TZ will allow direct read.
+		 * Use the qca_scm_is_feature_available() call to know
+		 * if TZ supports direct or scm read. Based on return
+		 * value, read the TCSR WONCE register appropriately.
+		 */
+		do {
+			ret = -ENOTSUPP;
+			CHECK_FEATURE(param, 0x6);
+			param.get_ret = true;
+			ret = ipq_scm_call(&param);
+			if (ret) {
+				printf("Feature check scm failed\n");
+				return 0;
+			}
+			feat_avail = le32_to_cpu(param.res.result[0]);
+		} while(0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			return 0;
 		}
-		feat_avail = le32_to_cpu(param.res.result[0]);
-	} while(0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
-		return 0;
 	}
 
 	if (feat_avail == 0x401000)
