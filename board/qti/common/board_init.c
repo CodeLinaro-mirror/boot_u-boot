@@ -83,6 +83,7 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 uint32_t g_board_machid;
 uint32_t g_load_addr;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
+uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
 
 struct udevice *smem;
 

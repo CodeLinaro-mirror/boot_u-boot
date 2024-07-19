@@ -1147,6 +1147,7 @@ typedef struct {
 
 extern crashdump_infos_t *board_dumpinfo;
 extern uint8_t *board_dump_entries;
+extern uint8_t g_recovery_path __attribute__((section(".data")));
 
 #if IS_ENABLED(CONFIG_MMC) || IS_ENABLED(CONFIG_NOR_BLK)
 /* BLK part info */
