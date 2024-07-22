@@ -98,6 +98,11 @@ extern int part_get_info_efi(struct blk_desc *dev_desc, int part,
 
 void set_ethmac_addr(void);
 
+__weak int ipq_uboot_uart_fdt_fixup(uint32_t machid)
+{
+	return 0;
+}
+
 __weak int ipq_uboot_fdt_fixup_smem(void *blob)
 {
 	return 0;
@@ -488,6 +493,7 @@ int board_early_init_f(void)
 
 	g_board_machid = machid_info->machid;
 #endif
+	ipq_uboot_uart_fdt_fixup(g_board_machid);
 
 	return 0;
 }

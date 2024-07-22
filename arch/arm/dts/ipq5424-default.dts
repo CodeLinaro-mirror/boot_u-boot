@@ -9,7 +9,7 @@
 	config_name = "config-default";
 
 	aliases {
-		console = &se0_uart0;
+		console = &se1_uart1;
 		spi0 = &se4_spi0;
 		sdhci = &mmc;
 	};
@@ -164,6 +164,12 @@
 
 			se0_uart0: serial@1a80000 {
 				pinctrl-0 = <&uart0_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+
+			se1_uart1: serial@1a84000 {
+				pinctrl-0 = <&uart1_pinmux>;
 				pinctrl-names = "default";
 				status = "okay";
 			};
