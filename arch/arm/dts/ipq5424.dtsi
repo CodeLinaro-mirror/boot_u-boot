@@ -111,6 +111,7 @@
 				clocks = <&gcc GCC_QUPV3_SE1_CLK>;
 				clock-names = "se-clk";
 				status = "disabled";
+				u-boot,dm-pre-reloc;
 			};
 
 			se2_i2c0: i2c@1a88000 {

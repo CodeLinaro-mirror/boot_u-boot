@@ -347,3 +347,15 @@ void ipq_fdt_fixup_sku_based_usb_config(void *blob)
 	parse_fdt_fixup("/soc@0/usb3@8a00000/dwc3@8a00000/%phy-names%?usb2-phy", blob);
 	parse_fdt_fixup("/soc@0/usb3@8a00000/%qcom,select-utmi-as-pipe-clk%1", blob);
 }
+
+int ipq_uboot_uart_fdt_fixup(uint32_t machid)
+{
+	const char uart0[50] = "/soc@0/geniqup@1ac0000/serial@1a80000";
+
+	if (machid == MACH_TYPE_IPQ5424_EMU_FBC ||
+		machid == MACH_TYPE_IPQ5424_EMU)
+		fdt_find_and_setprop((void *)gd->fdt_blob, "/aliases/",
+				"console", uart0, strlen(uart0) + 1, 1);
+
+	return 0;
+}
