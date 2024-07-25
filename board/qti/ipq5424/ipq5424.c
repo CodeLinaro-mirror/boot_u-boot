@@ -26,6 +26,7 @@
 #define PLL_REFERENCE_CLOCK			0x9B784
 #define FREQUENCY_MASK				0xfffffdf0
 #define INTERNAL_48MHZ_CLOCK			0x7
+#define CONFIG_NAME_MAX_LEN			128
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -66,6 +67,8 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_RDP466, "ipq5424-rdp466"},
 	{ MACH_TYPE_IPQ5424_RDP485, "ipq5424-rdp485"},
 	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
+	{ MACH_TYPE_IPQ5424_RDP466_RFFE, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP485_RFFE, "ipq5424-rdp485"},
 	{ MACH_TYPE_IPQ5424_DB_MR01_1, "ipq5424-db-mr01.1"},
 };
 
@@ -358,4 +361,51 @@ int ipq_uboot_uart_fdt_fixup(uint32_t machid)
 				"console", uart0, strlen(uart0) + 1, 1);
 
 	return 0;
+}
+
+void ipq_uboot_fdt_fixup(uint32_t machid)
+{
+	int ret, len = 0, config_nos = 0;
+	char config[CONFIG_NAME_MAX_LEN];
+	char *config_list[6] = { NULL };
+
+	switch (machid) {
+		case MACH_TYPE_IPQ5424_RDP466_RFFE:
+			config_list[config_nos++] = "config-rdp466-rffe";
+			break;
+		case MACH_TYPE_IPQ5424_RDP485_RFFE:
+			config_list[config_nos++] = "config-rdp485-rffe";
+			break;
+	}
+
+	if (config_nos) {
+		while (config_nos--) {
+			strlcpy(&config[len], config_list[config_nos],
+					CONFIG_NAME_MAX_LEN - len);
+			len += strnlen(config_list[config_nos],
+					CONFIG_NAME_MAX_LEN) + 1;
+			if (len > CONFIG_NAME_MAX_LEN) {
+				printf("skipping uboot fdt fixup err: "
+						"config name len overflow\n");
+				return;
+			}
+		}
+
+		/*
+		 * Open in place with a new length.
+		*/
+		ret = fdt_open_into(gd->fdt_blob, (void *)gd->fdt_blob,
+				fdt_totalsize(gd->fdt_blob) + len);
+		if (ret)
+			printf("uboot-fdt-fixup: Cannot expand FDT: %s\n",
+					fdt_strerror(ret));
+
+		ret = fdt_setprop((void *)gd->fdt_blob, 0, "config_name",
+				config, len);
+		if (ret)
+			printf("uboot-fdt-fixup: unable to set "
+					"config_name(%d)\n", ret);
+	}
+
+	return;
 }
