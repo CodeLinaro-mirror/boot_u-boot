@@ -17,7 +17,9 @@
 	soc: soc@0 {
 		tlmm: pinctrl@1000000 {
 			uart0_pinmux: uart0 {
+				u-boot,dm-pre-reloc;
 				uart0_tx {
+					u-boot,dm-pre-reloc;
 					pins = "GPIO_13";
 					function = "uart0_tx";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
@@ -25,6 +27,7 @@
 				};
 
 				uart0_rx {
+					u-boot,dm-pre-reloc;
 					pins = "GPIO_12";
 					function = "uart0_rx";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
@@ -33,7 +36,9 @@
 			};
 
 			uart1_pinmux: uart1 {
+				u-boot,dm-pre-reloc;
 				uart1_tx {
+					u-boot,dm-pre-reloc;
 					pins = "GPIO_44";
 					function = "uart1_tx";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
@@ -41,6 +46,7 @@
 				};
 
 				uart1_rx {
+					u-boot,dm-pre-reloc;
 					pins = "GPIO_43";
 					function = "uart1_rx";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
