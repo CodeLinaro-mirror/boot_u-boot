@@ -465,7 +465,7 @@
 		};
 
 		pcie0_phy: phy@84000 {
-			compatible = "qti,ipq5424-qmp-gen3x1-pcie-phy";
+			compatible = "qti,ipq9574-qmp-gen3x1-pcie-phy";
 			reg = <0x00084000 0x1bc>, /* Serdes PLL */
 				<0x00084200 0x16c>, /* Serdes Tx0 */
 				<0x00084400 0x200>, /* Serdes Rx0 */
@@ -481,7 +481,7 @@
 		};
 
 		pcie1_phy: phy@8c000 {
-			compatible = "qti,ipq5424-qmp-gen3x1-pcie-phy";
+			compatible = "qti,ipq9574-qmp-gen3x1-pcie-phy";
 			reg = <0x0008c000 0x1bc>, /* Serdes PLL */
 				<0x0008c200 0x16c>, /* Serdes Tx0 */
 				<0x0008c400 0x200>, /* Serdes Rx0 */
@@ -497,7 +497,7 @@
 		};
 
 		pcie2_phy: phy@f4000 {
-			compatible = "qti,ipq5424-qmp-gen3x2-pcie-phy";
+			compatible = "qti,ipq9574-qmp-gen3x2-pcie-phy";
 			reg = <0x000f4000 0x1bc>, /* Serdes PLL */
 				<0x000f4200 0x16c>, /* Serdes Tx0 */
 				<0x000f4400 0x200>, /* Serdes Rx0 */
@@ -515,7 +515,7 @@
 		};
 
 		pcie3_phy: phy@fc000 {
-			compatible = "qti,ipq5424-qmp-gen3x2-pcie-phy";
+			compatible = "qti,ipq9574-qmp-gen3x2-pcie-phy";
 			reg = <0x000fc000 0x1bc>, /* Serdes PLL */
 				<0x000fc200 0x16c>, /* Serdes Tx0 */
 				<0x000fc400 0x200>, /* Serdes Rx0 */
