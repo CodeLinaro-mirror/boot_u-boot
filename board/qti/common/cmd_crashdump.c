@@ -51,10 +51,8 @@
 #define TFTP_MAX_TRF_SZ_LIMIT			SZ_1G
 #define DRAM_DUMP_NAME_PREFIX			"EBICS"
 
-#ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
-
-#define DUMP2MEM_MAGIC1_COOKIE			0x44554D50
-#define DUMP2MEM_MAGIC2_COOKIE			0x324D454D
+#if defined(CONFIG_IPQ_CRASHDUMP_TO_MEMORY) || \
+	defined(CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY)
 
 typedef struct {
 	char name[DUMP_NAME_STR_MAX_LEN];
@@ -66,10 +64,12 @@ typedef struct {
 	uint32_t magic1;
 	uint32_t magic2;
 	uint32_t nos_memdumps;
-	uint64_t total_dump_sz;
-	uint32_t dump_list_info_offset;
+	uint32_t total_dump_sz;
+	uint64_t dump_list_info_offset;
+	uint32_t reserved[2];
 } memdump_hdr_t;
-#endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+#endif
+/* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
 #ifdef CONFIG_IPQ_MINIDUMP
 
@@ -136,19 +136,31 @@ typedef struct {
 	uint8_t usb_part_idx;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
 
-#ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
+#if defined(CONFIG_IPQ_CRASHDUMP_TO_FLASH) || \
+	defined(CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY)
 	void *crashdump_cnxt;
 	uint64_t crashdump_offset;
 	uint64_t dump_total_size;
 	uint8_t flash_type;
-#endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+	char *part_name;
+	uint64_t part_size;
+	uint64_t part_blksize;
+	uint64_t init_dump_off;
+#endif
+/* CONFIG_IPQ_CRASHDUMP_TO_FLASH (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	uint64_t dump2mem_rsvd_addr;
+	uint64_t dump2mem_rsvd_limit;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#if defined(CONFIG_IPQ_CRASHDUMP_TO_MEMORY) || \
+	defined(CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY)
 	uint64_t dump2mem_curr_addr;
 	memdump_hdr_t memdump_hdr;
 	memdump_list_info_t *memdump_list;
-#endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+#endif
+/* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
 } crashdump_interface_cfg_t;
 
@@ -510,6 +522,11 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 		dump_config->dump_to = DUMP_TO_MEM;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	if (env_get("dump_to_nvmem"))
+		dump_config->dump_to = DUMP_TO_NVMEM;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
+
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
 	if (env_get("dump_to_flash"))
 		dump_config->dump_to = DUMP_TO_FLASH;
@@ -552,13 +569,36 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	case DUMP_TO_MEM:
 		char *tmp = env_get("dump_to_mem");
-		if (!tmp || !str2long(tmp,(ulong*)
+		char *dump2mem_addr_s = NULL, *dump2mem_sz_s = NULL;
+
+		dump2mem_addr_s = strsep(&tmp, " ");
+		if (!dump2mem_addr_s || !str2long(dump2mem_addr_s,
+				(ulong*)
 				&dump_config->iface_cfg.dump2mem_rsvd_addr)) {
 			printf("Failed to decode dump_to_mem reserved mem \n");
 			ret = CMD_RET_FAILURE;
 		}
 
+		dump2mem_sz_s = strsep(&tmp, " ");
+		if (!dump2mem_sz_s || !str2long(dump2mem_sz_s,
+				(ulong*)
+				&dump_config->iface_cfg.dump2mem_rsvd_limit)){
+			printf("Failed to decode dump_to_mem size\n");
+			ret = CMD_RET_FAILURE;
+		}
+
+		dump_config->iface_cfg.dump2mem_rsvd_limit =
+			CFG_SYS_SDRAM_BASE + gd->ram_size -
+			dump_config->iface_cfg.dump2mem_rsvd_limit;
 		/* range check for the dump2mem_addr */
+		if ((dump_config->iface_cfg.dump2mem_rsvd_addr <
+			CFG_SYS_SDRAM_BASE) ||
+			(dump_config->iface_cfg.dump2mem_rsvd_addr >
+			dump_config->iface_cfg.dump2mem_rsvd_limit)) {
+			printf("Invalid dump_to_mem param\n");
+			ret = CMD_RET_FAILURE;
+		}
+
 		if (dump_config->dump_level != MINIDUMP) {
 			printf("Only Minidump is supported in dump_to_mem\n");
 			ret = CMD_RET_FAILURE;
@@ -571,6 +611,104 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	case DUMP_TO_NVMEM:
+		char *part_name = env_get("dump_to_nvmem");
+		ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+		dump_config->iface_cfg.part_name = part_name;
+		dump_config->iface_cfg.flash_type =
+			(sfi->flash_secondary_type ?
+			 sfi->flash_secondary_type : sfi->flash_type);
+
+		if ((dump_config->iface_cfg.flash_type != SMEM_BOOT_MMC_FLASH)
+				&& (dump_config->iface_cfg.flash_type !=
+				SMEM_BOOT_QSPI_NAND_FLASH)) {
+			printf("Error: Invalid flash partition [NAND/EMMC]\n");
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+#ifdef CONFIG_IPQ_NAND
+		uint32_t off, size, valid_start_off;
+		uint8_t valid_start_found = 0;
+		struct mtd_info *mtd = get_nand_dev_by_index(0);
+		if (!mtd) {
+			printf("Error: %s Invalid partition\n", part_name);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		ret = getpart_offset_size(part_name, &off, &size);
+ 		if (ret) {
+			printf("Error: %s Invalid partition\n", part_name);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		dump_config->iface_cfg.crashdump_offset
+			= valid_start_off = off;
+		dump_config->iface_cfg.part_size = size;
+		dump_config->iface_cfg.part_blksize = mtd->erasesize;
+		dump_config->iface_cfg.init_dump_off = mtd->erasesize;
+		for (; off < (dump_config->iface_cfg.crashdump_offset + size);
+				off += mtd->erasesize) {
+			if (nand_block_isbad(mtd, off)) {
+				dump_config->iface_cfg.part_size
+					-= mtd->erasesize;
+			} else if (!valid_start_found) {
+				valid_start_off = off;
+				valid_start_found = 1;
+			}
+		}
+
+		if (!dump_config->iface_cfg.part_size) {
+			printf("Error: %s bad partition\n", part_name);
+			ret = CMD_RET_FAILURE;
+			break;
+		} else
+			dump_config->iface_cfg.crashdump_offset
+				= valid_start_off;
+#endif
+
+#ifdef CONFIG_IPQ_MMC
+		struct disk_partition disk_info;
+		blkpart_info_t bpart_info;
+		if (!find_mmc_device(0)) {
+			printf("Error: %s Invalid partition\n", part_name);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
+					dump_config->iface_cfg.flash_type);
+		ret = ipq_part_get_info_by_name(&bpart_info);
+		if (ret) {
+			printf("Error: %s Invalid partition\n", part_name);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		dump_config->iface_cfg.crashdump_offset = disk_info.start;
+		dump_config->iface_cfg.part_size =
+					disk_info.size * disk_info.blksz;
+		dump_config->iface_cfg.part_blksize = disk_info.blksz;
+		dump_config->iface_cfg.init_dump_off = 1;
+#endif
+
+		if (dump_config->dump_level != MINIDUMP) {
+			printf("Only Minidump is supported in dump_to_mem\n");
+			ret = CMD_RET_FAILURE;
+		}
+
+		if (dump_config->is_compress_enabled) {
+			printf("Compression is not supported "
+					"in dump_to_mem\n");
+			ret = CMD_RET_FAILURE;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
 	case DUMP_TO_TFTP:
 		dump_config->iface_cfg.tftp_serverip = env_get("serverip");
@@ -592,6 +730,7 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 					"Using / dir in TFTP server\n");
 		}
 		break;
+
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
 	case DUMP_TO_FLASH:
 		ret = crashdump_flash_get_args(
@@ -603,6 +742,7 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
 	default:
 		ret = CMD_RET_FAILURE;
 		break;
@@ -685,6 +825,9 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	case DUMP_TO_MEM:
+		memset((void*)(uintptr_t)
+				dump_config->iface_cfg.dump2mem_rsvd_addr,
+				0xffffffff, sizeof(memdump_hdr_t));
 		memdump_hdr_t *hdr = &dump_config->iface_cfg.memdump_hdr;
 		dump_config->iface_cfg.dump2mem_curr_addr =
 			dump_config->iface_cfg.dump2mem_rsvd_addr;
@@ -698,6 +841,36 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 				sizeof(memdump_hdr_t), ARCH_DMA_MINALIGN);
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	case DUMP_TO_NVMEM:
+		ret = crashdump_flash_set_fn_ops(dump_config);
+		if (ret) {
+			printf("failed to set crashdump "
+					"flash function ops ...\n");
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		snprintf(runcmd, sizeof(runcmd), "flerase %s",
+				dump_config->iface_cfg.part_name);
+		ret = run_command(runcmd, 0);
+		if (ret) {
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		memdump_hdr_t *nvhdr = &dump_config->iface_cfg.memdump_hdr;
+		nvhdr->magic1 = DUMP2MEM_MAGIC1_COOKIE;
+		nvhdr->magic2 = DUMP2MEM_MAGIC2_COOKIE;
+		nvhdr->nos_memdumps = 0;
+		nvhdr->total_dump_sz = 0;
+		nvhdr->dump_list_info_offset = 0;
+
+		dump_config->iface_cfg.dump2mem_curr_addr =
+			dump_config->iface_cfg.part_blksize;
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEM */
 
 	case DUMP_TO_TFTP:
 		printf("Trying to ping server.....\n");
@@ -718,6 +891,7 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 			ret = CMD_RET_FAILURE;
 		}
 		break;
+
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
 	case DUMP_TO_FLASH:
 		ret = crashdump_flash_set_fn_ops(dump_config);
@@ -728,6 +902,7 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
 	default:
 		ret = CMD_RET_FAILURE;
 		break;
@@ -1347,10 +1522,10 @@ int crashdump_emmc_flash_write_data(void *cnxt, uint8_t *data, uint32_t size)
 				(uint8_t *)cur_data_pos);
 #else
 		n = emmc_cnxt->mmc->block_dev.block_write(
-						&emmc_cnxt->mmc->block_dev,
-						emmc_cnxt->cur_crashdump_offset,
-						cur_emmc_blk_len,
-						(uint8_t *)cur_data_pos);
+					&emmc_cnxt->mmc->block_dev,
+					emmc_cnxt->cur_crashdump_offset,
+					cur_emmc_blk_len,
+					(uint8_t *)cur_data_pos);
 #endif
 		ret = (n == cur_emmc_blk_len) ? 0 : -1;
 		if (ret)
@@ -1424,9 +1599,10 @@ static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config)
 	void *crashdump_cnxt = NULL;
 
 	/*
-	* Determine the flash type and initialize function pointer for flash
-	* operations and its context which needs to be passed to these functions
-	*/
+	 * Determine the flash type and initialize function pointer for flash
+	 * operations and its context which needs to be passed to these
+	 * functions.
+	 */
 	if (((flash_type == SMEM_BOOT_NAND_FLASH) ||
 		(flash_type == SMEM_BOOT_QSPI_NAND_FLASH))) {
 #ifdef CONFIG_IPQ_NAND
@@ -1567,16 +1743,57 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 			iface_cfg->dump2mem_rsvd_addr;
 		list->size = dump_entry->size;
 
+		if (roundup(iface_cfg->dump2mem_curr_addr + dump_entry->size,
+				ARCH_DMA_MINALIGN) >
+				iface_cfg->dump2mem_rsvd_limit) {
+			printf("Error: Not enough memory in rsvd mem" \
+				       " to save dumps\n");
+			return CMD_RET_FAILURE;
+		}
+
 		printf("Dumping %s @ 0x%llX \n", dump_entry->name,
 				iface_cfg->dump2mem_curr_addr);
 		memcpy((void*)(uintptr_t)iface_cfg->dump2mem_curr_addr,
 				(void*)(uintptr_t)dump_entry->start_addr,
 				dump_entry->size);
+
 		iface_cfg->dump2mem_curr_addr = roundup(
 				iface_cfg->dump2mem_curr_addr +
 				dump_entry->size, ARCH_DMA_MINALIGN);
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	case DUMP_TO_NVMEM:
+		memdump_hdr_t *nvhdr = &iface_cfg->memdump_hdr;
+		int nvidx = nvhdr->nos_memdumps++;
+		memdump_list_info_t *nvlist = &iface_cfg->memdump_list[nvidx];
+		strlcpy(nvlist->name, dump_entry->name, DUMP_NAME_STR_MAX_LEN);
+		nvlist->offset = iface_cfg->dump2mem_curr_addr;
+		nvlist->size = dump_entry->size;
+
+		if (iface_cfg->dump2mem_curr_addr + dump_entry->size >
+				iface_cfg->part_size) {
+			printf("Error: Not enough memory in %s partition" \
+					" to save dumps\n",
+					iface_cfg->part_name);
+			return CMD_RET_FAILURE;
+		}
+
+		printf("Writing %s in %s @ offset 0x%llx\n", dump_entry->name,
+				iface_cfg->part_name,
+				iface_cfg->dump2mem_curr_addr);
+		if (crashdump_flash_write(iface_cfg->crashdump_cnxt,
+						(void*)(uintptr_t)
+						dump_entry->start_addr,
+						dump_entry->size)) {
+			printf("crashdump data writing in flash failure\n");
+			return CMD_RET_FAILURE;
+		}
+
+		iface_cfg->dump2mem_curr_addr += dump_entry->size;
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
 	case DUMP_TO_TFTP:
 		snprintf(runcmd, sizeof(runcmd), "tftpput 0x%llx 0x%llx %s/%s",
@@ -1614,26 +1831,42 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 {
 	int ret = CMD_RET_SUCCESS;
 	crashdump_infos_int_t *dump_entry;
+	crashdump_interface_cfg_t *iface_cfg = &dump_config->iface_cfg;
 	uint16_t dumped = 0;
 
-#ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
-	if (dump_config->dump_to == DUMP_TO_MEM) {
-		dump_config->iface_cfg.memdump_list =
-			malloc(sizeof(memdump_list_info_t) *
+#if defined(CONFIG_IPQ_CRASHDUMP_TO_MEMORY) || \
+	defined(CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY)
+	if ((dump_config->dump_to == DUMP_TO_MEM) ||
+			(dump_config->dump_to == DUMP_TO_NVMEM)) {
+		iface_cfg->memdump_list = malloc(sizeof(memdump_list_info_t) *
 					dump_config->actual_nos_dumps);
-		if (!dump_config->iface_cfg.memdump_list) {
+		if (!iface_cfg->memdump_list) {
 			printf("failed to alloc mem for memdump_list_info\n");
 			return;
 		}
 	}
-#endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
+#endif
+/* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	if (dump_config->dump_to == DUMP_TO_NVMEM) {
+		ret = crashdump_flash_write_init(
+			iface_cfg->crashdump_cnxt,
+			iface_cfg->crashdump_offset +
+			iface_cfg->init_dump_off, 0);
+		if (ret) {
+			printf("crashdump flash write init failed ...\n");
+			return;
+		}
+	}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
-	if (dump_config->dump_to ==  DUMP_TO_FLASH) {
+	if (dump_config->dump_to == DUMP_TO_FLASH) {
 		ret = crashdump_flash_write_init(
-			dump_config->iface_cfg.crashdump_cnxt,
-			dump_config->iface_cfg.crashdump_offset,
-			dump_config->iface_cfg.dump_total_size);
+			iface_cfg->crashdump_cnxt,
+			iface_cfg->crashdump_offset,
+			iface_cfg->dump_total_size);
 		if (ret) {
 			printf("crashdump flash write init failed ...\n");
 			return;
@@ -1649,7 +1882,9 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 
 		dumped++;
 	}
-	printf("Dumped %d files!!\n", dumped);
+
+	if (!ret)
+		printf("Dumped %d files!!\n", dumped);
 
 	switch (dump_config->dump_to) {
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
@@ -1661,8 +1896,20 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	case DUMP_TO_MEM:
-		crashdump_interface_cfg_t *iface_cfg = &dump_config->iface_cfg;
 		memdump_hdr_t *hdr = &iface_cfg->memdump_hdr;
+		if (ret)
+			break;
+
+		hdr->total_dump_sz = iface_cfg->dump2mem_curr_addr +
+			(hdr->nos_memdumps * sizeof(memdump_list_info_t)) -
+			iface_cfg->dump2mem_rsvd_addr;
+
+		if ((iface_cfg->dump2mem_curr_addr + hdr->total_dump_sz)
+				> iface_cfg->dump2mem_rsvd_limit) {
+			printf("Error: Not enough memory in rsvd mem" \
+				       " to save dumps\n");
+			break;
+		}
 
 		memcpy((void*)(uintptr_t)iface_cfg->dump2mem_curr_addr,
 				(void*)dump_config->iface_cfg.memdump_list,
@@ -1670,9 +1917,6 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 				dump_config->actual_nos_dumps);
 		free(dump_config->iface_cfg.memdump_list);
 
-		hdr->total_dump_sz = iface_cfg->dump2mem_curr_addr +
-			(hdr->nos_memdumps * sizeof(memdump_list_info_t)) -
-			iface_cfg->dump2mem_rsvd_addr;
 		hdr->dump_list_info_offset = iface_cfg->dump2mem_curr_addr -
 			iface_cfg->dump2mem_rsvd_addr;
 
@@ -1681,10 +1925,62 @@ void ipq_do_dump_data(crashdump_config_t *dump_config)
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	case DUMP_TO_NVMEM:
+		memdump_hdr_t *nvhdr = &iface_cfg->memdump_hdr;
+		if (ret)
+			break;
+
+		ret = crashdump_flash_write(iface_cfg->crashdump_cnxt,
+				(void*)iface_cfg->memdump_list,
+				sizeof(memdump_list_info_t) *
+				dump_config->actual_nos_dumps);
+		if (ret) {
+			printf("crashdump data writing in flash failure\n");
+			return;
+		}
+
+		if (crashdump_flash_write_deinit(iface_cfg->crashdump_cnxt)) {
+			printf("crashdump data deinit in flash failure\n");
+			return;
+		}
+
+		nvhdr->dump_list_info_offset = iface_cfg->dump2mem_curr_addr;
+		nvhdr->total_dump_sz = iface_cfg->dump2mem_curr_addr +
+			(nvhdr->nos_memdumps * sizeof(memdump_list_info_t));
+
+		if (nvhdr->total_dump_sz > iface_cfg->part_size) {
+			printf("Error: Not enough memory in %s partition" \
+				       " to save dumps", iface_cfg->part_name);
+			return;
+		}
+
+		/* updating memdump_hdr in flash at the first block */
+		ret = crashdump_flash_write_init(iface_cfg->crashdump_cnxt,
+				iface_cfg->crashdump_offset, 0);
+		if (ret) {
+			printf("crashdump data init in flash failure\n");
+			return;
+		}
+
+		ret = crashdump_flash_write(iface_cfg->crashdump_cnxt,
+				(uint8_t*)nvhdr, sizeof(memdump_hdr_t));
+		if (ret) {
+			printf("crashdump data writing in flash failure\n");
+			return;
+		}
+
+		ret = crashdump_flash_write_deinit(iface_cfg->crashdump_cnxt);
+		if (ret) {
+			printf("crashdump data deinit in flash failure\n");
+			return;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
+
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
 	case DUMP_TO_FLASH:
-		if (crashdump_flash_write_deinit(
-				dump_config->iface_cfg.crashdump_cnxt)) {
+		if (crashdump_flash_write_deinit(iface_cfg->crashdump_cnxt)) {
 			printf("crashdump flash write deinit failed ...\n");
 			return;
 		}

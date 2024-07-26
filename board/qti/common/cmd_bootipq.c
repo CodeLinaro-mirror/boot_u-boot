@@ -192,17 +192,92 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 	return 0;
 }
 #endif
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+void set_crashdump_bootargs(uint8_t flash_type)
+{
+	char *part_name = env_get("dump_to_nvmem");
+	int ret;
+	uint32_t * buf = NULL;
+
+	if (flash_type == SMEM_BOOT_QSPI_NAND_FLASH) {
+#ifdef CONFIG_IPQ_NAND
+		loff_t offset;
+		size_t part_size, read_size = 64;
+		struct mtd_info *mtd = get_nand_dev_by_index(0);
+		if (!mtd)
+			return;
+
+		if (getpart_offset_size(part_name, (uint32_t*)&offset,
+					(uint32_t*)&part_size))
+			return;
+
+		buf = malloc(read_size);
+		if (!buf) {
+			debug("failed to allocate memory at %s\n", __func__);
+			return;
+		}
+
+		ret = nand_read(mtd, (uint32_t)offset, (size_t*)&read_size,
+				(void*)buf);
+		if (ret)
+			goto retn;
+#endif
+	} else {
+#ifdef CONFIG_IPQ_MMC
+		blkpart_info_t bpart_info;
+		struct disk_partition disk_info;
+
+		if (!find_mmc_device(0))
+			return;
+
+		BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
+					flash_type);
+		ret = ipq_part_get_info_by_name(&bpart_info);
+		if (ret)
+			return;
+
+		buf = malloc(disk_info.blksz);
+		if (!buf) {
+			debug("failed to allocate memory at %s\n", __func__);
+			return;
+		}
+
+		ret = blk_dread(bpart_info.desc, disk_info.start,
+				1, (void*)buf);
+		if (ret < 0) {
+			printf("Blk read failed %d \n", ret);
+			goto retn;
+		}
+#endif
+	}
+
+	if (buf && (buf[0] == DUMP2MEM_MAGIC1_COOKIE) &&
+			(buf[1] == DUMP2MEM_MAGIC2_COOKIE)) {
+		run_command("setenv bootargs ${bootargs} collect_minidump", 0);
+	}
+
+retn:
+	if (buf)
+		free(buf);
+
+	return;
+}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
+
 int set_bootargs(void)
 {
 	char *fit_bootargs =  NULL;
 	char *strings = env_get("bootargs");
 	int len, ret = CMD_RET_SUCCESS;
 	char * cmd_line;
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+#endif
 #ifdef CONFIG_MMC
 	bool gpt_flag = true;
 	char runcmd[MAX_BOOT_ARGS_SIZE];
 	int active_part = get_rootfs_active_partition();
-
 	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
 
 	if(flash_type  == SMEM_BOOT_MMC_FLASH)
@@ -228,6 +303,14 @@ int set_bootargs(void)
 		return -ENXIO;
 	}
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	if (env_get("dump_to_nvmem")) {
+		set_crashdump_bootargs(sfi->flash_secondary_type ?
+				sfi->flash_secondary_type : sfi->flash_type);
+	}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
+
+	strings = env_get("bootargs");
 	cmd_line = malloc(CONFIG_SYS_CBSIZE);
 	if(!cmd_line) {
 		printf("%s: Memory allocation failed\n", __func__);
