@@ -6,13 +6,13 @@
 #include <common.h>
 #include <command.h>
 #include <cpu_func.h>
+#include <fdt_support.h>
 #include <asm/cache.h>
 #include <asm/global_data.h>
 #include <jffs2/load_kernel.h>
 #include <mtd_node.h>
 #include <sysreset.h>
 #include <linux/psci.h>
-#include <mach/ipq_scm.h>
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
 #endif
@@ -21,6 +21,11 @@
 
 #include <asm/io.h>
 #include <linux/delay.h>
+
+#define PLL_POWER_ON_AND_RESET			0x9B780
+#define PLL_REFERENCE_CLOCK			0x9B784
+#define FREQUENCY_MASK				0xfffffdf0
+#define INTERNAL_48MHZ_CLOCK			0x7
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -57,6 +62,11 @@ int * fnode_entires = &ipq_fnode_entires;
 struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_EMU, "ipq5424-emulation"},
 	{ MACH_TYPE_IPQ5424_EMU_FBC, "ipq5424-emulation"},
+	{ MACH_TYPE_IPQ5424_RDP464, "ipq5424-rdp464"},
+	{ MACH_TYPE_IPQ5424_RDP466, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP485, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
+	{ MACH_TYPE_IPQ5424_DB_MR01_1, "ipq5424-db-mr01.1"},
 };
 
 int machid_dts_nos = ARRAY_SIZE(machid_dts);
@@ -131,6 +141,92 @@ void lowlevel_init(void)
 {
 	return;
 }
+
+#ifndef CFG_EMULATION
+void ipq_config_cmn_clock(void)
+{
+	unsigned int reg_val;
+	/*
+	 * Init CMN clock for ethernet
+	 */
+	reg_val = readl(PLL_REFERENCE_CLOCK);
+	reg_val = (reg_val & FREQUENCY_MASK) | INTERNAL_48MHZ_CLOCK;
+	/*Select clock source*/
+	writel(reg_val, PLL_REFERENCE_CLOCK);
+
+	/* Soft reset to calibration clocks */
+	reg_val = readl(PLL_POWER_ON_AND_RESET);
+	reg_val &= ~BIT(6);
+	writel(reg_val, PLL_POWER_ON_AND_RESET);
+	mdelay(1);
+	reg_val |= BIT(6);
+	writel(reg_val, PLL_POWER_ON_AND_RESET);
+	mdelay(1);
+}
+
+int board_get_smem_target_info(void)
+{
+	uint32_t tcsr_wonce0_val = readl(TCSR_TZ_WONCE0);
+	uint32_t tcsr_wonce1_val = readl(TCSR_TZ_WONCE1);
+	uint64_t ipq_smem_target_info_addr;
+	ipq_smem_target_info_t *ipq_smem_target_info_ptr, *smem_tinfo_ptr =
+		get_ipq_smem_target_info();
+
+	ipq_smem_target_info_addr = tcsr_wonce0_val |
+		(((uint64_t)(tcsr_wonce1_val)) << 32);
+
+	ipq_smem_target_info_ptr = (ipq_smem_target_info_t*)
+		(uintptr_t)ipq_smem_target_info_addr;
+	if (!ipq_smem_target_info_ptr)
+		return -EFAULT;
+
+	if (ipq_smem_target_info_ptr->identifier !=
+			IPQ_SMEM_TARGET_INFO_IDENTIFIER)
+		return -EFAULT;
+
+	memcpy((void*)smem_tinfo_ptr,
+			(void*)(uintptr_t)ipq_smem_target_info_ptr,
+			sizeof(ipq_smem_target_info_t));
+	return 0;
+}
+
+void ipq_fdt_fixup_smem(void *blob)
+{
+	uint32_t reg[4];
+	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+
+	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
+		if (board_get_smem_target_info())
+			return;
+	}
+
+	reg[0] = 0;
+	reg[1] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
+	reg[2] = 0;
+	reg[3] = cpu_to_fdt32(smem_tinfo_ptr->smem_size);
+
+	fdt_find_and_setprop(blob, "/reserved-memory/smem@8a800000/",
+			"reg", reg, sizeof(reg), 0);
+}
+
+int ipq_uboot_fdt_fixup_smem(void *blob)
+{
+	uint32_t reg[2];
+	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+
+	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
+		if (board_get_smem_target_info())
+			return -EFAULT;
+	}
+
+	reg[0] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
+	reg[1] = cpu_to_fdt32(smem_tinfo_ptr->smem_size);
+
+	fdt_find_and_setprop(blob, "/reserved-memory/smem_region@8A800000",
+			"reg", reg, sizeof(reg), 0);
+	return 0;
+}
+#endif /* CFG_EMULATION */
 
 #ifdef CONFIG_ARM64
 /*
@@ -239,4 +335,15 @@ int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 fail:
 	return ret;
+}
+
+void ipq_fdt_fixup_sku_based_usb_config(void *blob)
+{
+	if (!(readl(USB_SOFTSKU_STATUS) & USB_SOFTSKU_STATUS_DISABLE))
+		return;
+
+	parse_fdt_fixup("/soc@0/phy@7b000/%phandle%0xe0", blob);
+	parse_fdt_fixup("/soc@0/usb3@8a00000/dwc3@8a00000/%phys%0xe0", blob);
+	parse_fdt_fixup("/soc@0/usb3@8a00000/dwc3@8a00000/%phy-names%?usb2-phy", blob);
+	parse_fdt_fixup("/soc@0/usb3@8a00000/%qcom,select-utmi-as-pipe-clk%1", blob);
 }

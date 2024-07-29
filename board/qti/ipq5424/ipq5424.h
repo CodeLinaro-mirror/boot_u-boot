@@ -34,6 +34,18 @@ typedef enum {
 #define MACH_TYPE_IPQ5424_EMU			0x8050001
 #define MACH_TYPE_IPQ5424_EMU_FBC		0xF060000
 
+/*
+ * TCSR Registers
+ */
+#define TCSR_TZ_WONCE0				0x195C000
+#define TCSR_TZ_WONCE1				0x195C004
+
+#define MACH_TYPE_IPQ5424_RDP464		0x8070000
+#define MACH_TYPE_IPQ5424_RDP466		0x8070100
+#define MACH_TYPE_IPQ5424_RDP485		0x8070101
+#define MACH_TYPE_IPQ5424_RDP487		0x8070200
+#define MACH_TYPE_IPQ5424_DB_MR01_1		0x1070000
+
 /* Crashdump Magic registers & values */
 #define TCSR_BOOT_MISC_REG			((u32*)0x195C100)
 
@@ -47,9 +59,21 @@ typedef enum {
 #define LINUX_6_x_NAND_DTS_NODE		"/soc@0/nand@79b0000/"
 #define LINUX_6_x_MMC_DTS_NODE		"/soc@0/mmc@7804000/"
 
+#define LINUX_6_x_USB_DTS_NODE		"/soc@0/usb3@8a00000/dwc3@8a00000/"
+#define LINUX_6_x_USB_DR_MODE_FIXUP	"/soc@0/usb3@8a00000/dwc3@8a00000%dr_mode%?peripheral"
+#define LINUX_6_x_USB_MAX_SPEED_FIXUP	"/soc@0/usb3@8a00000/dwc3@8a00000%maximum-speed%?high-speed"
+
+#define LINUX_6_x_USB2_DTS_NODE		"/soc@0/usb2@1e00000/dwc3@1e00000/"
+#define LINUX_6_x_USB2_DR_MODE_FIXUP	"/soc@0/usb2@1e00000/dwc3@1e00000%dr_mode%?peripheral"
+#define LINUX_6_x_USB2_MAX_SPEED_FIXUP	"/soc@0/usb2@1e00000/dwc3@1e00000%maximum-speed%?high-speed"
+
 #define LINUX_RSVD_MEM_DTS_NODE		"/reserved-memory/"
 #define STATUS_OK			"status%?okay"
 #define STATUS_DISABLED			"status%?disabled"
+
+/* USB softsku fuse */
+#define USB_SOFTSKU_STATUS		0xA628C
+#define USB_SOFTSKU_STATUS_DISABLE	BIT(0)
 
 /*
  * Rootfs authentication fuse

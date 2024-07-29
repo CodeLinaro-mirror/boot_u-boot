@@ -7,8 +7,8 @@
 #define _DT_BINDINGS_CLK_GCC_IPQ5424_H
 
 /* GCC controlled clock IDs */
-#define GCC_QUPV3_UART0_CLK				0
-#define GCC_QUPV3_UART1_CLK				1
+#define GCC_QUPV3_SE0_CLK				0
+#define GCC_QUPV3_SE1_CLK				1
 #define GCC_QPIC_IO_MACRO_CLK				2
 #define GCC_QUPV3_SE2_CLK				3
 #define GCC_QUPV3_SE3_CLK				4
@@ -67,6 +67,22 @@
 #define GCC_ANOC_PCIE1_1LANE_M_CLK			57
 #define GCC_ANOC_PCIE2_2LANE_M_CLK			58
 #define GCC_ANOC_PCIE3_2LANE_M_CLK			59
+#define	GCC_PCNOC_BFDCD_CLK				60
+#define	GCC_SYSTEM_NOC_BFDCD_CLK			61
+#define	GCC_NSSNOC_MEMNOC_BFDCD_CLK			62
+#define	GCC_IM_SLEEP_CLK				63
+#define GCC_CMN_12GPLL_AHB_CLK				64
+#define GCC_CMN_12GPLL_SYS_CLK				65
+#define GCC_NSSCC_CLK					66
+#define GCC_NSSNOC_NSSCC_CLK				67
+#define GCC_NSSNOC_SNOC_CLK				68
+#define GCC_NSSNOC_SNOC_1_CLK				69
+#define GCC_UNIPHY0_SYS_CLK				70
+#define GCC_UNIPHY1_SYS_CLK				71
+#define GCC_UNIPHY2_SYS_CLK				72
+#define GCC_UNIPHY0_AHB_CLK				73
+#define GCC_UNIPHY1_AHB_CLK				74
+#define GCC_UNIPHY2_AHB_CLK				75
 
 /* NSS controlled clock IDs */
 #define NSS_CC_PPE_CLK					100
@@ -98,5 +114,14 @@
 #define NSS_CC_UNIPHY_PORT2_TX_CLK			126
 #define NSS_CC_UNIPHY_PORT3_RX_CLK			127
 #define NSS_CC_UNIPHY_PORT3_TX_CLK			128
+#define NSS_CC_NSSNOC_PPE_CFG_CLK			129
+#define NSS_CC_PPE_SWITCH_BTQ_CLK			130
+
+#define UNIPHY0_NSS_RX_CLK				200
+#define UNIPHY0_NSS_TX_CLK				201
+#define UNIPHY1_NSS_RX_CLK				202
+#define UNIPHY1_NSS_TX_CLK				203
+#define UNIPHY2_NSS_RX_CLK				204
+#define UNIPHY2_NSS_TX_CLK				205
 
 #endif

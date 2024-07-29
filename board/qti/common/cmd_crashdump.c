@@ -21,7 +21,6 @@
 #include <common.h>
 #include <time.h>
 #include <cpu_func.h>
-#include <mach/ipq_scm.h>
 #include <dm.h>
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
 #include <usb.h>
@@ -459,7 +458,7 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 /**
  * ipq_read_tcsr_boot_misc() - read boot tcsr register
  */
-static int ipq_read_tcsr_boot_misc(void)
+__weak int ipq_read_tcsr_boot_misc(void)
 {
 	u32 *dmagic = TCSR_BOOT_MISC_REG;
 	return *dmagic;
@@ -1787,21 +1786,24 @@ void reset_crashdump(int reset_version)
 		cookie &= DLOAD_DISABLE;
 	}
 
-	do {
-		ret = -ENOTSUPP;
-		IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG, cookie);
-		ret = ipq_scm_call(&param);
+	if(cookie & CRASHDUMP_RESET)
+	{
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG,
+						cookie);
+			ret = ipq_scm_call(&param);
 
-		if (ret) {
-			printf("Error in reseting the Magic cookie\n");
-			return;
+			if (ret) {
+				printf("Error in reseting the Magic cookie\n");
+				return;
+			}
+		} while (0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 		}
-	} while (0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
 	}
-
 	return;
 }
 

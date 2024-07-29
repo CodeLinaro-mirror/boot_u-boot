@@ -83,6 +83,7 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 uint32_t g_board_machid;
 uint32_t g_load_addr;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
+uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
 
 struct udevice *smem;
 
@@ -751,8 +752,8 @@ int dram_init(void)
 {
 	int i, ret = CMD_RET_SUCCESS;
 	int count = 0;
-	struct smem_ram_ptable *ram_ptable;
-	struct smem_ram_ptn *p;
+	struct usable_ram_partition_table *ram_ptable;
+	struct ram_partition_entry *p;
 
 	ram_ptable = smem_get_item(SMEM_USABLE_RAM_PARTITION_TABLE);
 	if (IS_ERR_OR_NULL(ram_ptable)) {
@@ -764,13 +765,14 @@ int dram_init(void)
 	gd->ram_size = 0;
 	/* Check validy of RAM */
 	for (i = 0; i < CONFIG_RAM_NUM_PART_ENTRIES; i++) {
-		p = &ram_ptable->parts[i];
-		if (p->category == RAM_PARTITION_SDRAM &&
-					p->type == RAM_PARTITION_SYS_MEMORY) {
-			gd->ram_size += p->size;
+		p = &ram_ptable->ram_part_entry[i];
+		if (p->partition_category == RAM_PARTITION_SDRAM &&
+				p->partition_type ==
+				RAM_PARTITION_SYS_MEMORY) {
+			gd->ram_size += p->length;
 			debug("Detected memory bank %u: "
 				"start: 0x%llx size: 0x%llx\n",
-					count, p->start, p->size);
+					count, p->start_address, p->length);
 			count++;
 		}
         }

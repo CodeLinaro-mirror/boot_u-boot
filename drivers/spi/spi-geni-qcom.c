@@ -51,14 +51,8 @@
 /* M_CMD params for SPI */
 #define FRAGMENTATION			BIT(2)
 
-/* GENI SE QUP Registers */
-#define QUP_HW_VER_REG			0x4
-#define QUP_SE_VERSION_1_0		0x10000000
-#define QUP_SE_VERSION_3_10		0x300A0000
-
 /* Registers*/
 #define GENI_SER_M_CLK_CFG		0x48
-#define SE_HW_PARAM_0			0xE24
 #define SE_GENI_M_CMD0			0x600
 #define SE_GENI_M_CMD_CTRL_REG          0x604
 #define SE_GENI_M_IRQ_CLEAR		0x618
@@ -68,18 +62,10 @@
 #define SE_GENI_TX_FIFOn		0x700
 #define SE_GENI_RX_FIFOn		0x780
 #define SE_GENI_RX_FIFO_STATUS		0x804
-#define SE_GENI_TX_WATERMARK_REG	0x80C
 #define SE_GENI_TX_PACKING_CFG0		0x260
 #define SE_GENI_TX_PACKING_CFG1		0x264
 #define SE_GENI_RX_PACKING_CFG0		0x284
 #define SE_GENI_RX_PACKING_CFG1		0x288
-
-#define NUM_PACKING_VECTORS		4
-#define PACKING_START_SHIFT		5
-#define PACKING_DIR_SHIFT		4
-#define PACKING_LEN_SHIFT		1
-#define PACKING_STOP_BIT		BIT(0)
-#define PACKING_VECTOR_SHIFT		10
 
 /* GENI_OUTPUT_CTRL fields */
 #define SE_GENI_RX_WATERMARK_REG	0x810
@@ -91,14 +77,11 @@
 #define SE_GENI_BYTE_GRAN		0x254
 
 /* GENI_SER_M_CLK_CFG/GENI_SER_S_CLK_CFG */
-#define SER_CLK_EN			(BIT(0))
 #define CLK_DIV_SHFT			4
 
 /* SE_HW_PARAM_0 fields */
-#define TX_FIFO_WIDTH_MSK		(GENMASK(29, 24))
 #define TX_FIFO_WIDTH_SHFT		24
 #define TX_FIFO_DEPTH_MSK_256B		(GENMASK(23, 16))
-#define TX_FIFO_DEPTH_MSK		(GENMASK(21, 16))
 #define TX_FIFO_DEPTH_SHFT		16
 
 /* GENI_M_CMD_CTRL_REG */
@@ -293,118 +276,6 @@ static void geni_se_setup_m_cmd(phys_addr_t base, u32 cmd, u32 params)
 	writel(m_cmd, base + SE_GENI_M_CMD0);
 }
 
-static void geni_se_io_set_mode(phys_addr_t base)
-{
-	u32 val;
-
-	val = readl(base + SE_IRQ_EN);
-	val |= GENI_M_IRQ_EN | GENI_S_IRQ_EN;
-	val |= DMA_TX_IRQ_EN | DMA_RX_IRQ_EN;
-	writel(val, base + SE_IRQ_EN);
-
-	val = readl(base + SE_GENI_DMA_MODE_EN);
-	val &= ~GENI_DMA_MODE_EN;
-	writel(val, base + SE_GENI_DMA_MODE_EN);
-
-	writel(0, base + SE_GSI_EVENT_EN);
-}
-
-static void geni_se_irq_clear(phys_addr_t base)
-{
-	writel(0xffffffff, base + SE_GENI_M_IRQ_CLEAR);
-	writel(0xffffffff, base + SE_GENI_S_IRQ_CLEAR);
-	writel(0xffffffff, base + SE_DMA_TX_IRQ_CLR);
-	writel(0xffffffff, base + SE_DMA_RX_IRQ_CLR);
-	writel(0xffffffff, base + SE_IRQ_EN);
-}
-
-static void geni_se_config_fifo_mode(phys_addr_t base)
-{
-	u32 val, val_old;
-
-	geni_se_irq_clear(base);
-
-	val_old = val = readl(base + SE_GENI_M_IRQ_EN);
-	val |= M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN;
-	val |= M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN;
-	if (val != val_old) {
-		writel(val, base + SE_GENI_M_IRQ_EN);
-	}
-
-	val_old = val = readl(base + SE_GENI_DMA_MODE_EN);
-	val &= ~GENI_DMA_MODE_EN;
-	if (val != val_old) {
-		writel(val, base + SE_GENI_DMA_MODE_EN);
-	}
-}
-
-static void geni_se_config_packing(struct udevice *dev, int bpw,
-		bool msb_to_lsb, bool tx_cfg, bool rx_cfg)
-{
-	struct udevice *bus = dev_get_parent(dev);
-	struct qupv3_spi_priv *priv = dev_get_priv(bus);
-	u32 cfg0, cfg1, cfg[NUM_PACKING_VECTORS] = {0};
-	int len;
-	int temp_bpw = bpw;
-	int idx_start = msb_to_lsb ? bpw - 1 : 0;
-	int idx = idx_start;
-	int idx_delta = msb_to_lsb ? -BITS_PER_BYTE : BITS_PER_BYTE;
-	int i, iter;
-	unsigned int pack_words, ceil_bpw;
-
-	if (bpw <= 8)
-		pack_words = 4;
-	else if (bpw <= 16)
-		pack_words = 2;
-	else
-		pack_words = 1;
-
-	ceil_bpw = (bpw & (BITS_PER_BYTE - 1)) ?
-		((bpw & ~(BITS_PER_BYTE - 1)) + BITS_PER_BYTE) : bpw;
-
-	iter = (ceil_bpw * pack_words) >> 3;
-	if (iter <= 0 || iter > NUM_PACKING_VECTORS)
-		return;
-
-	for (i = 0; i < iter; i++) {
-		len = min_t(int, temp_bpw, BITS_PER_BYTE) - 1;
-		cfg[i] = idx << PACKING_START_SHIFT;
-		cfg[i] |= msb_to_lsb << PACKING_DIR_SHIFT;
-		cfg[i] |= len << PACKING_LEN_SHIFT;
-
-		if (temp_bpw <= BITS_PER_BYTE) {
-			idx = ((i + 1) * BITS_PER_BYTE) + idx_start;
-			temp_bpw = bpw;
-		} else {
-			idx = idx + idx_delta;
-			temp_bpw = temp_bpw - BITS_PER_BYTE;
-		}
-	}
-	cfg[iter - 1] |= PACKING_STOP_BIT;
-	cfg0 = cfg[0] | (cfg[1] << PACKING_VECTOR_SHIFT);
-	cfg1 = cfg[2] | (cfg[3] << PACKING_VECTOR_SHIFT);
-
-	if (tx_cfg) {
-		writel(cfg0, priv->base + SE_GENI_TX_PACKING_CFG0);
-		writel(cfg1, priv->base + SE_GENI_TX_PACKING_CFG1);
-	}
-	if (rx_cfg) {
-		writel(cfg0, priv->base + SE_GENI_RX_PACKING_CFG0);
-		writel(cfg1, priv->base + SE_GENI_RX_PACKING_CFG1);
-	}
-
-	/*
-	 * Number of protocol words in each FIFO entry
-	 * 0 - 4x8, four words in each entry, max word size of 8 bits
-	 * 1 - 2x16, two words in each entry, max word size of 16 bits
-	 * 2 - 1x32, one word in each entry, max word size of 32 bits
-	 * 3 - undefined
-	 */
-	if (pack_words || bpw == 32) {
-		writel(bpw / 16, priv->base + SE_GENI_BYTE_GRAN);
-	}
-}
-
 static int qupv3_spi_claim_bus(struct udevice *dev)
 {
 	struct udevice *bus = dev_get_parent(dev);
@@ -418,7 +289,7 @@ static int qupv3_spi_claim_bus(struct udevice *dev)
 				priv->base + SE_SPI_DEMUX_OUTPUT_INV);
 
 	priv->bits_per_word = slave->wordlen;
-	geni_se_config_packing(dev, priv->bits_per_word,
+	geni_se_config_packing(priv->base, priv->bits_per_word,
 			!(slave_plat->mode & SPI_LSB_FIRST), true, true);
 	writel(((priv->bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK),
 			priv->base + SE_SPI_WORD_LEN);
@@ -876,21 +747,6 @@ static void geni_set_oversampling(struct udevice *dev)
 		priv->oversampling = 1;
 }
 
-static u32 geni_se_get_tx_fifo_depth(const struct udevice *dev)
-{
-	struct qupv3_spi_priv *priv = dev_get_priv(dev);
-	u32 tx_fifo_depth;
-	u32 tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK;
-
-	if (priv->geni_se_version >= QUP_SE_VERSION_3_10)
-		tx_fifo_depth_msk = TX_FIFO_DEPTH_MSK_256B;
-
-	tx_fifo_depth = ((readl(priv->base + SE_HW_PARAM_0) &
-				tx_fifo_depth_msk) >> TX_FIFO_DEPTH_SHFT);
-	return tx_fifo_depth;
-
-}
-
 static u32 geni_se_get_tx_fifo_width(const struct udevice *dev)
 {
 	struct qupv3_spi_priv *priv = dev_get_priv(dev);
@@ -910,6 +766,7 @@ static int qupv3_spi_probe(struct udevice *dev)
 	struct udevice *bdev;
 #endif
 
+	priv->max_hz = dev_read_u32_default(dev, "clock-frequency", 0);
 	priv->base = dev_read_addr(dev);
 	if (priv->base == FDT_ADDR_T_NONE)
 		return -EINVAL;
@@ -918,22 +775,32 @@ static int qupv3_spi_probe(struct udevice *dev)
 	if (ret)
 		return ret;
 
+	ret = clk_set_rate(&priv->clk, priv->max_hz);
+	if (ret < 0)
+		return ret;
+
 	ret = clk_enable(&priv->clk);
 	if (ret < 0)
 		return ret;
 
 #ifdef CONFIG_QCOM_GENI_SE_FW_LOAD
 	/* need to enable clk with default rate */
-	geni_se_fw_load(priv->base, QUPV3_SE_SPI);
+	ret = geni_se_fw_load(priv->base, QUPV3_SE_SPI);
+	if(ret)
+	{
+		printf("Failed to load SE Firmware\n");
+		return ret;
+	}
+
 #endif /* CONFIG_QCOM_GENI_SE_FW_LOAD */
 
 	priv->num_cs = dev_read_u32_default(dev, "num-cs", 1);
-	priv->max_hz = dev_read_u32_default(dev, "spi-max-frequency", 0);
 	priv->dma_disable = dev_read_bool(dev, "qup-dma-disable");
 
 	geni_set_oversampling(dev);
 
-	priv->tx_fifo_depth = geni_se_get_tx_fifo_depth(dev);
+	priv->tx_fifo_depth = geni_se_get_tx_fifo_depth(priv->base,
+							priv->geni_se_version);
 	priv->fifo_width_bits = geni_se_get_tx_fifo_width(dev);
 
 	ret = qupv3_spi_hw_init(dev);

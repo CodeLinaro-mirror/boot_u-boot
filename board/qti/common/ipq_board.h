@@ -23,6 +23,12 @@
 #include "../ipq5424/ipq5424.h"
 #endif
 
+#ifdef CONFIG_SCM
+#include <mach/ipq_scm.h>
+#else
+#define ipq_scm_call(...)		-ENODATA
+#endif
+
 #ifndef IPQ_NAND_FLASH_VALID_BIT
 #define IPQ_NAND_FLASH_VALID_BIT	3
 #endif
@@ -57,6 +63,8 @@
 #define is_secure_boot()	is_secure_boot_v1()
 #elif CONFIG_SCM_V2
 #define is_secure_boot()	is_secure_boot_v2()
+#else
+#define is_secure_boot()	is_secure_boot_fake()
 #endif
 
 
@@ -137,7 +145,7 @@
 /*
  * Helps to read fuse valuse
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_READ_FUSE_V1(_param, _a, _b)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -376,7 +384,7 @@
 /*
  * blow fuse
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_CHECK_SCM_SUPPORT_V1(_param, _a)			\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -392,7 +400,7 @@
 /*
  * Enable SDI path
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_ENABLE_SDI_V1(_param, _a, _b)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -410,7 +418,7 @@
 /*
  * I/O write
  */
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define _IPQ_SCM_IO_WRITE_V1(_param, _a, _b)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -423,6 +431,22 @@
 	} while (0)
 #else
 #define _IPQ_SCM_IO_WRITE(...) break;
+#endif
+
+/*
+ * I/O read
+ */
+#if CONFIG_SCM
+#define _IPQ_SCM_IO_READ_V1(_param, _a)					\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_IO_READ;				\
+		(_param).buff[0] = _a;					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _IPQ_SCM_IO_READ(...) break;
 #endif
 
 /*
@@ -516,6 +540,18 @@
 #define _check_atf_support(...)	break;
 #endif
 
+#ifdef CONFIG_SCM
+#define _CHECK_FEATURE_V1(_param, _a)					\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CHECK_FEATURE_ID;			\
+		(_param).buff[0] = _a;					\
+		(_param).len = 1;					\
+	} while (0)
+#else
+#define _CHECK_FEATURE(...) break;
+#endif
+
 #if defined(CONFIG_SCM_V1)
 #define IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)		\
 		_IPQ_SCM_AUTHENTICATE_KERNEL_V1(param, a, b, c, d, e)
@@ -539,7 +575,7 @@
 		_IPQ_SCM_SECURE_AUTHENTICATE(param, a, b, c, d, e)
 #endif
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_READ_FUSE(param, a, b)					\
 		_IPQ_SCM_READ_FUSE_V1(param, a, b)
 #else
@@ -651,7 +687,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_CHECK_SCM_SUPPORT(param, a)				\
 		_IPQ_SCM_CHECK_SCM_SUPPORT_V1(param, a)
 #else
@@ -660,7 +696,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_ENABLE_SDI(param, a, b)					\
 		_IPQ_SCM_ENABLE_SDI_V1(param, a, b)
 #else
@@ -669,7 +705,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1) || defined(CONFIG_SCM_V2)
+#ifdef CONFIG_SCM
 #define IPQ_SCM_IO_WRITE(param, a, b)					\
 		_IPQ_SCM_IO_WRITE_V1(param, a, b)
 #else
@@ -677,6 +713,11 @@
 		_IPQ_SCM_IO_WRITE(param, a, b)
 #endif
 
+#if CONFIG_SCM
+#define IPQ_SCM_IO_READ(param, a)	_IPQ_SCM_IO_READ_V1(param, a)
+#else
+#define IPQ_SCM_IO_READ(param, a)	_IPQ_SCM_IO_READ(param, a)
+#endif
 
 #if defined(CONFIG_SCM_V1)
 #define IPQ_SCM_READ_PHY_REG(param, a)					\
@@ -711,6 +752,11 @@
 		_IPQ_SCM_EXECUTE_DPR(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
 #endif
 
+#ifdef CONFIG_SCM
+#define CHECK_FEATURE(param, a)		_CHECK_FEATURE_V1(param, a)
+#else
+#define CHECK_FEATURE(param, a)		_CHECK_FEATURE(param, a)
+#endif
 
 #if defined(CONFIG_SCM_V1)
 #define check_atf_support(param)					\
@@ -724,6 +770,9 @@
 #define part_which_flash(p)    (((p)->attr & 0xff000000) >> 24)
 
 int gpt_find_which_flash(gpt_entry *p);
+
+#define _SMEM_RAM_PTABLE_MAGIC_1	0x9DA5E0A8
+#define _SMEM_RAM_PTABLE_MAGIC_2	0xAF9EC4E2
 
 struct ram_partition_entry
 {
@@ -765,43 +814,11 @@ struct usable_ram_partition_table
 };
 #endif
 
-struct smem_ram_ptn {
-	char name[16];
-	unsigned long long start;
-	unsigned long long size;
-
-	/* RAM Partition attribute: READ_ONLY, READWRITE etc.  */
-	unsigned attr;
-
-	/* RAM Partition category: EBI0, EBI1, IRAM, IMEM */
-	unsigned category;
-
-	/* RAM Partition domain: APPS, MODEM, APPS & MODEM (SHARED) etc. */
-	unsigned domain;
-
-	/* RAM Partition type: system, bootloader, appsboot, apps etc. */
-	unsigned type;
-
-	/* reserved for future expansion without changing version number */
-	unsigned reserved2, reserved3, reserved4, reserved5;
-} __attribute__ ((__packed__));
-
-struct smem_ram_ptable {
-#define _SMEM_RAM_PTABLE_MAGIC_1	0x9DA5E0A8
-#define _SMEM_RAM_PTABLE_MAGIC_2	0xAF9EC4E2
-	unsigned magic[2];
-	unsigned version;
-	unsigned reserved1;
-	unsigned len;
-	unsigned buf;
-	struct smem_ram_ptn parts[32];
-} __attribute__ ((__packed__));
 
 /*
  * function declaration
  */
 int smem_getpart(char *part_name, uint32_t *start, uint32_t *size);
-int smem_ram_ptable_init(struct smem_ram_ptable *smem_ram_ptable);
 int smem_ram_ptable_init_v2(
 		struct usable_ram_partition_table *usable_ram_partition_table);
 
@@ -1101,6 +1118,7 @@ typedef struct {
 
 extern crashdump_infos_t *board_dumpinfo;
 extern uint8_t *board_dump_entries;
+extern uint8_t g_recovery_path __attribute__((section(".data")));
 
 #if IS_ENABLED(CONFIG_MMC) || IS_ENABLED(CONFIG_NOR_BLK)
 /* BLK part info */
@@ -1214,9 +1232,10 @@ long long ubi_get_volume_size(char *volume);
 bool is_atf_enbled(void);
 #ifdef CONFIG_SCM_V1
 bool is_secure_boot_v1(void);
-#endif
-#ifdef CONFIG_SCM_V2
+#elif CONFIG_SCM_V2
 bool is_secure_boot_v2(void);
+#else
+bool is_secure_boot_fake(void);
 #endif
 uint8_t * get_boot_mode(void);
 #ifdef CONFIG_CMD_NAND

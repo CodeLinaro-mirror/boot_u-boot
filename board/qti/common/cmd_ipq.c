@@ -9,7 +9,6 @@
 #include <command.h>
 #include <malloc.h>
 #include <memalign.h>
-#include <mach/ipq_scm.h>
 #include <cpu_func.h>
 #include <linux/bug.h>
 #include <linux/arm-smccc.h>

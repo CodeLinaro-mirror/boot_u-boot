@@ -22,9 +22,10 @@
 #ifdef CONFIG_IPQ_MMC
 #include <mmc.h>
 #include <sdhci.h>
+#endif
+
 #ifdef CONFIG_GPT_UPDATE_PARAMS
 #include <u-boot/crc.h>
-#endif
 #endif
 
 #ifdef CONFIG_IPQ_NAND

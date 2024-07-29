@@ -6,6 +6,7 @@
  */
 
 #include <common.h>
+#include <asm/io.h>
 #include <asm/global_data.h>
 #include <jffs2/load_kernel.h>
 #include <env.h>
@@ -460,19 +461,20 @@ void ipq_smem_part_to_mtdparts(char *mtdid, int len)
 			printf("No SPIBLK device found \n");
 			return;
 		}
-	}
+
 #if defined(CONFIG_EFI_PARTITION)
-	if (dev) {
-		gpt_pte = get_gpt_entry(dev);
-		if (!gpt_pte) {
-			printf("Failed to get gpt table entry\n");
-			return;
-		} else {
-			ncount = sfi->nor_gpt_pte.ncount;
+		if (dev) {
+			gpt_pte = get_gpt_entry(dev);
+			if (!gpt_pte) {
+				printf("Failed to get gpt table entry\n");
+				return;
+			} else {
+				ncount = sfi->nor_gpt_pte.ncount;
+			}
 		}
-	}
 #endif
-	bsize = dev->blksz;
+		bsize = dev->blksz;
+	}
 #endif
 	ret = snprintf(part, len, "%s:", mtdid);
 	part += ret;
@@ -740,6 +742,18 @@ static void ipq_fdt_fixup_usb_dev_mode(void *blob)
 #endif
 		}
 #endif
+
+#ifdef LINUX_6_x_USB2_DTS_NODE
+		if (fdt_path_offset(blob, LINUX_6_x_USB2_DTS_NODE) > 0) {
+#ifdef LINUX_6_x_USB_DR_MODE_FIXUP
+			parse_fdt_fixup(LINUX_6_x_USB2_DR_MODE_FIXUP, blob);
+#endif
+#ifdef LINUX_6_x_USB_MAX_SPEED_FIXUP
+			parse_fdt_fixup(LINUX_6_x_USB2_MAX_SPEED_FIXUP, blob);
+#endif
+		}
+#endif
+
 #ifdef LINUX_5_4_USB_DTS_NODE
 		if (fdt_path_offset(blob, LINUX_5_4_USB_DTS_NODE) > 0) {
 #ifdef LINUX_5_4_USB_DR_MODE_FIXUP
@@ -751,6 +765,11 @@ static void ipq_fdt_fixup_usb_dev_mode(void *blob)
 		}
 #endif
 	}
+}
+
+__weak void ipq_fdt_fixup_sku_based_usb_config(void *blob)
+{
+	return;
 }
 
 static void ipq_fdt_fixup_dload_disable(void *blob)
@@ -808,6 +827,7 @@ static const fdt_fixup_t fixup_functions[] = {
 	ipq_fdt_fixup_qti_nand,
 #endif
 	ipq_fdt_fixup_usb_dev_mode,
+	ipq_fdt_fixup_sku_based_usb_config,
 	ipq_fdt_fixup_dload_disable,
 	ipq_fdt_fixup_board,
 	NULL
