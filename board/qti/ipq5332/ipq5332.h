@@ -94,4 +94,11 @@ typedef enum {
  */
 #define ROOTFS_AUTH_FUSE	0xA6044
 
+/*
+ * TME DUMP
+ */
+
+#define	TME_LOG_DUMP_FEATURE_ID			0x7
+#define	TME_LOG_DUMP_FEATURE_VERSION		0x401000
+
 #endif /* _IPQ5332_H_ */
