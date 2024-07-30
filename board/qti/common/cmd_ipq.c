@@ -437,25 +437,62 @@ U_BOOT_CMD(secure_authenticate, 4, 0, do_secure,
 #endif
 		"	- authenticate the signed image\n");
 
+#ifdef CONFIG_FUSE_IPQ
 static int
 do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	int ret = -1;
+	int ret = CMD_RET_FAILURE;
 	scm_param param;
 	uint32_t fuse_status = 0;
-	uint32_t fuse_address;
+	uint32_t fuse_bin_addr;
+	load_seg_info_t *load_seg_buff = NULL;
+	uint8_t load_seg_cnt = 0;
+	unsigned long meta_data_size = 0;
+
 
 	if (argc != 2) {
 		printf("No Arguments provided\n");
 		printf("Command format: fuseipq <address>\n");
-		return 1;
+		goto exit;
 	}
 
-	fuse_address = simple_strtoul(argv[1], NULL, 16);
+	fuse_bin_addr = simple_strtoul(argv[1], NULL, 16);
+#ifdef CONFIG_FUSEIPQ_V2
+	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
 
+	if (!load_addr || !IS_ELF(*(Elf32_Ehdr *)load_addr)) {
+		printf("It is not a elf image \n");
+		goto exit;
+	}
+
+	if ((*(Elf32_Ehdr *)load_addr).e_ident[EI_CLASS] == ELFCLASS32
+			&& ((Elf32_Ehdr *)load_addr)->e_phnum < 3) {
+			printf("Invalid image\n");
+			goto exit;
+	}
+
+	if ((*(Elf64_Ehdr *)load_addr).e_ident[EI_CLASS] == ELFCLASS64
+			&& ((Elf64_Ehdr *)load_addr)->e_phnum < 3) {
+			printf("Invalid image\n");
+			goto exit;
+	}
+
+
+	load_seg_buff = parse_n_extract_ld_segment(
+				(void *)(uintptr_t)fuse_bin_addr,
+				&load_seg_cnt,
+				&meta_data_size);
+	if(!load_seg_buff)
+		goto exit;
+
+	load_seg_cnt = load_seg_cnt * sizeof(load_seg_info_t);
+#endif
 	do {
 		ret = -ENOTSUPP;
-		IPQ_SCM_FUSE_IPQ(param, (uint64_t) fuse_address);
+		IPQ_SCM_FUSE_IPQ(param, (uint64_t) fuse_bin_addr,
+					meta_data_size, 0x2B,
+					(uintptr_t)load_seg_buff,
+					load_seg_cnt);
 		param.get_ret = true;
 		ret = ipq_scm_call(&param);
 
@@ -477,15 +514,21 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	if (ret == -ENOTSUPP) {
 		printf("Unsupported SCM call\n");
-		return CMD_RET_FAILURE;
 	}
 
-	return 0;
+	ret = CMD_RET_SUCCESS;
+
+exit:
+	if (load_seg_buff)
+		free(load_seg_buff);
+
+	return ret;
 }
 
 U_BOOT_CMD(fuseipq, 2, 0, do_fuseipq,
 		"fuse QFPROM registers from memory\n",
 		"fuseipq [address]  - Load fuse(s) and blows in the qfprom\n");
+#endif
 
 #ifdef CONFIG_TARGET_IPQ5332
 static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,

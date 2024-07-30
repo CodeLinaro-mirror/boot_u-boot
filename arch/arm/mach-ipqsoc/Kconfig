@@ -113,6 +113,18 @@ config SECURE_AUTH_V2
 	bool "Secure authentication command"
 	default n
 
+config FUSE_IPQ
+	bool "Enable fuseipq command support"
+	default n
+
+config FUSEIPQ_V1
+	bool "Enable fuseipq command support with version 1"
+	default n
+
+config FUSEIPQ_V2
+	bool "Enable fuseipq command support with version 1"
+	default n
+
 config IPQ_TINY
 	bool "IPQ Tiny bootloader config"
 	imply ETH_LOW_MEM
@@ -147,6 +159,7 @@ config IPQ_DEFAULTS
 	select LZMA
 	imply IPQ_SMP_CMD_SUPPORT
 	imply CMD_AES_256
+	imply FUSE_IPQ
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -297,6 +310,7 @@ config TARGET_IPQ5332
 	imply AES_256_DERIVE_KEY
 	select SCM_V1
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
+	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -331,6 +345,7 @@ config TARGET_IPQ9574
 	select QSPI_LAYOUT_SWITCH if IPQ_NAND
 	select SCM_V1
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
+	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
@@ -364,6 +379,7 @@ config TARGET_IPQ5424
 	select HASH
 	select SHA384
 	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
+	imply FUSEIPQ_V2 if IPQ_SECURE && SCM_V2
 	help
 	  Support for IPQ5424 SoC.
 
