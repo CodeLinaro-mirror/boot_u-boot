@@ -28,7 +28,7 @@
 
 			phy_rst_pinmux: phy_rst {
 				qti_aquantia_rst {
-					pins = "GPIO_36";
+					pins = "GPIO_28";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
@@ -101,8 +101,8 @@
 			status = "okay";
 
 			phy1: phy@8 {
-				phy-reset-gpio = <&tlmm 36 0>;
-				reg = <8>;
+				phy-reset-gpio = <&tlmm 28 0>;
+				reg = <0>;
 				phy_id = <AQ_PHY_TYPE>;
 				phy-mode = "usxgmii";
 				id = <2>;
