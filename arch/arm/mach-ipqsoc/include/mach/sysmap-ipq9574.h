@@ -245,6 +245,7 @@
 #define GCC_QPIC_IO_MACRO_CFG_RCGR      (0x32008)
 #define GCC_QPIC_IO_MACRO_CBCR          (0x3200C)
 
+#define IO_MACRO_CLK_400_MHZ            (400000000)
 #define IO_MACRO_CLK_320_MHZ            (320000000)
 #define IO_MACRO_CLK_266_MHZ            (266000000)
 #define IO_MACRO_CLK_228_MHZ            (228000000)

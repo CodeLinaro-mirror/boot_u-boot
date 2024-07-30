@@ -3773,15 +3773,30 @@ static int qti_serial_training(struct mtd_info *mtd)
 
 	uint32_t start, blk_cnt = 0;
 	uint32_t offset, pageno, curr_freq, size;
+	uint32_t max_freaqueny = 0;
 	int i;
 	unsigned int io_macro_freq_tbl[] = {24000000, 100000000, 200000000,
-								320000000};
+						320000000, 400000000};
 
 	uint8_t *data_buff, trained_phase[TOTAL_NUM_PHASE] = {'\0'};
 	int phase, phase_cnt;
-	int training_seq_cnt = 4;
-	int index = 3, ret, phase_failed=0;
+	int training_seq_cnt = 5;
+	int index = 4, ret, phase_failed=0;
 	loff_t training_offset;
+
+	max_freaqueny = dev_read_u32_default(mtd->dev, "max_clk_feaquency",
+						320000000);
+
+	for(int cnt =  sizeof(io_macro_freq_tbl)/ sizeof(unsigned int) - 1;
+		cnt >= 0;
+		--cnt)
+	{
+		if (io_macro_freq_tbl[cnt] == max_freaqueny) {
+			index = cnt;
+			training_seq_cnt = cnt + 1;
+			break;
+		}
+	}
 
 	ret = ipq_get_training_part_info(&offset, &size);
 	if (ret) {

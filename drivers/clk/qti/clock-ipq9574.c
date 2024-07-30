@@ -565,6 +565,9 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		case IO_MACRO_CLK_320_MHZ:
 			div = 4;
 			break;
+		case IO_MACRO_CLK_400_MHZ:
+			div = 3;
+			break;
 		default:
 			return -EINVAL;
 		}
