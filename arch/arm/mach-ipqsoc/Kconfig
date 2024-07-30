@@ -125,6 +125,18 @@ config FUSEIPQ_V2
 	bool "Enable fuseipq command support with version 1"
 	default n
 
+config LIST_FUSE
+	bool "Enable list_fuse command"
+	default n
+
+config LIST_FUSE_V1
+	bool "Enable list_fuse command with version 1"
+	default n
+
+config LIST_FUSE_V2
+	bool "Enable list_fuse command with version 2"
+	default n
+
 config IPQ_TINY
 	bool "IPQ Tiny bootloader config"
 	imply ETH_LOW_MEM
@@ -160,6 +172,7 @@ config IPQ_DEFAULTS
 	imply IPQ_SMP_CMD_SUPPORT
 	imply CMD_AES_256
 	imply FUSE_IPQ
+	imply LIST_FUSE
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -311,6 +324,7 @@ config TARGET_IPQ5332
 	select SCM_V1
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
+	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V1
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -346,6 +360,7 @@ config TARGET_IPQ9574
 	select SCM_V1
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
+	imply LIST_FUSE_V1 if IPQ_SECURE && SCM_V1
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
@@ -380,6 +395,7 @@ config TARGET_IPQ5424
 	select SHA384
 	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
 	imply FUSEIPQ_V2 if IPQ_SECURE && SCM_V2
+	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
 	help
 	  Support for IPQ5424 SoC.
 
