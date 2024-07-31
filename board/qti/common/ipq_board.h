@@ -1118,6 +1118,9 @@ typedef struct {
 	uint8_t dumptoflash_support:1;	/* does this binary need to be
 					   dumped in flash ? non-zero
 					   means true. */
+	uint8_t check_dump_support:1;	/* If this flag is set, a check is
+					   being made for dump-specific
+					   skip conditions. */
 } crashdump_infos_t;
 
 extern crashdump_infos_t *board_dumpinfo;

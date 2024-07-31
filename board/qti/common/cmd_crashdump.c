@@ -948,6 +948,11 @@ static int split_bin_dump(crashdump_config_t *dump_config,
 	return ret;
 }
 
+__weak bool is_valid_dump(char *dump_name)
+{
+	return false;
+}
+
 /**
  * prepare_crashdump_level_table() - prepare the crashdump table based on the
  * dump level, dump configuration and with respect to the given into dump
@@ -972,6 +977,14 @@ static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 	for (i=0; i < dump_config->nos_dumps; i++) {
 		if (dump_level != dump_infos[i].dump_level)
 			continue;
+
+		if(dump_infos[i].check_dump_support) {
+			if(!is_valid_dump(dump_infos[i].name)) {
+				printf("Skipping %s dump\n",
+						dump_infos[i].name);
+				continue;
+			}
+		}
 
 		file_no = 0;
 		memset(&dump_entry, 0, sizeof(crashdump_infos_int_t));

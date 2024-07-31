@@ -102,6 +102,17 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.dumptoflash_support = false
 	},
 	{
+		.name = "IMEM2.BIN",
+		.start_addr = 0x860F000,
+		.size = 0x00001000,
+		.dump_level = FULLDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false,
+		.check_dump_support = true
+	},
+	{
 		.name = "CPU_INFO.BIN",
 		.start_addr = 0x0,
 		.size = 0xBAD0FF5E,
@@ -700,4 +711,34 @@ int execute_dprv2(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 fail:
 	return ret;
+}
+
+bool is_valid_dump(char *dump_name)
+{
+	bool skip_dump = false;
+	int ret = -1;
+
+	if(!strncmp("IMEM2.BIN", dump_name, 9))
+	{
+		scm_param param;
+
+		do {
+			ret = -ENOTSUPP;
+
+			CHECK_FEATURE(param, TME_LOG_DUMP_FEATURE_ID);
+			param.get_ret = true;
+			ret = ipq_scm_call(&param);
+
+			if(!ret && param.res.result[0] == \
+					TME_LOG_DUMP_FEATURE_VERSION) {
+				skip_dump = true;
+			}
+		} while (0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
+		}
+
+	}
+	return skip_dump;
 }
