@@ -445,9 +445,6 @@ static void ppe_uniphy_uqxgmii_mode_set(struct port_info *port)
 
 void ppe_uniphy_mode_set(struct port_info *port)
 {
-	if(ipq_uniphy && !port->uniphy_sku_stat)
-		return;
-
 	switch(port->uniphy_mode) {
 		case PORT_WRAPPER_PSGMII:
 			ppe_uniphy_psgmii_mode_set(port);
@@ -702,9 +699,6 @@ static void ppe_port_mux_set(phys_addr_t reg_base, struct port_info *port)
 
 	pr_debug("port id is: %d, mac_type is %d, uniphy_type is %d\n",
 		id, mac_type, uniphy_type);
-
-	if(ipq_uniphy && !port->uniphy_sku_stat)
-		return;
 
 	port_mux_ctrl.val = 0;
 
@@ -3081,12 +3075,28 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 
 		if (!dev_read_phandle_with_args(dev, phy_handle, NULL, 0, 0,
 					&phandle_args)) {
+			uint8_t uniphy_id = ofnode_read_u32_default(
+						phandle_args.node,
+						"uniphy_id", -1);
+			if (-1 != uniphy_id) {
+				if ((ipq_uniphy) &&
+					(uniphy_id < ipq_uniphy->max_uniphy)) {
+					if(readl(ipq_uniphy->reg) &
+						(1 << ipq_uniphy->uniphy_bit[
+							uniphy_id]))
+						continue;
+				}
+			} else {
+				continue;
+			}
+
 			port = malloc_cache_aligned(sizeof(struct port_info));
 			if (!port)
 				return -ENOMEM;
 
 			memset(port, 0, sizeof(struct port_info));
 
+			port->uniphy_id = uniphy_id;
 			port->node = phandle_args.node;
 			port->pnode = ofnode_get_parent(phandle_args.node);
 			port->phyaddr = ofnode_read_u32_default(
@@ -3098,9 +3108,6 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 			port->id = ofnode_read_u32_default(
 						phandle_args.node,
 						"id", -1);
-			port->uniphy_id = ofnode_read_u32_default(
-						phandle_args.node,
-						"uniphy_id", -1);
 			port->uniphy_type = ofnode_read_u32_default(
 						phandle_args.node,
 						"uniphy_type", 0);
@@ -3115,10 +3122,6 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 						"xgmac");
 			port->interface = ofnode_read_phy_mode(
 						phandle_args.node);
-
-			if(ipq_uniphy && (port->uniphy_id <= ipq_uniphy->max_uniphy))
-				port->uniphy_sku_stat = !(readl(ipq_uniphy->reg) &
-				(1 << ipq_uniphy->uniphy_bit[port->uniphy_id]));
 
 			gpio_request_by_name_nodev(phandle_args.node,
 							"phy-reset-gpio", 0,
