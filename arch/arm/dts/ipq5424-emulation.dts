@@ -8,6 +8,10 @@
 / {
 	config_name = "config-emulation-fbc";
 
+	aliases {
+		console = &se0_uart0;
+	};
+
 	soc: soc@0 {
 
 		tlmm: pinctrl@1000000 {
