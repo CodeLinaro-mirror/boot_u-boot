@@ -4071,6 +4071,14 @@ static int qti_nand_probe(struct udevice *device)
 	if (ret)
 		return ret;
 
+	ret = clk_get_bulk(device, &(nandc->blk_clk));
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = clk_enable_bulk(&(nandc->blk_clk));
+	if(ret)
+		return ret;
+
 	buf_size = 0;
 	buf_size += sizeof(struct bam_desc) * QTI_BAM_CMD_FIFO_SIZE
 						+ CONFIG_SYS_CACHELINE_SIZE;

@@ -709,6 +709,7 @@ struct qcom_nand_controller {
 	struct cmd_element *ce_read_array;
 	uint16_t timing_mode_support;
 	struct read_stats stats[QTI_NAND_MAX_CWS_IN_PAGE];
+	struct clk_bulk blk_clk;
 	struct clk clk;
 	struct mtd_info mtd;
 	struct nand_chip nand_chip[CONFIG_SYS_MAX_NAND_DEVICE];
