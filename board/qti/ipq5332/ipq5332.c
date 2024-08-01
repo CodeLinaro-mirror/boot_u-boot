@@ -313,7 +313,7 @@ int ipq_read_tcsr_boot_misc(void)
 	int ret;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
-	if (sfi->flash_type != SMEM_BOOT_NO_FLASH)
+	if (!g_recovery_path)
 	{
 		/* The TCSR DLOAD register is protected in latest TZ
 		 * for the IPQ5332 target.
