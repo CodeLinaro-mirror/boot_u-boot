@@ -17,6 +17,7 @@
  */
 #include <common.h>
 #include <command.h>
+#include <image.h>
 #include <part.h>
 
 #ifdef CONFIG_IPQ_MMC
@@ -966,6 +967,21 @@ char * const argv[])
 		print_fl_msg(fname_stripped, 1, ret);
 	else
 		env_set("stdout", "nulldev");
+
+	if (verbose && (genimg_get_format((void *)load_addr)
+				== IMAGE_FORMAT_FIT)) {
+		if (!fit_check_format((const void *)load_addr,
+					IMAGE_SIZE_INVAL)) {
+			char *desc;
+			int noffset = fit_image_get_node(
+					(const void *)load_addr, file_name);
+			if (noffset >= 0) {
+				if (!fit_get_desc((const void *)load_addr,
+							noffset, &desc))
+					printf("image name: %s\n", desc);
+			}
+		}
+	}
 
 	if(5 == argc) {
 
