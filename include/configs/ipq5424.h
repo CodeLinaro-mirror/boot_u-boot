@@ -59,7 +59,6 @@ extern uint32_t g_env_offset;
 #define CFG_SYS_BAUDRATE_TABLE			{ 115200, 230400,	\
 							460800, 921600 }
 
-#define CFG_EMULATION
 
 /* override the counter frequency incase of emulation platform */
 #ifdef CFG_EMULATION
