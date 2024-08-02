@@ -90,7 +90,7 @@
 						"GPIO_3";
 					function = "sdc_data";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
-					bias-pull-down;
+					bias-pull-up;
 				};
 
 				emmc_cmd {
@@ -104,7 +104,7 @@
 					pins = "GPIO_5";
 					function = "sdc_clk";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
-					bias-pull-down;
+					bias-disable;
 				};
 			};
 
