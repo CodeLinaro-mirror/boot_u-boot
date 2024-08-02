@@ -628,8 +628,24 @@ class Pack(object):
                 if fname == "":
                     continue
                 else:
-                    section_name = pname.lower()
-                    section_name = section_name.replace("0:","") + "-" + sha1(fname)
+                    section_conf = pname.lower()
+                    section_conf = section_conf.replace("0:","")
+
+                    if ARCH_NAME == "ipq5332":
+                        if section_conf == "qsee":
+                            section_conf = "tz"
+                        elif section_conf == "cdt":
+                            section_conf = "ddr" + fname[3:-4]
+                        elif section_conf == "bootconfig" or  section_conf == "bootconfig1":
+                            section_conf = fname[:-4]
+                        elif section_conf == "appsbl":
+                            section_conf = "u-boot"
+                        elif section_conf == "rootfs" and self.flash_type in ["nand", "nand-4k", "norplusnand", "norplusnand-4k"]:
+                            section_conf = "ubi"
+                        elif section_conf == "wifi_fw" or section_conf == "wififw":
+                            section_conf = fname[:-13]
+
+                    section_name = section_conf + "-" + sha1(fname)
 
                     # Identify the change in flashtype and do flash update
                     if current_pftype != pftype:
