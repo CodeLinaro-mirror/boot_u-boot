@@ -211,6 +211,89 @@ static const struct bcr_regs_v2 gcc_qpic_regs = {
 	.cmd_rcgr = GCC_QPIC_CMD_RCGR,
 };
 
+static const struct bcr_regs_v2 nss_cc_port1_rx_regs = {
+	.cfg_rcgr = NSS_CC_PORT1_RX_CFG_RCGR,
+	.cmd_rcgr = NSS_CC_PORT1_RX_CMD_RCGR,
+	.div_cdivr = NSS_CC_PORT1_RX_DIV_CDIVR,
+};
+
+static const struct bcr_regs_v2 nss_cc_port1_tx_regs = {
+	.cfg_rcgr = NSS_CC_PORT1_TX_CFG_RCGR,
+	.cmd_rcgr = NSS_CC_PORT1_TX_CMD_RCGR,
+	.div_cdivr = NSS_CC_PORT1_TX_DIV_CDIVR,
+};
+
+static const struct bcr_regs_v2 nss_cc_port2_rx_regs = {
+	.cfg_rcgr = NSS_CC_PORT2_RX_CFG_RCGR,
+	.cmd_rcgr = NSS_CC_PORT2_RX_CMD_RCGR,
+	.div_cdivr = NSS_CC_PORT2_RX_DIV_CDIVR,
+};
+
+static const struct bcr_regs_v2 nss_cc_port2_tx_regs = {
+	.cfg_rcgr = NSS_CC_PORT2_TX_CFG_RCGR,
+	.cmd_rcgr = NSS_CC_PORT2_TX_CMD_RCGR,
+	.div_cdivr = NSS_CC_PORT2_TX_DIV_CDIVR,
+};
+
+static const struct bcr_regs_v2 nss_cc_port3_rx_regs = {
+	.cfg_rcgr = NSS_CC_PORT3_RX_CFG_RCGR,
+	.cmd_rcgr = NSS_CC_PORT3_RX_CMD_RCGR,
+	.div_cdivr = NSS_CC_PORT3_RX_DIV_CDIVR,
+};
+
+static const struct bcr_regs_v2 nss_cc_port3_tx_regs = {
+	.cfg_rcgr = NSS_CC_PORT3_TX_CFG_RCGR,
+	.cmd_rcgr = NSS_CC_PORT3_TX_CMD_RCGR,
+	.div_cdivr = NSS_CC_PORT3_TX_DIV_CDIVR,
+};
+
+static int calc_div_for_nss_port_clk(struct clk *clk, ulong rate,
+		int *div, int *cdiv)
+{
+	int pclk_rate = clk_get_parent_rate(clk);
+
+	if (pclk_rate == CLK_125_MHZ) {
+		switch (rate) {
+		case CLK_2_5_MHZ:
+			*div = 9;
+			*cdiv = 9;
+			break;
+		case CLK_25_MHZ:
+			*div = 9;
+			break;
+		case CLK_125_MHZ:
+			*div = 1;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else if (pclk_rate == CLK_312_5_MHZ) {
+		switch (rate) {
+		case CLK_2_5_MHZ:
+			break;
+		case CLK_25_MHZ:
+			break;
+		case CLK_78_125_MHZ:
+			*div = 7;
+			break;
+		case CLK_125_MHZ:
+			*div = 4;
+			break;
+		case CLK_156_25_MHZ:
+			*div = 3;
+			break;
+		case CLK_312_5_MHZ:
+			*div = 1;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else
+		return -EINVAL;
+
+	return 0;
+}
+
 int msm_set_parent(struct clk *clk, struct clk* parent)
 {
 	assert(clk);
@@ -228,8 +311,7 @@ ulong msm_get_rate(struct clk *clk)
 ulong msm_set_rate(struct clk *clk, ulong rate)
 {
 	struct msm_clk_priv *priv = dev_get_priv(clk->dev);
-	int ret;
-
+	int ret, src, div = 0, cdiv = 0;
 
 	switch (clk->id) {
 	case GCC_QUPV3_SE0_CLK:
@@ -380,6 +462,54 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		clk_rcg_set_rate_v2(priv->base, &nss_cc_cfg_regs,
 				15, 0, NSS_CC_PPE_SRC_SEL_GCC_GPLL0_OUT_AUX);
 		break;
+	case NSS_CC_PORT1_RX_CLK:
+		ret = calc_div_for_nss_port_clk(clk, rate, &div, &cdiv);
+		if (ret < 0)
+			return ret;
+		clk_rcg_set_rate_v2(priv->base, &nss_cc_port1_rx_regs,
+				div, cdiv,
+				NSS_CC_PORT_RX_SRC_SEL_UNIPHY_NSS_RX_CLK);
+		break;
+	case NSS_CC_PORT1_TX_CLK:
+		ret = calc_div_for_nss_port_clk(clk, rate, &div, &cdiv);
+		if (ret < 0)
+			return ret;
+		clk_rcg_set_rate_v2(priv->base, &nss_cc_port1_tx_regs,
+				div, cdiv,
+				NSS_CC_PORT_TX_SRC_SEL_UNIPHY_NSS_TX_CLK);
+		break;
+	case NSS_CC_PORT2_RX_CLK:
+		ret = calc_div_for_nss_port_clk(clk, rate, &div, &cdiv);
+		if (ret < 0)
+			return ret;
+		clk_rcg_set_rate_v2(priv->base, &nss_cc_port2_rx_regs,
+				div, cdiv,
+				NSS_CC_PORT_RX_SRC_SEL_UNIPHY_NSS_RX_CLK);
+		break;
+	case NSS_CC_PORT2_TX_CLK:
+		ret = calc_div_for_nss_port_clk(clk, rate, &div, &cdiv);
+		if (ret < 0)
+			return ret;
+		clk_rcg_set_rate_v2(priv->base, &nss_cc_port2_tx_regs,
+				div, cdiv,
+				NSS_CC_PORT_TX_SRC_SEL_UNIPHY_NSS_TX_CLK);
+		break;
+	case NSS_CC_PORT3_RX_CLK:
+		ret = calc_div_for_nss_port_clk(clk, rate, &div, &cdiv);
+		if (ret < 0)
+			return ret;
+		clk_rcg_set_rate_v2(priv->base, &nss_cc_port3_rx_regs,
+				div, cdiv,
+				NSS_CC_PORT_RX_SRC_SEL_UNIPHY_NSS_RX_CLK);
+		break;
+	case NSS_CC_PORT3_TX_CLK:
+		ret = calc_div_for_nss_port_clk(clk, rate, &div, &cdiv);
+		if (ret < 0)
+			return ret;
+		clk_rcg_set_rate_v2(priv->base, &nss_cc_port3_tx_regs,
+				div, cdiv,
+				NSS_CC_PORT_TX_SRC_SEL_UNIPHY_NSS_TX_CLK);
+		break;
 
 	case UNIPHY0_NSS_RX_CLK:
 	case UNIPHY0_NSS_TX_CLK:
@@ -401,7 +531,6 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 				GCC_QPIC_IO_MACRO_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
 	case GCC_QPIC_IO_MACRO_CLK:
-		int src, div = 0, cdiv = 0;
 		src = GCC_QPIC_IO_MACRO_SRC_SEL_GPLL0_OUT_MAIN;
 		switch (rate) {
 		case IO_MACRO_CLK_24_MHZ:
