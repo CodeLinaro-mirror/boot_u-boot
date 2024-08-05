@@ -151,6 +151,7 @@ void ipq_config_cmn_clock(void)
 	writel(reg_val, PLL_POWER_ON_AND_RESET);
 	mdelay(1);
 }
+#endif /* CFG_EMULATION */
 
 int board_get_smem_target_info(void)
 {
@@ -214,7 +215,6 @@ int ipq_uboot_fdt_fixup_smem(void *blob)
 			"reg", reg, sizeof(reg), 0);
 	return 0;
 }
-#endif /* CFG_EMULATION */
 
 #ifdef CONFIG_ARM64
 /*
