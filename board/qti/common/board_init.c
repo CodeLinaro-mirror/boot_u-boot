@@ -82,6 +82,7 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 
 uint32_t g_board_machid;
 uint32_t g_load_addr;
+uint32_t g_env_offset __attribute__((section(".data"))) = 0;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
 
@@ -307,6 +308,24 @@ int fdtdec_board_setup(const void *fdt_blob)
 	return ipq_uboot_fdt_fixup_smem((void*)fdt_blob);
 }
 
+static void ipq_update_env_offset(int blk_sz)
+{
+	int i;
+
+	if (IS_ERR_OR_NULL(ptable))
+		return;
+
+	for (i = 0; i < ptable->len; i++) {
+		struct smem_ptn *p = &ptable->parts[i];
+		if (IS_ERR_OR_NULL(p))
+			continue;
+
+		if (!strncmp(p->name, "0:APPSBLENV", SMEM_PTN_NAME_MAX)) {
+			g_env_offset  = ((loff_t)p->start) * blk_sz;
+		}
+	}
+}
+
 int board_init(void)
 {
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
@@ -400,6 +419,8 @@ int board_init(void)
 		if (ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
 			ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 			return -ENOMSG;
+
+		ipq_update_env_offset(sfi->flash_block_size);
 	}
 
 	return 0;
