@@ -73,7 +73,11 @@ struct image_section sections[] = {
 		.file			= TMP_FILE_DIR,
 		.version_file		= HLOS_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.img_code		= "0x17"
+#ifdef IPQ54XX
+		.img_code		= "0x71"
+#else
+		.img_code               = "0x17"
+#endif
 	},
 	{
 		.section_type		= HLOS_TYPE,
@@ -84,7 +88,11 @@ struct image_section sections[] = {
 		.file			= TMP_FILE_DIR,
 		.version_file		= HLOS_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
+#ifdef IPQ54XX
+		.img_code               = "0x71"
+#else
 		.img_code		= "0x17"
+#endif
 	},
 	{
 		.section_type		= HLOS_TYPE,
@@ -95,7 +103,11 @@ struct image_section sections[] = {
 		.file			= TEMP_KERNEL_PATH,
 		.version_file		= HLOS_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
+#ifdef IPQ54XX
+		.img_code               = "0x71"
+#else
 		.img_code		= "0x17"
+#endif
 	},
 	{
 		.section_type		= TZ_TYPE,
