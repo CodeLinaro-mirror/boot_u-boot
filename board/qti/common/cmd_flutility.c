@@ -987,16 +987,16 @@ char * const argv[])
 	else
 		env_set("stdout", "nulldev");
 
-	if (verbose && (genimg_get_format((void *)load_addr)
+	if (verbose && (genimg_get_format((void *)(uintptr_t)load_addr)
 				== IMAGE_FORMAT_FIT)) {
-		if (!fit_check_format((const void *)load_addr,
+		if (!fit_check_format((const void *)(uintptr_t)load_addr,
 					IMAGE_SIZE_INVAL)) {
 			char *desc;
-			int noffset = fit_image_get_node(
-					(const void *)load_addr, file_name);
+			int noffset = fit_image_get_node((const void *)
+					(uintptr_t)load_addr, file_name);
 			if (noffset >= 0) {
-				if (!fit_get_desc((const void *)load_addr,
-							noffset, &desc))
+				if (!fit_get_desc((const void *)(uintptr_t)
+						load_addr, noffset, &desc))
 					printf("image name: %s\n", desc);
 			}
 		}
