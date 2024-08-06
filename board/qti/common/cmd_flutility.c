@@ -416,7 +416,26 @@ ulong blk_derase_and_write(struct blk_desc *desc, lbaint_t start,
 			   lbaint_t blkcnt, const void *buffer)
 {
 	int ret = 0;
-	ret = blk_derase(desc, start, blkcnt);
+	if (desc->uclass_id == UCLASS_MMC) {
+		uint8_t *buf = NULL;
+
+		buf = (uint8_t*) malloc_cache_aligned(desc->blksz);
+		if (!buf) {
+			printf("memory allocation failed ...");
+			return -ENOMEM;
+		}
+		memset(buf, 0 , sizeof(desc->blksz));
+		ret = blk_dwrite(desc, start, blkcnt, buf);
+
+		free(buf);
+		buf = NULL;
+		if (ret != blkcnt) {
+			printf("block write failed, ret %d", ret);
+			return ret;
+		}
+	} else
+		ret = blk_derase(desc, start, blkcnt);
+
 	if (ret == blkcnt) {
 		ret = blk_dwrite(desc, start, blkcnt, buffer);
 		if (ret != blkcnt) {
