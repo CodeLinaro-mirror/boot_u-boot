@@ -21,6 +21,7 @@
 
 #include <asm/io.h>
 #include <linux/delay.h>
+#include <linux/err.h>
 
 #define PLL_POWER_ON_AND_RESET			0x9B780
 #define PLL_REFERENCE_CLOCK			0x9B784
@@ -393,4 +394,15 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 	}
 
 	return;
+}
+
+bool is_atf_enbled(void)
+{
+	uint32_t *atf_status = smem_get_item(SMEM_ATF_ENABLE);
+	if (IS_ERR_OR_NULL(atf_status)) {
+		printf("Failed to get SMEM item: SMEM_ATF_ENABLE\n");
+		return 0;
+	}
+
+	return (*atf_status ? true : false);
 }

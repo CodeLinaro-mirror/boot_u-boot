@@ -1212,6 +1212,7 @@ ipq_smem_target_info_t * get_ipq_smem_target_info(void);
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void);
 socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
+void *smem_get_item(unsigned int item);
 struct smem_ptable * get_ipq_part_table_info(void);
 int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size);
 int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size);

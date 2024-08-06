@@ -733,3 +733,51 @@ bool is_valid_dump(char *dump_name)
 	}
 	return skip_dump;
 }
+
+bool is_atf_enbled(void)
+{
+	enum atf_status_t {
+		ATF_STATE_DISABLED,
+		ATF_STATE_ENABLED,
+		ATF_STATE_UNKNOWN,
+	} atf_status = ATF_STATE_UNKNOWN;
+	scm_param param;
+	int ret = -1;
+
+	if (likely(atf_status != ATF_STATE_UNKNOWN))
+		return (atf_status == ATF_STATE_ENABLED);
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_CHECK_SCM_SUPPORT(param, SCM_SMC_FNID(QCOM_SCM_SVC_INFO,
+						QCOM_GET_SECURE_STATE_CMD));
+		param.get_ret = true;
+		ret = ipq_scm_call(&param);
+
+		if(!ret && (le32_to_cpu(param.res.result[0]) > 0)) {
+			do {
+				ret = -ENOTSUPP;
+				check_atf_support(param);
+				ret = ipq_scm_call(&param);
+				if(ret == 0 && (param.res.result[0] & 0x08))
+					atf_status = ATF_STATE_ENABLED;
+			} while (0);
+
+			if (ret == -ENOTSUPP) {
+				printf("Unsupported SCM call\n");
+				return false;
+			}
+
+		} else {
+			return false;
+		}
+
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		return false;
+	}
+
+	return atf_status == ATF_STATE_ENABLED;
+}

@@ -8,6 +8,8 @@
 #include <sysreset.h>
 #include <common.h>
 #include <command.h>
+#include <smem.h>
+#include <dm.h>
 #include <malloc.h>
 #include <memalign.h>
 #include <bootm.h>
@@ -63,13 +65,8 @@ int mmc_send_status(struct mmc *mmc, unsigned int *status);
 int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value);
 #endif
 
+struct udevice *smem;
 struct spi_flash *flash = NULL;
-
-enum atf_status_t {
-	ATF_STATE_DISABLED,
-	ATF_STATE_ENABLED,
-	ATF_STATE_UNKNOWN,
-} atf_status = ATF_STATE_UNKNOWN;
 
 int gpt_find_which_flash(gpt_entry *p)
 {
@@ -80,6 +77,28 @@ int gpt_find_which_flash(gpt_entry *p)
 		return 1;
 
 	return 0;
+}
+
+void *smem_get_item(unsigned int item)
+{
+
+	int ret = 0;
+	struct udevice *smem_tmp;
+	const char *name = "smem";
+	size_t size;
+	unsigned long int reloc_flag = (gd->flags & GD_FLG_RELOC);
+
+	if (reloc_flag == 0)
+		ret = uclass_get_device_by_name(UCLASS_SMEM, name, &smem_tmp);
+	else if(!smem)
+		ret = uclass_get_device_by_name(UCLASS_SMEM, name, &smem);
+
+	if (ret < 0) {
+		printf("Failed to find SMEM node. Check device tree %d\n",ret);
+		return 0;
+	}
+
+	return smem_get(reloc_flag ? smem : smem_tmp, -1, item, &size);
 }
 
 void arch_preboot_os(void)
@@ -138,48 +157,9 @@ long long ubi_get_volume_size(char *volume)
 }
 #endif
 
-bool is_atf_enbled(void)
+__weak bool is_atf_enbled(void)
 {
-	scm_param param;
-	int ret = -1;
-
-	if (likely(atf_status != ATF_STATE_UNKNOWN))
-		return (atf_status == ATF_STATE_ENABLED);
-
-	do {
-		ret = -ENOTSUPP;
-		IPQ_SCM_CHECK_SCM_SUPPORT(param, SCM_SMC_FNID(QCOM_SCM_SVC_INFO,
-						QCOM_GET_SECURE_STATE_CMD));
-		param.get_ret = true;
-		ret = ipq_scm_call(&param);
-
-		if(!ret && (le32_to_cpu(param.res.result[0]) > 0)) {
-			do {
-				ret = -ENOTSUPP;
-				check_atf_support(param);
-				ret = ipq_scm_call(&param);
-				if(ret == 0 && (param.res.result[0] & 0x08))
-					atf_status = ATF_STATE_ENABLED;
-			} while (0);
-
-			if (ret == -ENOTSUPP) {
-				printf("Unsupported SCM call\n");
-				return false;
-			}
-
-		} else {
-			return false;
-		}
-
-	} while (0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
-		return false;
-	}
-
-	return atf_status == ATF_STATE_ENABLED;
-
+	return false;
 }
 
 #ifdef CONFIG_SCM_V1
