@@ -85,8 +85,6 @@ uint32_t g_load_addr;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
 
-struct udevice *smem;
-
 ipq_smem_target_info_t ipq_smem_target_info;
 ipq_smem_flash_info_t ipq_smem_flash_info;
 struct smem_ptable *ptable;
@@ -151,26 +149,6 @@ socinfo_t * get_socinfo(void)
 	return &ipq_socinfo;
 }
 
-void *smem_get_item(unsigned int item) {
-
-	int ret = 0;
-	struct udevice *smem_tmp;
-	const char *name = "smem";
-	size_t size;
-	unsigned long int reloc_flag = (gd->flags & GD_FLG_RELOC);
-
-	if (reloc_flag == 0)
-		ret = uclass_get_device_by_name(UCLASS_SMEM, name, &smem_tmp);
-	else if(!smem)
-		ret = uclass_get_device_by_name(UCLASS_SMEM, name, &smem);
-
-	if (ret < 0) {
-		printf("Failed to find SMEM node. Check device tree %d\n",ret);
-		return 0;
-	}
-
-	return smem_get(reloc_flag ? smem : smem_tmp, -1, item, &size);
-}
 /*
  * This function should only be used when sfi->flash_type is
  * SMEM_BOOT_SPI_FLASH
