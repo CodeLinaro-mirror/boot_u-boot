@@ -257,7 +257,7 @@ class MIBIB(object):
                         " attr1 attr2 attr3 which_flash")
     ENTRY_FMT = "<16sLLBBBB"
 
-    def __init__(self, filename, pagesize, blocksize, chipsize, nand_blocksize, nand_chipsize, root_part):
+    def __init__(self, filename, pagesize, blocksize, chipsize, nand_blocksize, nand_chipsize):
         self.filename = filename
         self.pagesize = pagesize
         self.blocksize = blocksize
@@ -1291,6 +1291,7 @@ class Pack(object):
         global ARCH_NAME
         global IF_QCN9000
         global IF_QCN9224
+        global flash_size
 
         diff_files = ""
         count = 0
@@ -1303,14 +1304,14 @@ class Pack(object):
         skip_size_check = ""
 
         if self.flash_type == "norplusemmc" and flinfo.type == "emmc":
-            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition.xml"
+            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition"+ flash_size +".xml"
         else:
             if IF_QCN9000:
-                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition-qcn9000.xml"
+                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition-qcn9000"+ flash_size +".xml"
             elif IF_QCN9224 and flinfo.type != "emmc":
-                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition-qcn9224.xml"
+                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition-qcn9224"+ flash_size +".xml"
             else:
-                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition.xml"
+                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition"+ flash_size +".xml"
 
         root_part = ET.parse(srcDir_part)
         if self.flash_type != "emmc" and flinfo.type != "emmc":
@@ -1861,6 +1862,7 @@ class Pack(object):
         global SRC_DIR
         global QCN9000
         global QCN9224
+        global flash_size
 
         soc_version = 0
         diff_soc_ver_files = 0
@@ -1881,7 +1883,7 @@ class Pack(object):
 
         if (self.flash_type == "norplusemmc" and flinfo.type == "emmc") or (self.flash_type != "norplusemmc"):
             if flinfo.type == "emmc":
-                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition.xml"
+                srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition"+ flash_size +".xml"
                 rpart = ET.parse(srcDir_part)
                 parts = rpart.findall(".//physical_partition[@ref='emmc']/partition")
                 for index in range(len(parts)):
@@ -1894,9 +1896,9 @@ class Pack(object):
             script.end()
 
         if self.flash_type == "norplusemmc" and flinfo.type == "emmc":
-            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition.xml"
+            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition"+ flash_size +".xml"
         else:
-            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition.xml"
+            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + self.flash_type.lower() + "-partition"+ flash_size +".xml"
 
         root_part = ET.parse(srcDir_part)
         if self.flash_type != "emmc" and flinfo.type != "emmc":
@@ -2120,7 +2122,11 @@ class Pack(object):
                 # system-partition specific for AL+WAIKIKI
                 if section_conf == "mibib" and QCN9224:
                     img = section.find('img_name')
-                    filename_qcn9224 = img.text[:-4] + "-qcn9224.bin"
+                    if flash_size == "":
+                        filename_qcn9224 = img.text[:-4] + "-qcn9224.bin"
+                    else:
+                        filename_qcn9224 = img.text[:-9] + "-qcn9224"+ flash_size +".bin"
+
                     section_conf_qcn9224 = section_conf + "_qcn9224"
                     self.__gen_script_append_images(filename_qcn9224, soc_version, wifi_fw_type, images, flinfo, root, section_conf_qcn9224, partition)
             else:
@@ -2243,6 +2249,7 @@ class Pack(object):
         global IF_QCN9000
         global QCN9224
         global IF_QCN9224
+        global flash_size
 
         """Generate the flashing script for one board.
 
@@ -2277,9 +2284,6 @@ class Pack(object):
             blocks_per_chip = int(flash_param.find(".//total_block").text)
             chipsize = blocks_per_chip * blocksize
 
-            srcDir_part = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + flinfo.type + "-partition.xml"
-            root_part = ET.parse(srcDir_part)
-
             if flinfo.type == "nand":
                 script = Flash_Script(flinfo, self.ipq_nand)
             elif flinfo.type == "nor":
@@ -2291,7 +2295,7 @@ class Pack(object):
                 IF_QCN9000 = True
                 part_fname_qcn9000 = part_fname[:-4] + "-qcn9000.bin"
                 mibib_qcn9000 = MIBIB(part_fname_qcn9000, flinfo.pagesize, flinfo.blocksize,
-                                   flinfo.chipsize, blocksize, chipsize, root_part)
+                                   flinfo.chipsize, blocksize, chipsize)
                 self.partitions = mibib_qcn9000.get_parts()
 
                 script.append('if test "$machid" = "801000e" || test "$machid" = "801010e" || test "$machid" = "8010012" || test "$machid" = "8010013" || test "$machid" = "8010500"; then\n', fatal=False)
@@ -2305,9 +2309,12 @@ class Pack(object):
             # system-partition specific for ALDER+WAIKIKI
             if QCN9224:
                 IF_QCN9224 = True
-                part_fname_qcn9224 = part_fname[:-4] + "-qcn9224.bin"
+                if flash_size == "":
+                    part_fname_qcn9224 = part_fname[:-4] + "-qcn9224.bin"
+                else:
+                    part_fname_qcn9224 = part_fname[:-9] + "-qcn9224"+ flash_size +".bin"
                 mibib_qcn9224 = MIBIB(part_fname_qcn9224, flinfo.pagesize, flinfo.blocksize,
-                                   flinfo.chipsize, blocksize, chipsize, root_part)
+                                   flinfo.chipsize, blocksize, chipsize)
                 self.partitions = mibib_qcn9224.get_parts()
 
                 script.append('if test "$machid" = "8050301" || test "$machid" = "8050501"  || test "$machid" = "8050601" || test "$machid" = "8050701" || test "$machid" = "8050801" || test "$machid" = "8050901" || test "$machid" = "8050a01" || test "$machid" = "8050b01" || test "$machid" = "8050c01" || test "$machid" = "8050d01" || test "$machid" = "8050e01" || test "$machid" = "8050f01" || test "$machid" = "8051001" || test "$machid" = "0x8051101" || test "$machid" = "8051201" || test "$machid" = "8051301" || test "$machid" = "8050002" || test "$machid" = "8050102" || test "$machid" = "8050003" || test "$machid" = "8050004"; then\n', fatal=False)
@@ -2320,7 +2327,7 @@ class Pack(object):
                 IF_QCN9224 = False
 
             mibib = MIBIB(part_fname, flinfo.pagesize, flinfo.blocksize,
-                          flinfo.chipsize, blocksize, chipsize, root_part)
+                          flinfo.chipsize, blocksize, chipsize)
             self.partitions = mibib.get_parts()
 
         else:
@@ -2412,6 +2419,7 @@ class Pack(object):
         global MODE
         global QCN9000
         global QCN9224
+        global flash_size
 
         try:
             if ftype == "tiny-nor" or ftype == "tiny-nor-debug":
@@ -2439,7 +2447,7 @@ class Pack(object):
                 if ftype in ["nand-audio", "nand-audio-4k"]:
                     UBINIZE_CFG_NAME = ARCH_NAME + "-ubinize" + MODE_APPEND + "-audio.cfg"
                 else:
-                    UBINIZE_CFG_NAME = ARCH_NAME + "-ubinize" + MODE_APPEND + ".cfg"
+                    UBINIZE_CFG_NAME = ARCH_NAME + "-ubinize" + MODE_APPEND + flash_size + ".cfg"
 
                 f1 = open(SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + UBINIZE_CFG_NAME, 'r')
                 UBINIZE_CFG_NAME = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/tmp-" + UBINIZE_CFG_NAME
@@ -2449,7 +2457,7 @@ class Pack(object):
                 f1.close()
                 f2.close()
 
-                part_file = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ftype + "-partition.xml"
+                part_file = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ftype + "-partition" + flash_size + ".xml"
                 parts = ET.parse(part_file).findall('.//partitions/partition')
                 for index in range(len(parts)):
                     section = parts[index]
@@ -2477,7 +2485,7 @@ class Pack(object):
                     if ret != 0:
                         error("ubi image copy operation failed")
 
-            part_file = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ftype + "-partition.xml"
+            part_file = SRC_DIR + "/" + ARCH_NAME + "/flash_partition/" + ftype + "-partition" + flash_size + ".xml"
             part_xml = ET.parse(part_file)
             if (part_xml.find(".//partitions/partition[name='0:MIBIB']")):
                 partition = part_xml.find(".//partitions/partition[name='0:MIBIB']")
@@ -2582,6 +2590,8 @@ class ArgParser(object):
         global atf
         global skip_4k_nand
         global multi_wifi_fw
+        global flash_size
+        flash_size = ""
 
         """Start the parsing process, and populate members with parsed value.
 
@@ -2591,7 +2601,7 @@ class ArgParser(object):
         cdir = os.path.abspath(os.path.dirname(""))
         if len(sys.argv) > 1:
             try:
-                opts, args = getopt(sys.argv[1:], "", ["arch=", "fltype=", "srcPath=", "inImage=", "outImage=", "image_type=", "memory=", "lk", "skip_4k_nand", "atf", "qcn6122", "multi_wifi_fw"])
+                opts, args = getopt(sys.argv[1:], "", ["arch=", "fltype=", "srcPath=", "inImage=", "outImage=", "image_type=", "memory=", "lk", "skip_4k_nand", "atf", "qcn6122", "multi_wifi_fw", "flash_size="])
             except GetoptError as e:
                 raise UsageError(e.msg)
 
@@ -2631,6 +2641,9 @@ class ArgParser(object):
 
                 elif option == "--multi_wifi_fw":
                     multi_wifi_fw = "true"
+
+                elif option == "--flash_size":
+                    flash_size = "-" + value
 
 #Verify Arguments passed by user
 
@@ -2696,6 +2709,7 @@ class ArgParser(object):
         print(" \t\tIf specified, CDTs created with specified memory size will be used for single-image.\n")
         print()
         print("  --lk \t\tReplace u-boot with lkboot for appsbl")
+        print("  --flash_size \tFlash size")
         print("  --atf \t\tReplace tz with atf for QSEE partition")
         print("  --skip_4k_nand \tskip generating 4k nand images")
         print(" \t\tThis Argument does not take any value")
@@ -2783,6 +2797,8 @@ def main():
     """
 
     global tiny_16m
+    global flash_size
+
     try:
         parser = ArgParser()
         parser.parse(sys.argv)
@@ -2800,12 +2816,12 @@ def main():
 
     if skip_4k_nand != "true":
         # Add nand-4k flash type, if nand flash type is specified
-        if "nand" in parser.flash_type.split(","):
+        if "nand" in parser.flash_type.split(",") and flash_size == "":
             if root.find(".//data[@type='NAND_PARAMETER']/entry") != None:
                 parser.flash_type = parser.flash_type + ",nand-4k"
 
         # Add norplusnand-4k flash type, if norplusnand flash type is specified
-        if "norplusnand" in parser.flash_type.split(","):
+        if "norplusnand" in parser.flash_type.split(",") and flash_size == "":
             if root.find(".//data[@type='NAND_PARAMETER']/entry") != None:
                 parser.flash_type = parser.flash_type + ",norplusnand-4k"
 
@@ -2819,16 +2835,16 @@ def main():
 
         if image_type == "hlos":
             if MODE == "64":
-                parser.out_fname = flash_type + "-" + ARCH_NAME + "_" + MODE + "-apps.img"
+                parser.out_fname = flash_type + "-" + ARCH_NAME + "_" + MODE + "-apps" + flash_size + ".img"
             else:
-                parser.out_fname = flash_type + "-" + ARCH_NAME + "-apps.img"
+                parser.out_fname = flash_type + "-" + ARCH_NAME + "-apps" + flash_size + ".img"
         else:
             if flash_type == "emmc" and lk == "true":
                 suffix = "-single-lkboot.img"
                 gen_kernelboot_img(parser)
 
             else:
-                suffix = "-single.img"
+                suffix = "-single" + flash_size + ".img"
 
             if MODE == "64":
                 parser.out_fname = flash_type + "-" + ARCH_NAME + "_" + MODE + suffix
