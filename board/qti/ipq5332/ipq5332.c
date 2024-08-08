@@ -302,7 +302,6 @@ int ipq_read_tcsr_boot_misc(void)
 	scm_param param;
 	int feat_avail = 0;
 	int ret;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
 	if (!g_recovery_path)
 	{
