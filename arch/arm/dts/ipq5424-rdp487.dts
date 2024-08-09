@@ -104,6 +104,11 @@
 						reg = <3>;
 						label = "lan";
 					};
+
+					port4: port@4 {
+						reg = <4>;
+						label = "lan";
+					};
 				};
 			};
 		};
