@@ -128,7 +128,7 @@
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 
-			phy0: phy@ff {
+			phy0: sfp0@ff {
 				phy-reset-gpio = <&tlmm 36 0>;
 				reg = <0xFF>;
 				phy_id = <SFP10G_PHY_TYPE>;
@@ -139,7 +139,7 @@
 				xgmac;
 			};
 
-			phy1: phy@ff {
+			phy1: sfp1@ff {
 				phy-reset-gpio = <&tlmm 37 0>;
 				reg = <0xFF>;
 				phy_id = <SFP10G_PHY_TYPE>;
