@@ -1036,9 +1036,11 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 #ifdef CONFIG_BLK
 			ret = blk_dread(bpart_info.desc, start_blk_no,
 						size / blksz, buf);
-			if (ret < 0)
+			if (ret < 0) {
 				printf("Blk read failed %d \n", ret);
-			break;
+				break;
+			} else
+				goto exit;
 #endif
 		}
 
