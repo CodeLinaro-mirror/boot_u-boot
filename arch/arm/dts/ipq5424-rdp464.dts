@@ -31,12 +31,14 @@
 					pins = "GPIO_36";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
+					output-enable;
 				};
 
 				qti_sfp1_rst {
 					pins = "GPIO_37";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
+					output-enable;
 				};
 
 				qti_8x8x_rst {
@@ -129,7 +131,6 @@
 			status = "okay";
 
 			phy0: sfp0@ff {
-				phy-reset-gpio = <&tlmm 36 0>;
 				reg = <0xFF>;
 				phy_id = <SFP10G_PHY_TYPE>;
 				id = <1>;
@@ -140,7 +141,6 @@
 			};
 
 			phy1: sfp1@ff {
-				phy-reset-gpio = <&tlmm 37 0>;
 				reg = <0xFF>;
 				phy_id = <SFP10G_PHY_TYPE>;
 				id = <2>;

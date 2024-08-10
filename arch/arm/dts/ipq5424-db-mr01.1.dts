@@ -31,12 +31,14 @@
 					pins = "GPIO_36";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
+					output-enable;
 				};
 
 				qti_sfp1_rst {
 					pins = "GPIO_37";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
+					output-enable;
 				};
 
 				qti_8x8x_rst {
