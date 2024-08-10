@@ -111,6 +111,7 @@ int arch_cpu_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_IPQ_MMU_SETUP
 void dram_bank_mmu_setup(int bank)
 {
 	struct bd_info *bd = gd->bd;
@@ -132,4 +133,5 @@ void dram_bank_mmu_setup(int bank)
 			set_section_dcache(i, GEN_CACHE_SETUP);
 	}
 }
+#endif
 #endif
