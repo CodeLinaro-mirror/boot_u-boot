@@ -134,8 +134,8 @@ extern uint32_t g_env_offset;
 
 #endif /* ifnot defined CONFIG_ETH_LOW_MEM */
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
-#define CFG_NR_CPUS				4
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
+#define CFG_NR_CPUS	4
 #endif
 
 #ifdef CONFIG_GPT_UPDATE_PARAMS

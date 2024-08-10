@@ -394,7 +394,7 @@ U_BOOT_CMD(
 );
 #endif
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
 static int qti_invoke_psci_fn_smc
 		(unsigned long function_id, unsigned long arg0,
 		 unsigned long arg1, unsigned long arg2)
@@ -404,28 +404,35 @@ static int qti_invoke_psci_fn_smc
 	return res.a0;
 }
 
-int is_secondary_core_off(unsigned int cpuid)
+int is_secondary_core_off(unsigned long cpuid)
 {
 	return qti_invoke_psci_fn_smc(PSCI_0_2_FN_AFFINITY_INFO, cpuid, 0, 0);
 }
 
-void bring_secondary_core_down(unsigned int state)
+void bring_secondary_core_down(unsigned long state)
 {
 	qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_OFF, state, 0, 0);
 }
 
-int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
-				unsigned int arg)
+int bring_secondary_core_up(unsigned long cpuid, unsigned long entry,
+				unsigned long arg)
 {
 	int ret;
-	ret = qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, cpuid, entry, arg);
+	unsigned long mpidr_cpuid = 0;
+#if defined (BASE_CPU_64BIT_BOOTUP)
+	mpidr_cpuid = cpuid << 8;
+#else
+	mpidr_cpuid = cpuid;
+#endif
+	ret = qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, mpidr_cpuid, entry,
+					arg);
 	if (ret) {
-		printf("Enabling CPU%d via psci failed! (ret : %d)\n",
+		printf("Enabling CPU%ld via psci failed! (ret : %d)\n",
 								cpuid, ret);
 		return CMD_RET_FAILURE;
 	}
 
-	printf("Enabled CPU%d via psci successfully!\n", cpuid);
+	printf("Enabled CPU%ld via psci successfully!\n", cpuid);
 	return CMD_RET_SUCCESS;
 }
 #endif
