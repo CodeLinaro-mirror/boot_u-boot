@@ -262,6 +262,8 @@
 				<&gcc GCC_USB0_PHY_CFG_AHB_CLK>;
 			resets = <&reset GCC_USB_BCR>;
 			ranges;
+			qti,quirk-ref-clk-per = <0x4004010>;
+			qti,quirk-ref-clk-adj = <0x4945720>;
 			status = "disabled";
 
 			dwc3@8a00000 {
@@ -288,6 +290,8 @@
 			resets = <&reset GCC_USB1_BCR>;
 			ranges;
 			qti,select-utmi-as-pipe-clk;
+			qti,quirk-ref-clk-per = <0x4004010>;
+			qti,quirk-ref-clk-adj = <0x4945720>;
 			status = "disabled";
 
 			dwc3@1e00000 {
