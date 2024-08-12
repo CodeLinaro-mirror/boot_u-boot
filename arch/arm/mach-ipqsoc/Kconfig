@@ -391,6 +391,7 @@ config TARGET_IPQ5424
 	imply GPT_UPDATE_PARAMS
 	imply IPQ_ELF_AUTH
 	imply DPR_VER_3_0
+	select SCM_V2
 	select HASH
 	select SHA384
 	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
