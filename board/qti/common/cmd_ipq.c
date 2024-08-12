@@ -1814,7 +1814,7 @@ do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return ret;
 #endif /* CONFIG_AES_256_DERIVE_KEY */
 
-	if (strncmp(argv[1], "enc", 3) || strncmp(argv[1], "dec", 3))
+	if (strncmp(argv[1], "enc", 3) && strncmp(argv[1], "dec", 3))
 		return ret;
 
 	type = simple_strtoul(argv[2], NULL, 16);
@@ -1923,6 +1923,62 @@ U_BOOT_CMD(
 	" <key_handle>"
 #endif /* CONFIG_AES_256_DERIVE_KEY */
 );
+
+/**
+ * do_clear_aes_key() - Handle the "clear_key" command-line command
+ *
+ * @cmdtp:      Command data struct pointer
+ * @flag:       Command flag
+ * @argc:       Command-line argument count
+ * @argv:       Array of command-line arguments
+ *
+ * Returns zero on success, CMD_RET_USAGE in case of misuse and negative
+ * on error.
+ */
+
+static int do_clear_aes_key(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	int ret;
+	uint32_t key_handle;
+	scm_param param = {0};
+
+	if (argc != 2) {
+		return CMD_RET_USAGE;
+	}
+
+	key_handle = simple_strtoul(argv[1], NULL, 10);
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_CLEAR_AES_KEY(param, key_handle);
+		ret = ipq_scm_call(&param);
+		param.get_ret = true;
+
+		if(!ret && !le32_to_cpu(param.res.result[0]))
+			printf("AES key = %u cleared successfully\n",
+					key_handle);
+		else
+			printf("AES key clear failed with err %d\n",ret);
+
+
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		return CMD_RET_FAILURE;
+	}
+
+	return ret ? CMD_RET_FAILURE:CMD_RET_SUCCESS;
+}
+
+/***************************************************/
+U_BOOT_CMD(
+        clear_aes_key, 2, 0, do_clear_aes_key,
+	"Clear AES 256 key in TME-L based systems",
+	"Clear key: clear_aes_key <key_handle>"
+);
+
 #endif /* CONFIG_CMD_AES_256 */
 
 #ifdef CONFIG_QSPI_LAYOUT_SWITCH

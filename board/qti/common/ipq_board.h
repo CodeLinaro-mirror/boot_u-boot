@@ -577,6 +577,16 @@
 #define _CHECK_FEATURE(...) break;
 #endif
 
+#ifdef CONFIG_SCM_V1
+#define	_IPQ_SCM_CLEAR_AES_KEY_V1(_param, _a)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CLEAR_AES_KEY;			\
+		(_param).buff[0] = _a;					\
+		(_param).len = 1;					\
+	} while (0)
+#endif
+
 #if defined(CONFIG_SCM_V1)
 #define IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)		\
 		_IPQ_SCM_AUTHENTICATE_KERNEL_V1(param, a, b, c, d, e)
@@ -792,6 +802,12 @@
 #else
 #define check_atf_support(param)					\
 		_check_atf_support(param)
+#endif
+
+#ifdef CONFIG_SCM_V1
+#define	IPQ_SCM_CLEAR_AES_KEY(param, a)	_IPQ_SCM_CLEAR_AES_KEY_V1(param, a)
+#else
+#define	IPQ_SCM_CLEAR_AES_KEY(...)	break;
 #endif
 
 #ifdef CONFIG_SMEM_VERSION_C
