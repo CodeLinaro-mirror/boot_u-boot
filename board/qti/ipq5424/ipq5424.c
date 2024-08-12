@@ -414,3 +414,23 @@ bool is_atf_enbled(void)
 
 	return (*atf_status ? true : false);
 }
+
+void ipq_fdt_fixup_atf(void *blob)
+{
+	int ret = 0;
+	if (!(gd->board_type & ATF_ENABLED))
+		return;
+
+	ret = fdt_status_disabled_by_pathf(blob,
+			"/reserved-memory/tz@0x8a600000");
+	if (ret <0) {
+		printf("failed to disable the tz node, err: %d \n", ret);
+		return;
+	}
+
+	ret = fdt_status_okay_by_pathf(blob, "/reserved-memory/atf@8a832000");
+	if (ret <0) {
+		printf("failed to enable the atf node, err: %d \n", ret);
+		return;
+	}
+}
