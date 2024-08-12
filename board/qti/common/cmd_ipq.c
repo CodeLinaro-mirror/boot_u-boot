@@ -131,45 +131,192 @@ enum {
 #define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
 #define MAX_FUSE_ADDR_SIZE		0x8
 
-static int do_secure(struct cmd_tbl *cmdtp, int flag,
-				int argc, char *const argv[])
+typedef struct load_seg_info {
+	uint32_t startAddr;       /**< Region start address (SoC view) */
+	uint32_t endAddr;         /**< Region end address (SoC view) */
+} load_seg_info_t;
+
+/*
+ * Interpret the ELF-64bit program header to retrieve
+ * the offset and filesize of the LOAD segment,
+ * storing them into memory allocated at runtime.
+ * Remember to clear this memory after it has been utilized
+ */
+load_seg_info_t *elf64_load_seg(void *img_addr, uint8_t* load_seg_cnt,
+					ulong *meta_data_size)
+{
+	load_seg_info_t *load_seg_info = NULL;
+	Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)img_addr;
+	Elf64_Phdr *phdr = (Elf64_Phdr *)(uintptr_t)(img_addr + ehdr->e_phoff);
+	uint8_t lds_cnt = 0;
+
+	/*
+	 * Considering that first two segment of
+	 * program header is not a loadable segment,
+	 * ignoring it for memory allocation
+	 */
+	load_seg_info = (load_seg_info_t*) malloc(sizeof(load_seg_info_t) *
+						(ehdr->e_phnum - 2));
+	if (!load_seg_info) {
+		printf("Unable to allocate memory\n");
+		return NULL;
+	}
+	memset(load_seg_info, 0, sizeof(load_seg_info_t) * (ehdr->e_phnum - 2));
+
+	for (int i = 0; i < ehdr->e_phnum; ++phdr, i++) {
+		if (phdr->p_type == PT_LOAD) {
+			if (!lds_cnt && *meta_data_size == 0) {
+				--phdr;
+				*meta_data_size = phdr->p_offset +
+						  phdr->p_filesz;
+				++phdr;
+			}
+
+			if (!phdr->p_filesz && !phdr->p_memsz)
+				continue;
+			if (!phdr->p_filesz && phdr->p_memsz) {
+				load_seg_info[lds_cnt].startAddr = 0;
+				load_seg_info[lds_cnt++].endAddr = 0;
+				continue;
+			}
+
+			load_seg_info[lds_cnt].startAddr = phdr->p_offset +
+						(ulong)(uintptr_t) img_addr;
+			load_seg_info[lds_cnt++].endAddr = phdr->p_filesz +
+						(ulong)(uintptr_t) img_addr +
+						phdr->p_offset;
+		}
+	}
+
+	*load_seg_cnt = lds_cnt;
+
+	return load_seg_info;
+
+}
+
+/*
+ * Interpret the ELF-32bit program header to retrieve
+ * the offset and filesize of the LOAD segment,
+ * storing them into memory allocated at runtime.
+ * Remember to clear this memory after it has been utilized
+ */
+load_seg_info_t *elf32_load_seg(void *img_addr, uint8_t* load_seg_cnt,
+					ulong *meta_data_size)
+{
+	load_seg_info_t *load_seg_info = NULL;
+	Elf32_Ehdr *ehdr = (Elf32_Ehdr *)(uintptr_t)img_addr;
+	Elf32_Phdr *phdr = (Elf32_Phdr *)(uintptr_t)(img_addr + ehdr->e_phoff);
+	uint8_t lds_cnt = 0;
+
+	/*
+	 * Considering that first two segment of
+	 * program header is not a loadable segment,
+	 * ignoring it for memory allocation
+	 */
+	load_seg_info = (load_seg_info_t*) malloc(sizeof(load_seg_info_t) *
+						(ehdr->e_phnum - 2));
+	if (!load_seg_info) {
+		printf("Unable to allocate memory\n");
+		return NULL;
+	}
+
+	memset(load_seg_info, 0, sizeof(load_seg_info_t) * (ehdr->e_phnum - 2));
+
+	for (int i = 0; i < ehdr->e_phnum; ++phdr, i++) {
+		if (phdr->p_type == PT_LOAD) {
+			if (!lds_cnt && *meta_data_size == 0) {
+				--phdr;
+				*meta_data_size = phdr->p_offset +
+						  phdr->p_filesz;
+				++phdr;
+			}
+
+			if (!phdr->p_filesz && !phdr->p_memsz)
+				continue;
+			if (!phdr->p_filesz && phdr->p_memsz) {
+				load_seg_info[lds_cnt].startAddr = 0;
+				load_seg_info[lds_cnt++].endAddr = 0;
+				continue;
+			}
+
+			load_seg_info[lds_cnt].startAddr = phdr->p_offset +
+						(ulong)(uintptr_t) img_addr;
+			load_seg_info[lds_cnt++].endAddr = phdr->p_filesz +
+						(ulong)(uintptr_t) img_addr +
+						phdr->p_offset;
+		}
+	}
+
+	*load_seg_cnt = lds_cnt;
+
+	return load_seg_info;
+
+}
+
+load_seg_info_t *parse_n_extract_ld_segment(void *img_addr,
+						uint8_t* load_seg_cnt,
+						ulong *meta_data_size)
+{
+	Elf32_Ehdr *ehdr = (Elf32_Ehdr *)img_addr;
+	load_seg_info_t *load_seg_info = NULL;
+
+	if (ehdr->e_ident[EI_CLASS] == ELFCLASS64)
+		load_seg_info = elf64_load_seg(img_addr, load_seg_cnt,
+							meta_data_size);
+	else if (ehdr->e_ident[EI_CLASS] == ELFCLASS32)
+		load_seg_info = elf32_load_seg(img_addr, load_seg_cnt,
+							meta_data_size);
+
+	return load_seg_info;
+}
+
+static int do_secure(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
 {
 	int ret = CMD_RET_FAILURE;
+	int scm_ret = 0;
+	load_seg_info_t *load_seg_buff = NULL;
+	uint8_t load_seg_cnt = 0;
+
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
 	int active_part = PRI_PARTITION;
 #endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
 
-	if(argc!=4 && argc !=1)
-		return CMD_RET_USAGE;
-
 	if (strncmp(argv[0], "is_sec_boot_enabled", 19) == 0 && argc == 1) {
+		if (argc != 1)
+			return CMD_RET_USAGE;
 
 		printf("secure boot fuse is%senabled\n",
 				(gd->board_type & SECURE_BOARD) ? " " :
 							" not ");
 		ret = 0;
 
-	}
-#ifdef CONFIG_SCM_V1
-	else if(strncmp(argv[0], "secure_authenticate", 19) == 0 && argc == 4) {
+	} else if(strncmp(argv[0], "secure_authenticate", 19) == 0) {
 
-		auth_cmd_buf auth_buf;
+#ifdef CONFIG_SECURE_AUTH_V1
+		if(argc != 4)
+#elif CONFIG_SECURE_AUTH_V2
+		if(argc != 3 && argc !=4)
+#endif
+			return CMD_RET_USAGE;
+
+		auth_cmd_buf auth_buf = {0};
 		scm_param param;
 
 		auth_buf.type = simple_strtoul(argv[1], NULL, 16);
 		auth_buf.addr = simple_strtoul(argv[2], NULL, 16);
 
 		do {
-			ret = -ENOTSUPP;
+			scm_ret = -ENOTSUPP;
 			IPQ_SCM_CHECK_SCM_SUPPORT(param,
 						SCM_SMC_FNID(QCOM_SCM_SVC_BOOT,
 						QCOM_SCM_SEC_AUTH_CMD) |
 						(ARM_SMCCC_OWNER_SIP <<
 						ARM_SMCCC_OWNER_SHIFT));
 			param.get_ret = true;
-			ret = ipq_scm_call(&param);
+			scm_ret = ipq_scm_call(&param);
 
-			if (ret || (!ret &&
+			if (scm_ret || (!scm_ret &&
 				le32_to_cpu(param.res.result[0]) <= 0)) {
 				printf("secure authentication scm call"
 					" is not supported. ret = %d\n", ret);
@@ -178,7 +325,7 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag,
 			}
 		} while(0);
 
-		if (ret == -ENOTSUPP) {
+		if (scm_ret == -ENOTSUPP) {
 			printf("Unsupported SCM call\n");
 			ret = CMD_RET_FAILURE;
 			goto exit;
@@ -188,35 +335,69 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag,
 		active_part = get_rootfs_active_partition();
 		active_part = active_part ? ALT_PARTITION : PRI_PARTITION;
 		do {
-			ret = -ENOTSUPP;
+			scm_ret = -ENOTSUPP;
 			IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
-			ret = ipq_scm_call(&param);
+			scm_ret = ipq_scm_call(&param);
 
-			if(ret) {
+			if(scm_ret) {
 				printf("Partition info authentication "
 								"failed\n");
 				BUG(); //:TODO check if BUG is necessary
 			}
 		} while(0);
 
-		if (ret == -ENOTSUPP) {
+		if (scm_ret == -ENOTSUPP) {
 			printf("Unsupported SCM call\n");
 			ret =  CMD_RET_FAILURE;
 			goto exit;
 		}
 #endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
 
+#ifdef CONFIG_SECURE_AUTH_V1
 		auth_buf.size = simple_strtoul(argv[3], NULL, 16);
+#elif CONFIG_SECURE_AUTH_V2
+		void *load_addr = (void*)(uintptr_t)auth_buf.addr;
+		if(argc == 4)
+			auth_buf.size = simple_strtoul(argv[3], NULL, 16);
+
+		if (!load_addr || !IS_ELF(*(Elf32_Ehdr *)load_addr)) {
+			printf("It is not a elf image \n");
+			goto exit;
+		}
+
+		if ((*(Elf32_Ehdr *)load_addr).e_ident[EI_CLASS] == ELFCLASS32
+				&& ((Elf32_Ehdr *)load_addr)->e_phnum < 3) {
+				printf("Invalid image\n");
+				goto exit;
+		}
+
+		if ((*(Elf64_Ehdr *)load_addr).e_ident[EI_CLASS] == ELFCLASS64
+				&& ((Elf64_Ehdr *)load_addr)->e_phnum < 3) {
+				printf("Invalid image\n");
+				goto exit;
+		}
+
+
+		load_seg_buff = parse_n_extract_ld_segment(
+					(void *)(uintptr_t)auth_buf.addr,
+					&load_seg_cnt, &auth_buf.size);
+
+		if (!load_seg_buff)
+			goto exit;
+
+		load_seg_cnt = load_seg_cnt * sizeof(load_seg_info_t);
+#endif
 
 		do {
-			ret = -ENOTSUPP;
+			scm_ret = -ENOTSUPP;
 			IPQ_SCM_SECURE_AUTHENTICATE(param, auth_buf.type,
-						auth_buf.size,
-						auth_buf.addr, 0, 0);
+						auth_buf.size, auth_buf.addr,
+						(uintptr_t)load_seg_buff,
+						load_seg_cnt);
 			param.get_ret = true;
-			ret = ipq_scm_call(&param);
+			scm_ret = ipq_scm_call(&param);
 
-			if(ret || (param.res.result[0] && !ret)) {
+			if(scm_ret || (param.res.result[0] && !scm_ret)) {
 				printf("image authentication failed. "
 							"ret  = %d\n",
 							ret);
@@ -227,20 +408,19 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag,
 			}
 		} while (0);
 
-		if (ret == -ENOTSUPP) {
+		if (scm_ret == -ENOTSUPP) {
 			printf("Unsupported SCM call\n");
 			ret =  CMD_RET_FAILURE;
-			goto exit;
 		}
 	}
-#endif
 	else {
 		return CMD_RET_USAGE;
 	}
 
-#ifdef CONFIG_SCM_V1
 exit:
-#endif
+	if (load_seg_buff)
+		free(load_seg_buff);
+
 	return ret;
 }
 
@@ -248,12 +428,15 @@ U_BOOT_CMD(is_sec_boot_enabled, 1, 0, do_secure,
 		"check secure boot fuse is enabled or not\n",
 		"is_sec_boot_enabled - check secure boot fuse "
 		"is enabled or not\n");
-#ifdef CONFIG_SCM_V1
 U_BOOT_CMD(secure_authenticate, 4, 0, do_secure,
 		"authenticate the signed image\n",
+#ifdef CONFIG_SECURE_AUTH_V1
 		"secure_authenticate <sw_id> <img_addr> <img_size>\n"
-		"	- authenticate the signed image\n");
+#elif CONFIG_SECURE_AUTH_V2
+		"secure_authenticate <sw_id> <img_addr> [meta_data_size]\n"
 #endif
+		"	- authenticate the signed image\n");
+
 static int
 do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {

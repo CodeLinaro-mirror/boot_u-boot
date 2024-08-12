@@ -70,7 +70,7 @@
 #define is_secure_boot()	is_secure_boot_fake()
 #endif
 
-
+#define UNUSED_VAR(x)	(void)x;
 /*
  * Authenticate kernel image during bootup
  */
@@ -119,6 +119,7 @@
 		(_param).buff[0] = _a;					\
 		(_param).buff[1] = _b; 					\
 		(_param).buff[2] = _c;	 				\
+		UNUSED_VAR(_e);	 					\
 		(_param).arg_type[0] = SCM_VAL;				\
 		(_param).arg_type[1] = SCM_VAL;				\
 		(_param).arg_type[2] = SCM_WRITE_OP;			\
