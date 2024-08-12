@@ -531,21 +531,17 @@ U_BOOT_CMD(fuseipq, 2, 0, do_fuseipq,
 		"fuseipq [address]  - Load fuse(s) and blows in the qfprom\n");
 #endif
 
-#ifdef CONFIG_TARGET_IPQ5332
-static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
+#ifdef CONFIG_LIST_FUSE
+static int do_list_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 					char *const argv[])
 {
 	int ret;
-	int index, next = 0;
-	unsigned long addr = 0xA00E8;
-	struct fuse_payload {
-		u32 fuse_addr;
-		u32 lsb_val;
-		u32 msb_val;
-	};
+	int index = 0;
 	struct fuse_payload *fuse = NULL;
 	scm_param param;
-	size_t size = sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE;
+	uint8_t fuse_read_cnt = TME_OEM_ATE_FUSE_CNT +
+				TME_OEM_MRC_HASH_FUSE_CNT;
+	size_t size = sizeof(struct fuse_payload ) * fuse_read_cnt;
 
 	size = roundup(size, CONFIG_SYS_CACHELINE_SIZE);
 
@@ -554,19 +550,24 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 	}
 
-	memset(fuse, 0, MAX_FUSE_ADDR_SIZE * sizeof(struct fuse_payload));
+	memset(fuse, 0, size);
 
-	fuse[0].fuse_addr = 0xA00D0;
-	for (index = 1; index < MAX_FUSE_ADDR_SIZE; index++) {
-		fuse[index].fuse_addr = addr + next;
-		next += 0x8;
+	for (index = 0; index < fuse_read_cnt ; index++) {
+		if (index < TME_OEM_ATE_FUSE_CNT) {
+			fuse[index].fuse_addr = TME_OEM_ATE_FUSE_START +
+					(TME_OEM_ATE_FUSE_READ_SIZE * index);
+		} else {
+			fuse[index].fuse_addr = TME_OEM_MRC_HASH_FUSE_START +
+					(TME_OEM_MRC_HASH_FUSE_READ_SIZE *
+					 (index - TME_OEM_ATE_FUSE_CNT));
+		}
 	}
 
 	/* invalidate cache to update latest value in buff */
 	do {
 		ret = -ENOTSUPP;
 		IPQ_SCM_READ_FUSE(param, (unsigned long)fuse,
-			sizeof(struct fuse_payload ) * MAX_FUSE_ADDR_SIZE);
+			sizeof(struct fuse_payload ) * fuse_read_cnt);
 
 		flush_dcache_range((unsigned long)fuse,
 					(unsigned long)fuse +
@@ -575,25 +576,43 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		if (ret) {
 			printf("Error (%d) failed to read fuse\n", ret);
-		}
+			ret = CMD_RET_FAILURE;
+		} else
+			ret = CMD_RET_SUCCESS;
 
 		printf("Fuse Name\tAddress\t\tValue\n");
 		printf("------------------------------------------------\n");
-
+#ifdef CONFIG_LIST_FUSE_V1
 		printf("TME_AUTH_EN\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
-				fuse[0].lsb_val & 0x41);
+				fuse[0].val & TME_AUTH_EN_MASK);
 		printf("TME_OEM_ID\t0x%08X\t0x%08X\n", fuse[0].fuse_addr,
-				fuse[0].lsb_val & 0xFFFF0000);
+				fuse[0].val & TME_OEM_ID_MSK);
 		printf("TME_PRODUCT_ID\t0x%08X\t0x%08X\n",
-				fuse[0].fuse_addr + 0x4,
-				fuse[0].msb_val & 0xFFFF);
+				fuse[1].fuse_addr,
+				fuse[1].val & TME_PRODUCT_ID_MSK);
 
-		for (index = 1; index < MAX_FUSE_ADDR_SIZE; index++) {
+		for (index = TME_OEM_ATE_FUSE_CNT;
+				index < fuse_read_cnt; index++) {
 			printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
+			fuse[index].fuse_addr, fuse[index].val);
+		}
+#elif CONFIG_LIST_FUSE_V2
+		printf("tme_auth_en\t0x%08x\t0x%08x\n", fuse[0].fuse_addr,
+				fuse[0].lsb_val & TME_AUTH_EN_MASK);
+		printf("tme_oem_id\t0x%08x\t0x%08x\n", fuse[0].fuse_addr,
+				fuse[0].lsb_val & TME_OEM_ID_MSK);
+		printf("tme_product_id\t0x%08x\t0x%08x\n",
+				fuse[0].fuse_addr + 0x4,
+				fuse[0].msb_val & TME_PRODUCT_ID_MSK);
+
+		for (index = TME_OEM_ATE_FUSE_CNT;
+				index < fuse_read_cnt; index++) {
+			printf("tme_mrc_hash\t0x%08x\t0x%08x\n",
 			fuse[index].fuse_addr, fuse[index].lsb_val);
-			printf("TME_MRC_HASH\t0x%08X\t0x%08X\n",
+			printf("tme_mrc_hash\t0x%08x\t0x%08x\n",
 			fuse[index].fuse_addr + 0x4, fuse[index].msb_val);
 		}
+#endif
 	} while (0);
 
 	if (ret == -ENOTSUPP) {
@@ -605,10 +624,11 @@ static int do_list_ipq5332_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 	return ret;
 }
 
-U_BOOT_CMD(list_ipq5332_fuse, 1, 0, do_list_ipq5332_fuse,
+U_BOOT_CMD(list_fuse, 1, 0, do_list_fuse,
 		"fuse set of QFPROM registers from memory\n",
 		"");
-#endif /* CONFIG_TARGET_IPQ5332 */
+#endif
+
 #ifdef CONFIG_IPQ_QCN9224_FUSING
 static struct pci_device_id device_table [] = {
 	{QCN_VENDOR_ID, QCN9224_DEVICE_ID},

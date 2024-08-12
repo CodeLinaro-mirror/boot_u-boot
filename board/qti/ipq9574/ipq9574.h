@@ -91,4 +91,20 @@ typedef enum {
  */
 #define ROOTFS_AUTH_FUSE	0xA6044
 
+struct fuse_payload {
+	u32 fuse_addr;
+	u32 val;
+};
+
+#define TME_OEM_ATE_FUSE_START			0x000A00C0
+#define TME_OEM_ATE_FUSE_CNT			0x2
+#define TME_OEM_ATE_FUSE_READ_SIZE		0x4
+
+#define TME_OEM_MRC_HASH_FUSE_START		0x000A00D8
+#define TME_OEM_MRC_HASH_FUSE_CNT		0xE
+#define TME_OEM_MRC_HASH_FUSE_READ_SIZE		0x4
+
+#define TME_AUTH_EN_MASK			0x80
+#define TME_OEM_ID_MSK				0xFFFF0000
+#define TME_PRODUCT_ID_MSK			0x0000FFFF
 #endif /* _IPQ9574_H_ */
