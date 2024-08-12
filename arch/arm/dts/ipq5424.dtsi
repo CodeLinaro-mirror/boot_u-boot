@@ -191,6 +191,7 @@
 			write_pipe_grp = <0>;
 			cmd_pipe = <2>;
 			cmd_pipe_grp = <1>;
+			serial_training;
 			status = "disabled";
 			u-boot,dm-pre-reloc;
 		};
