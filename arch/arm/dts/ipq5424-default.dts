@@ -12,6 +12,7 @@
 		console = &se1_uart1;
 		spi0 = &se4_spi0;
 		sdhci = &mmc;
+		uart2 = &se0_uart0;
 	};
 
 	soc: soc@0 {
