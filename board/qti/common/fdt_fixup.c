@@ -299,7 +299,7 @@ static void ipq_fdt_fixup(void *blob)
 	}
 }
 
-__weak void fdt_fixup_flash(void *blob)
+__weak void ipq_fdt_fixup_flash(void *blob)
 {
 #ifdef CONFIG_MMC
 	uint32_t flash_type = gd->board_type & FLASH_TYPE_MASK;
@@ -350,6 +350,11 @@ __weak void fdt_fixup_flash(void *blob)
 }
 
 __weak void ipq_fdt_fixup_smem(void *blob)
+{
+	return;
+}
+
+__weak void ipq_fdt_fixup_atf(void *blob)
 {
 	return;
 }
@@ -821,11 +826,12 @@ static const fdt_fixup_t fixup_functions[] = {
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 	ipq_fdt_fixup_mtdparts,
 #endif
-	fdt_fixup_flash,
+	ipq_fdt_fixup_flash,
 	ipq_fdt_fixup,
 #ifdef CONFIG_CMD_NAND
 	ipq_fdt_fixup_qti_nand,
 #endif
+	ipq_fdt_fixup_atf,
 	ipq_fdt_fixup_usb_dev_mode,
 	ipq_fdt_fixup_sku_based_usb_config,
 	ipq_fdt_fixup_dload_disable,
