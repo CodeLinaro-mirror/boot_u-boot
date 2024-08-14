@@ -434,7 +434,6 @@ int ipq_smem_get_socinfo()
 int mibib_ptable_init(unsigned int* addr)
 {
 	struct smem_ptable* mib_ptable;
-	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 
 	mib_ptable = (struct smem_ptable*) addr;
 	if (mib_ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
@@ -444,16 +443,11 @@ int mibib_ptable_init(unsigned int* addr)
 	/* In recovery & mmc boot, ptable will not be initialized.
 	 * So, allocate ptable memory in recovery mode.
 	 */
-	if ((sfi->flash_type == SMEM_BOOT_NO_FLASH) ||
-			(sfi->flash_type == SMEM_BOOT_MMC_FLASH)) {
-		if (!ptable) {
-			ptable = malloc(sizeof(struct smem_ptable));
-			if (!ptable)
-				return -ENOMEM;
-		}
-	} else
-		debug("smem ptable found: ver: %d len: %d\n",
-				ptable->version, ptable->len);
+	if (!ptable) {
+		ptable = malloc(sizeof(struct smem_ptable));
+		if (!ptable)
+			return -ENOMEM;
+	}
 
 	memcpy(ptable, addr, sizeof(struct smem_ptable));
 	return 0;
