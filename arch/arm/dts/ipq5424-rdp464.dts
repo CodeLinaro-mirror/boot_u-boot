@@ -52,15 +52,15 @@
 				i2c0_scl {
 					pins = "GPIO_14";
 					function = "i2c0_scl";
-					drive-strength = <DRIVE_STRENGTH_2MA>;
-					bias-pull-down;
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
 				};
 
 				i2c0_sda {
 					pins = "GPIO_15";
 					function = "i2c0_sda";
-					drive-strength = <DRIVE_STRENGTH_2MA>;
-					bias-pull-down;
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
 				};
 			};
 
