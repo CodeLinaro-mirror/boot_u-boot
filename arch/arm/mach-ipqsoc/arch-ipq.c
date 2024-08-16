@@ -125,8 +125,8 @@ void dram_bank_mmu_setup(int bank)
 		i < (bd->bi_dram[bank].start + bd->bi_dram[bank].size) >> 20;
 		i++) {
 		/* Set XN bit for all dram regions except uboot code region */
-		if (i >= (CONFIG_TEXT_BASE >> 20) &&
-				i < ((CONFIG_TEXT_BASE + 0x100000) >> 20))
+		if (i >= (CONFIG_TEXT_BASE >> 20) && i <
+				((CONFIG_TEXT_BASE + CONFIG_TEXT_SIZE) >> 20))
 			set_section_dcache(i, UBOOT_CACHE_SETUP);
 		else
 			set_section_dcache(i, GEN_CACHE_SETUP);
