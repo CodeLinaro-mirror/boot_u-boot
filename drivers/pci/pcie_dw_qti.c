@@ -120,10 +120,14 @@ struct pcie_dw_qti {
 	uint32_t id;
 };
 
-struct pcie_sku {
+struct pcie_info {
 	phys_addr_t reg;
+	uint8_t sts_bit;
+};
+
+struct pcie_sku {
 	int max_pcie;
-	uint8_t clk_bit[MAX_PCIE];
+	struct pcie_info sku_info[MAX_PCIE];
 };
 
 static int is_pcie_link_up(struct pcie_dw_qti *pcie)
@@ -306,7 +310,8 @@ static int pcie_dw_qti_of_to_plat(struct udevice *dev)
 
 	if (sku != NULL) {
 		if ((pcie->id > sku->max_pcie) ||
-			(readl(sku->reg) & (1 << sku->clk_bit[pcie->id]))) {
+			(readl(sku->sku_info[pcie->id].reg) &
+				(1 << sku->sku_info[pcie->id].sts_bit))) {
 			dev_err(dev, "PCIE%d disabled\n", pcie->id);
 			return -ENXIO;
 		}
@@ -348,22 +353,69 @@ static const struct dm_pci_ops pcie_dw_qti_ops = {
 };
 
 static const struct pcie_sku ipq9574 = {
-	.reg = 0xA401C,
 	.max_pcie = 4,
-	.clk_bit = {2, 3, 4, 5},
-};
+	.sku_info =
+		{
+			{
+			.reg = 0xA401C,
+			.sts_bit = 2,
+			},
+			{
+			.reg = 0xA401C,
+			.sts_bit = 3,
+			},
+			{
+			.reg = 0xA401C,
+			.sts_bit = 4,
+			},
+			{
+			.reg = 0xA401C,
+			.sts_bit = 5,
+			},
+		},
+	};
 
 static const struct pcie_sku ipq5332 = {
-	.reg = 0xA4024,
 	.max_pcie = 3,
-	.clk_bit = {11, 12, 10},
-};
+	.sku_info =
+		{
+			{
+			.reg = 0xA4024,
+			.sts_bit = 11,
+			},
+			{
+			.reg = 0xA4024,
+			.sts_bit = 12,
+			},
+			{
+			.reg = 0xA4024,
+			.sts_bit = 10,
+			},
+		},
+	};
 
 static const struct pcie_sku ipq5424 = {
-	.reg = 0xA4024,
 	.max_pcie = 4,
-	.clk_bit = {10, 11, 12, 13},
-};
+	.sku_info =
+		{
+			{
+			.reg = 0xA6244,
+			.sts_bit = 0,
+			},
+			{
+			.reg = 0xA624C,
+			.sts_bit = 0,
+			},
+			{
+			.reg = 0xA6254,
+			.sts_bit = 0,
+			},
+			{
+			.reg = 0xA625C,
+			.sts_bit = 0,
+			},
+		},
+	};
 
 static const struct udevice_id pcie_dw_qti_ids[] = {
 	{ .compatible = "qti,dw-pcie-ipq9574" , .data = (ulong)&ipq9574},
