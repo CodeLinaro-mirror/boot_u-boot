@@ -12,10 +12,6 @@ config ARCH_64BIT_SUPPORT
 	select ARM64
 	default n
 
-config IPQ_MMU_SETUP
-	bool "IPQ MMU setup for ARCH 32"
-	default n
-
 config IPQ_SECURE
 	bool "IPQSOC secure call support"
 	default n
@@ -304,7 +300,6 @@ config TARGET_IPQ5332
 	bool "QTI IPQ5332 SOC"
 	select SMEM_VERSION_C
 	select SCM
-	select IPQ_MMU_SETUP if ARCH_32BIT_SUPPORT
 	select IPQ_DEFAULTS
 	imply IPQ_I2C
 	select IPQ_NET
@@ -338,7 +333,6 @@ config TARGET_IPQ9574
 	bool "QTI IPQ9574 SOC"
 	select SMEM_VERSION_C
 	select SCM
-	select IPQ_MMU_SETUP if ARCH_32BIT_SUPPORT
 	select IPQ_DEFAULTS
 	imply IPQ_I2C
 	select IPQ_NET
