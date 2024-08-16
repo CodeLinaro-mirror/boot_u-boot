@@ -47,6 +47,75 @@
 					bias-pull-up;
 				};
 			};
+
+			i2c0_pinmux: i2c0 {
+				i2c0_scl {
+					pins = "GPIO_14";
+					function = "i2c0_scl";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+
+				i2c0_sda {
+					pins = "GPIO_15";
+					function = "i2c0_sda";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+
+			i2c1_pinmux: i2c1 {
+				i2c1_scl {
+					pins = "GPIO_16";
+					function = "i2c1_scl";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+
+				i2c1_sda {
+					pins = "GPIO_17";
+					function = "i2c1_sda";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+
+			i2c2_pinmux: i2c2_pins {
+				i2c2_sda {
+					pins = "GPIO_47";
+					function = "i2c2_sda";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				i2c2_scl {
+					pins = "GPIO_48";
+					function = "i2c2_scl";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3: geniqup@1ac0000 {
+			se2_i2c0: i2c@1a88000 {
+				pinctrl-0 = <&i2c0_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+
+			se3_i2c1: i2c@1a8c000 {
+				pinctrl-0 = <&i2c1_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+
+			se5: se5@1a94000 {
+				compatible = "qcom,msm-geni-i2c";
+				pinctrl-0 = <&i2c2_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
 		};
 
 		qmp_ssphy_0: ssphy@7D000 {
