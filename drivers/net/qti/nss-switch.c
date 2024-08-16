@@ -2940,9 +2940,8 @@ static int ipq_eth_probe(struct udevice *dev)
 							port->phyaddr,
 							PHY_FIXED_ID,
 							true);
-				phy_connect_dev(port->phydev,
-						dev,
-						port->interface);
+				port->phydev->dev = dev;
+				port->phydev->interface = port->interface;
 		} else {
 			port->phydev = phy_connect(port->bus, port->phyaddr,
 							dev,port->interface);
