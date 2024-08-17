@@ -310,6 +310,7 @@
 			#size-cells = <0>;
 			compatible = "qcom,ipq4019-mdio";
 			reg = <0x90000 0x64>;
+			clocks = <&gcc GCC_MDIO_AHB_CLK>;
 			status = "disabled";
 		};
 

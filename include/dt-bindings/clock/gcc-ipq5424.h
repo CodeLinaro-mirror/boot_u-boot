@@ -86,6 +86,7 @@
 #define GCC_QPIC_CLK					76
 #define GCC_QPIC_AHB_CLK				77
 #define GCC_QPIC_SLEEP_CLK				78
+#define GCC_MDIO_AHB_CLK				79
 
 /* NSS controlled clock IDs */
 #define NSS_CC_PPE_CLK					100

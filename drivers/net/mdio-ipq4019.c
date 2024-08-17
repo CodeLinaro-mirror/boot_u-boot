@@ -13,6 +13,8 @@
 #include <asm/io.h>
 #include <common.h>
 #include <dm.h>
+#include <dm/device_compat.h>
+#include <clk.h>
 #include <errno.h>
 #include <linux/bitops.h>
 #include <linux/iopoll.h>
@@ -176,12 +178,24 @@ static int ipq4019_mdio_bind(struct udevice *dev)
 static int ipq4019_mdio_probe(struct udevice *dev)
 {
 	struct ipq4019_mdio_priv *priv = dev_get_priv(dev);
+	struct clk clk;
+	int ret = 0;
 
 	priv->mdio_base = dev_read_addr(dev);
 	if (priv->mdio_base == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
-	return 0;
+	ret = clk_get_by_index(dev, 0, &clk);
+	if (ret && ret != -ENOENT) {
+		dev_dbg(dev, "Failed to get clock (ret=%d)\n", ret);
+		return ret;
+	}
+
+	ret = clk_enable(&clk);
+	if (ret < 0)
+		dev_err(dev, "Failed to enable clock (ret=%d)\n", ret);
+
+	return ret;
 }
 
 static const struct udevice_id ipq4019_mdio_ids[] = {
