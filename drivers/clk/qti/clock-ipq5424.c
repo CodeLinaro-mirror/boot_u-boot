@@ -19,6 +19,13 @@
 
 #include <dt-bindings/clock/gcc-ipq5424.h>
 
+/*UNIPHY status register*/
+#define SOFTSKU_STATUS_6			0xA6264
+#define SOFTSKU_STATUS_7			0xA626C
+#define SOFTSKU_STATUS_8			0xA6274
+
+#define UNIPHY_STAT_BIT				0
+
 #define MHZ(X)	((X) * 1000000UL)
 static const struct bcr_regs gcc_qupv3_uart0_regs = {
 	.cfg_rcgr = GCC_QUPV3_UART0_CFG_RCGR,
@@ -765,21 +772,33 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_NSSNOC_SNOC_1_CBCR);
 		break;
 	case GCC_UNIPHY0_SYS_CLK:
+		if(readl(SOFTSKU_STATUS_6) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY0_SYS_CBCR);
 		break;
 	case GCC_UNIPHY1_SYS_CLK:
+		if(readl(SOFTSKU_STATUS_7) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY1_SYS_CBCR);
 		break;
 	case GCC_UNIPHY2_SYS_CLK:
+		if(readl(SOFTSKU_STATUS_8) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY2_SYS_CBCR);
 		break;
 	case GCC_UNIPHY0_AHB_CLK:
+		if(readl(SOFTSKU_STATUS_6) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY0_AHB_CBCR);
 		break;
 	case GCC_UNIPHY1_AHB_CLK:
+		if(readl(SOFTSKU_STATUS_7) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY1_AHB_CBCR);
 		break;
 	case GCC_UNIPHY2_AHB_CLK:
+		if(readl(SOFTSKU_STATUS_8) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY2_AHB_CBCR);
 		break;
 	case GCC_QPIC_SLEEP_CLK:

@@ -939,8 +939,7 @@ struct ipq_tdm_config {
 
 struct ipq_eth_sku {
 	phys_addr_t reg;
-	uint8_t max_uniphy;
-	uint8_t uniphy_bit[CONFIG_ETH_MAX_UNIPHY];
+	uint8_t bit;
 }__attribute__ ((aligned(8)));
 
 extern struct ipq_tdm_config *tdm_config;
