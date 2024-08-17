@@ -197,13 +197,22 @@ static struct ipq_tdm_config ipq9574_tdm_config [] = {
 
 struct ipq_tdm_config *tdm_config = ipq9574_tdm_config;
 
-static struct ipq_eth_sku ipq9574_uniphy = {
-	.reg		= 0xA4024,
-	.max_uniphy	= CONFIG_ETH_MAX_UNIPHY,
-	.uniphy_bit	= {23, 24, 25},
+static struct ipq_eth_sku ipq9574_uniphy[CONFIG_ETH_MAX_UNIPHY] = {
+	{
+		.reg	= 0xA4024,
+		.bit	= 23,
+	},
+	{
+		.reg	= 0xA4024,
+		.bit	= 24,
+	},
+	{
+		.reg	= 0xA4024,
+		.bit	= 25,
+	},
 };
 
-struct ipq_eth_sku *ipq_uniphy = &ipq9574_uniphy;
+struct ipq_eth_sku *ipq_uniphy = ipq9574_uniphy;
 
 struct edma_config ipq_edma_config = {
 	.sw_version		= EDMA_SW_VER_1_ID,
