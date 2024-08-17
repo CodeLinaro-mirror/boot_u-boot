@@ -782,6 +782,21 @@ int msm_enable(struct clk *clk)
 	case GCC_UNIPHY2_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_UNIPHY2_AHB_CBCR);
 		break;
+	case GCC_QPIC_SLEEP_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_SLEEP_CBCR);
+		break;
+	case GCC_QPIC_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_AHB_CBCR);
+		break;
+	case GCC_QPIC_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_CBCR);
+		break;
+	case GCC_QPIC_IO_MACRO_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
+		break;
+	case GCC_MDIO_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_MDIO_AHB_CBCR);
+		break;
 
 	/* NSS clocks */
 	case NSS_CC_PPE_SWITCH_CLK:
@@ -875,18 +890,6 @@ int msm_enable(struct clk *clk)
 	case UNIPHY1_NSS_TX_CLK:
 	case UNIPHY2_NSS_RX_CLK:
 	case UNIPHY2_NSS_TX_CLK:
-		break;
-	case GCC_QPIC_SLEEP_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_SLEEP_CBCR);
-		break;
-	case GCC_QPIC_AHB_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_AHB_CBCR);
-		break;
-	case GCC_QPIC_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_CBCR);
-		break;
-	case GCC_QPIC_IO_MACRO_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
 		break;
 	default:
 	}
