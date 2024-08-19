@@ -674,6 +674,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE0_AXI_S_CBCR);
 		break;
 	case GCC_PCIE0_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_PIPE_CBCR);
 		break;
 	case GCC_PCIE1_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_PCIE1_AHB_CBCR);
@@ -691,6 +692,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE1_AXI_S_CBCR);
 		break;
 	case GCC_PCIE1_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_PIPE_CBCR);
 		break;
 	case GCC_PCIE2_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_PCIE2_AHB_CBCR);
@@ -708,6 +710,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE2_AXI_S_CBCR);
 		break;
 	case GCC_PCIE2_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_PIPE_CBCR);
 		break;
 	case GCC_PCIE3_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_PCIE3_AHB_CBCR);
@@ -725,6 +728,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE3_AXI_S_CBCR);
 		break;
 	case GCC_PCIE3_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_PIPE_CBCR);
 		break;
 	case GCC_CNOC_PCIE0_1LANE_S_CLK:
 		clk_enable_cbc(priv->base + GCC_CNOC_PCIE0_1LANE_S_CBCR);
