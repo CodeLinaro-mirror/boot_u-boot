@@ -200,6 +200,11 @@ void set_crashdump_bootargs(uint8_t flash_type)
 	int ret;
 	uint32_t * buf = NULL;
 
+	if (!part_name) {
+		printf("%s: dump_to_nvmem env not available\n", __func__);
+		return;
+	}
+
 	if (flash_type == SMEM_BOOT_QSPI_NAND_FLASH) {
 #ifdef CONFIG_IPQ_NAND
 		loff_t offset;
@@ -310,7 +315,6 @@ int set_bootargs(void)
 	}
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
-	strings = env_get("bootargs");
 	cmd_line = malloc(CONFIG_SYS_CBSIZE);
 	if(!cmd_line) {
 		printf("%s: Memory allocation failed\n", __func__);
