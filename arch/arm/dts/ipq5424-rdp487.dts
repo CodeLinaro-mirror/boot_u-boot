@@ -35,15 +35,16 @@
 			};
 		};
 
-		qusb2_phy_1: qusb2@71000 {
+		qusb2_phy_0: qusb2@7B000 {
 			status = "okay";
 		};
 
-		usb2_0: usb@1ef8800 {
+		usb3_0: usb@8af8800 {
 			status = "okay";
+			qti,select-utmi-as-pipe-clk;
 
-			dwc3@1e00000 {
-				phys = <&qusb2_phy_1>;
+			dwc3@8a00000 {
+				phys = <&qusb2_phy_0>;
 				phy-names = "usb2-phy";
 				maximum-speed = "high-speed";
 			};
