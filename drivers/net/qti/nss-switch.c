@@ -3078,16 +3078,14 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 			uint8_t uniphy_id = ofnode_read_u32_default(
 						phandle_args.node,
 						"uniphy_id", -1);
-			if (-1 != uniphy_id) {
-				if ((ipq_uniphy) &&
-					(uniphy_id < ipq_uniphy->max_uniphy)) {
-					if(readl(ipq_uniphy->reg) &
-						(1 << ipq_uniphy->uniphy_bit[
-							uniphy_id]))
-						continue;
-				}
-			} else {
+			if (-1 == uniphy_id)
 				continue;
+
+			if ((ipq_uniphy) && (uniphy_id <
+						CONFIG_ETH_MAX_UNIPHY)) {
+				if(readl(ipq_uniphy[uniphy_id].reg) & (1 <<
+						ipq_uniphy[uniphy_id].bit))
+					continue;
 			}
 
 			port = malloc_cache_aligned(sizeof(struct port_info));

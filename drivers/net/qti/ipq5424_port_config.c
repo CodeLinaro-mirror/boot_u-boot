@@ -119,7 +119,22 @@ static struct ipq_tdm_config ipq5424_tdm_config [] = {
 
 struct ipq_tdm_config *tdm_config = ipq5424_tdm_config;
 
-struct ipq_eth_sku *ipq_uniphy = NULL;
+static struct ipq_eth_sku ipq5424_uniphy[CONFIG_ETH_MAX_UNIPHY] = {
+	{
+		.reg	= 0xA6264,
+		.bit	= 0,
+	},
+	{
+		.reg	= 0xA626C,
+		.bit	= 0,
+	},
+	{
+		.reg	= 0xA6274,
+		.bit	= 0,
+	},
+};
+
+struct ipq_eth_sku *ipq_uniphy = ipq5424_uniphy;
 
 struct edma_config ipq_edma_config = {
 	.sw_version		= EDMA_SW_VER_2_ID,
