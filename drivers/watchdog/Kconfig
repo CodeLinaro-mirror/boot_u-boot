@@ -359,4 +359,12 @@ config SPL_WDT
 	  Enable driver model for watchdog timer in SPL.
 	  This is similar to CONFIG_WDT in U-Boot.
 
+config WDT_QTI
+	bool "QTI non-secure watchdog driver support"
+	depends on WDT
+	help
+	  Enable support for the watchdog timer on QTI SoCs.
+	  The watchdog will perform a full SoC reset resulting in a
+	  reboot of the entire system.
+
 endmenu
