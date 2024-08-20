@@ -387,7 +387,7 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		break;
 	case GCC_SDCC1_APPS_CLK:
 		/* SDCC1: 192 MHz */
-		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 6, 0, 0,
+		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 3, 0, 0,
 				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
 		break;
 	case GCC_PCIE_AUX_CLK:
