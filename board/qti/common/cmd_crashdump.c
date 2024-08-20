@@ -569,6 +569,13 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_MEMORY
 	case DUMP_TO_MEM:
 		char *tmp = env_get("dump_to_mem");
+		if (!tmp) {
+			printf("%s: dump_to_mem env not available\n",
+				__func__);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
 		char *dump2mem_addr_s = NULL, *dump2mem_sz_s = NULL;
 
 		dump2mem_addr_s = strsep(&tmp, " ");
@@ -615,6 +622,12 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
 	case DUMP_TO_NVMEM:
 		char *part_name = env_get("dump_to_nvmem");
+		if (!part_name) {
+			printf("%s: dump_to_nvmem env not available\n",
+				__func__);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
 		ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 
 		dump_config->iface_cfg.part_name = part_name;
