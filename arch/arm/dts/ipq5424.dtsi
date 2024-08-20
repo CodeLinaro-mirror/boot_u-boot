@@ -173,6 +173,7 @@
 					<&gcc GCC_QPIC_IO_MACRO_CLK>;
 			assigned-clock-rates = <100000000>,
 						<200000000>;
+			max_clk_feaquency = <400000000>;
 			clock-names =	"qpic-clk",
 					"qpic-io-macro-clk",
 					"qpic-sleep-clk",
