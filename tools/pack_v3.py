@@ -1651,10 +1651,14 @@ def main():
         if ARCH_NAME == "ipq5424":
             if flash_type == "norplusnand-gpt":
                 parser.out_fname = "norplusnand-" + ARCH_NAME + MODE_APPEND + suffix
+            elif flash_type == "norplusnand-4k-gpt":
+                parser.out_fname = "norplusnand-4k-" + ARCH_NAME + MODE_APPEND + suffix
             elif flash_type == "norplusemmc-gpt":
                 parser.out_fname = "norplusemmc-" + ARCH_NAME + MODE_APPEND + suffix
             elif flash_type == "norplusnand":
                 parser.out_fname = "norplusnand-mibib-" + ARCH_NAME + MODE_APPEND + suffix
+            elif flash_type == "norplusnand-4k":
+                parser.out_fname = "norplusnand-4k-mibib-" + ARCH_NAME + MODE_APPEND + suffix
             elif flash_type == "norplusemmc":
                 parser.out_fname = "norplusemmc-mibib-" + ARCH_NAME + MODE_APPEND + suffix
 
