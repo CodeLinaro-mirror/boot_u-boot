@@ -31,12 +31,14 @@
 					pins = "GPIO_36";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
+					output-enable;
 				};
 
 				qti_sfp1_rst {
 					pins = "GPIO_37";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
+					output-enable;
 				};
 
 				qti_8x8x_rst {
@@ -44,6 +46,75 @@
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
+			};
+
+			i2c0_pinmux: i2c0 {
+				i2c0_scl {
+					pins = "GPIO_14";
+					function = "i2c0_scl";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+
+				i2c0_sda {
+					pins = "GPIO_15";
+					function = "i2c0_sda";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+
+			i2c1_pinmux: i2c1 {
+				i2c1_scl {
+					pins = "GPIO_16";
+					function = "i2c1_scl";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+
+				i2c1_sda {
+					pins = "GPIO_17";
+					function = "i2c1_sda";
+					drive-strength = <DRIVE_STRENGTH_2MA>;
+					bias-pull-down;
+				};
+			};
+
+			i2c2_pinmux: i2c2_pins {
+				i2c2_sda {
+					pins = "GPIO_47";
+					function = "i2c2_sda";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-disable;
+				};
+
+				i2c2_scl {
+					pins = "GPIO_48";
+					function = "i2c2_scl";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3: geniqup@1ac0000 {
+			se2_i2c0: i2c@1a88000 {
+				pinctrl-0 = <&i2c0_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+
+			se3_i2c1: i2c@1a8c000 {
+				pinctrl-0 = <&i2c1_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
+			};
+
+			se5: se5@1a94000 {
+				compatible = "qcom,msm-geni-i2c";
+				pinctrl-0 = <&i2c2_pinmux>;
+				pinctrl-names = "default";
+				status = "okay";
 			};
 		};
 
@@ -128,8 +199,7 @@
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 
-			phy0: phy@ff {
-				phy-reset-gpio = <&tlmm 36 0>;
+			phy0: sfp0@ff {
 				reg = <0xFF>;
 				phy_id = <SFP10G_PHY_TYPE>;
 				id = <1>;
@@ -139,8 +209,7 @@
 				xgmac;
 			};
 
-			phy1: phy@ff {
-				phy-reset-gpio = <&tlmm 37 0>;
+			phy1: sfp1@ff {
 				reg = <0xFF>;
 				phy_id = <SFP10G_PHY_TYPE>;
 				id = <2>;
@@ -152,7 +221,7 @@
 
 			phy2: ethernet-switch@1 {
 				phy-reset-gpio = <&tlmm 18 0>;
-				dev-mode = <0x2>;
+				dev-mode = <0x1>;
 				reg = <1>;
 				phy_id = <QCA8x8x_SWITCH_TYPE>;
 				id = <3>;
@@ -187,6 +256,11 @@
 
 					port3: port@3 {
 						reg = <3>;
+						label = "lan";
+					};
+
+					port4: port@4 {
+						reg = <4>;
 						label = "lan";
 					};
 				};

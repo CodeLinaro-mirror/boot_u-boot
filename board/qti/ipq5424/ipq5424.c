@@ -23,6 +23,8 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 
+#define GCC_GPLL0_USER_CTL			0x1820018
+#define PLLOUT_LV_AUX_EN			(BIT(1)|BIT(2))
 #define PLL_POWER_ON_AND_RESET			0x9B780
 #define PLL_REFERENCE_CLOCK			0x9B784
 #define FREQUENCY_MASK				0xfffffdf0
@@ -151,6 +153,12 @@ void ipq_config_cmn_clock(void)
 	reg_val |= BIT(6);
 	writel(reg_val, PLL_POWER_ON_AND_RESET);
 	mdelay(1);
+
+	/*
+	 * enable gpll0 aux clock
+	 */
+	reg_val = readl(GCC_GPLL0_USER_CTL);
+	writel(reg_val | PLLOUT_LV_AUX_EN, GCC_GPLL0_USER_CTL);
 }
 #endif /* CFG_EMULATION */
 
@@ -405,4 +413,24 @@ bool is_atf_enbled(void)
 	}
 
 	return (*atf_status ? true : false);
+}
+
+void ipq_fdt_fixup_atf(void *blob)
+{
+	int ret = 0;
+	if (!(gd->board_type & ATF_ENABLED))
+		return;
+
+	ret = fdt_status_disabled_by_pathf(blob,
+			"/reserved-memory/tz@0x8a600000");
+	if (ret <0) {
+		printf("failed to disable the tz node, err: %d \n", ret);
+		return;
+	}
+
+	ret = fdt_status_okay_by_pathf(blob, "/reserved-memory/atf@8a832000");
+	if (ret <0) {
+		printf("failed to enable the atf node, err: %d \n", ret);
+		return;
+	}
 }

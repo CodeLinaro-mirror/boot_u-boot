@@ -1647,6 +1647,17 @@ def main():
             suffix = "-single" + img_suffix + ".img"
 
         parser.out_fname = flash_type + "-" + ARCH_NAME + MODE_APPEND + suffix
+
+        if ARCH_NAME == "ipq5424":
+            if flash_type == "norplusnand-gpt":
+                parser.out_fname = "norplusnand-" + ARCH_NAME + MODE_APPEND + suffix
+            elif flash_type == "norplusemmc-gpt":
+                parser.out_fname = "norplusemmc-" + ARCH_NAME + MODE_APPEND + suffix
+            elif flash_type == "norplusnand":
+                parser.out_fname = "norplusnand-mibib-" + ARCH_NAME + MODE_APPEND + suffix
+            elif flash_type == "norplusemmc":
+                parser.out_fname = "norplusemmc-mibib-" + ARCH_NAME + MODE_APPEND + suffix
+
         parser.out_fname = os.path.join(parser.out_dname, parser.out_fname)
         print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, config, parser.out_fname)
 

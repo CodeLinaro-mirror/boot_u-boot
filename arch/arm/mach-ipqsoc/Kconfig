@@ -12,6 +12,10 @@ config ARCH_64BIT_SUPPORT
 	select ARM64
 	default n
 
+config IPQ_MMU_SETUP
+	bool "IPQ MMU setup for ARCH 32"
+	default n
+
 config IPQ_SECURE
 	bool "IPQSOC secure call support"
 	default n
@@ -101,6 +105,38 @@ config SCM_V2
 	bool "U-boot SCM framework version 2"
 	default n
 
+config SECURE_AUTH_V1
+	bool "Secure authentication command"
+	default n
+
+config SECURE_AUTH_V2
+	bool "Secure authentication command"
+	default n
+
+config FUSE_IPQ
+	bool "Enable fuseipq command support"
+	default n
+
+config FUSEIPQ_V1
+	bool "Enable fuseipq command support with version 1"
+	default n
+
+config FUSEIPQ_V2
+	bool "Enable fuseipq command support with version 1"
+	default n
+
+config LIST_FUSE
+	bool "Enable list_fuse command"
+	default n
+
+config LIST_FUSE_V1
+	bool "Enable list_fuse command with version 1"
+	default n
+
+config LIST_FUSE_V2
+	bool "Enable list_fuse command with version 2"
+	default n
+
 config IPQ_TINY
 	bool "IPQ Tiny bootloader config"
 	imply ETH_LOW_MEM
@@ -135,6 +171,8 @@ config IPQ_DEFAULTS
 	select LZMA
 	imply IPQ_SMP_CMD_SUPPORT
 	imply CMD_AES_256
+	imply FUSE_IPQ
+	imply LIST_FUSE
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -266,6 +304,7 @@ config TARGET_IPQ5332
 	bool "QTI IPQ5332 SOC"
 	select SMEM_VERSION_C
 	select SCM
+	select IPQ_MMU_SETUP if ARCH_32BIT_SUPPORT
 	select IPQ_DEFAULTS
 	imply IPQ_I2C
 	select IPQ_NET
@@ -283,6 +322,9 @@ config TARGET_IPQ5332
 	select CAPIN_CAPOUT_SUPPORT
 	imply AES_256_DERIVE_KEY
 	select SCM_V1
+	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
+	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
+	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V1
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -296,6 +338,7 @@ config TARGET_IPQ9574
 	bool "QTI IPQ9574 SOC"
 	select SMEM_VERSION_C
 	select SCM
+	select IPQ_MMU_SETUP if ARCH_32BIT_SUPPORT
 	select IPQ_DEFAULTS
 	imply IPQ_I2C
 	select IPQ_NET
@@ -315,6 +358,9 @@ config TARGET_IPQ9574
 	imply AES_256_DERIVE_KEY
 	select QSPI_LAYOUT_SWITCH if IPQ_NAND
 	select SCM_V1
+	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
+	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
+	imply LIST_FUSE_V1 if IPQ_SECURE && SCM_V1
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
@@ -345,8 +391,12 @@ config TARGET_IPQ5424
 	imply GPT_UPDATE_PARAMS
 	imply IPQ_ELF_AUTH
 	imply DPR_VER_3_0
+	select SCM_V2
 	select HASH
 	select SHA384
+	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
+	imply FUSEIPQ_V2 if IPQ_SECURE && SCM_V2
+	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
 	help
 	  Support for IPQ5424 SoC.
 

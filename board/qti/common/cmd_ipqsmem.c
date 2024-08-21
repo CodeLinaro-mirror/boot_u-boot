@@ -156,10 +156,12 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 	}
 #if defined(CONFIG_NOR_BLK)
-	printf("\n");
-	dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
-        if (dev != NULL && dev->type != DEV_TYPE_UNKNOWN) {
-		part_print(dev);
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+		printf("\n");
+		dev = blk_get_devnum_by_uclass_id(UCLASS_SPI, 0);
+		if (dev != NULL && dev->type != DEV_TYPE_UNKNOWN) {
+			part_print(dev);
+		}
 	}
 #endif
 #ifdef CONFIG_CMD_UBI

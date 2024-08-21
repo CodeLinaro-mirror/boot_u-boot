@@ -70,7 +70,7 @@
 #define is_secure_boot()	is_secure_boot_fake()
 #endif
 
-
+#define UNUSED_VAR(x)	(void)x
 /*
  * Authenticate kernel image during bootup
  */
@@ -119,6 +119,7 @@
 		(_param).buff[0] = _a;					\
 		(_param).buff[1] = _b; 					\
 		(_param).buff[2] = _c;	 				\
+		UNUSED_VAR(_e);	 					\
 		(_param).arg_type[0] = SCM_VAL;				\
 		(_param).arg_type[1] = SCM_VAL;				\
 		(_param).arg_type[2] = SCM_WRITE_OP;			\
@@ -226,13 +227,34 @@
  * blow fuse
  */
 #if IS_ENABLED(CONFIG_SCM_V1)
-#define _IPQ_SCM_FUSE_IPQ_V1(_param, _a)				\
+#define _IPQ_SCM_FUSE_IPQ_V1(_param, _a, _b, _c, _d, _e)		\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
 		(_param).type = SCM_FUSE_IPQ;				\
 		(_param).buff[0] = _a;					\
+		UNUSED_VAR(_b);						\
+		UNUSED_VAR(_c);						\
+		UNUSED_VAR(_d);						\
+		UNUSED_VAR(_e);						\
 		(_param).arg_type[0] = SCM_READ_OP;			\
 		(_param).len = 1;					\
+	} while (0)
+#elif IS_ENABLED(CONFIG_SCM_V2)
+#define _IPQ_SCM_FUSE_IPQ_V2(_param, _a, _b, _c, _d, _e)		\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_SECURE_AUTH;			\
+		(_param).buff[0] = _a;					\
+		(_param).buff[1] = _b; 					\
+		(_param).buff[2] = _c;	 				\
+		(_param).buff[3] = _d; 					\
+		(_param).buff[4] = _e; 					\
+		(_param).arg_type[0] = SCM_VAL;				\
+		(_param).arg_type[1] = SCM_VAL;				\
+		(_param).arg_type[2] = SCM_VAL;				\
+		(_param).arg_type[3] = SCM_READ_OP;			\
+		(_param).arg_type[4] = SCM_VAL;				\
+		(_param).len = 5;					\
 	} while (0)
 #else
 #define _IPQ_SCM_FUSE_IPQ(...) break;
@@ -555,6 +577,16 @@
 #define _CHECK_FEATURE(...) break;
 #endif
 
+#ifdef CONFIG_SCM_V1
+#define	_IPQ_SCM_CLEAR_AES_KEY_V1(_param, _a)				\
+	do {								\
+		memset(&(_param), 0, sizeof(scm_param));		\
+		(_param).type = SCM_CLEAR_AES_KEY;			\
+		(_param).buff[0] = _a;					\
+		(_param).len = 1;					\
+	} while (0)
+#endif
+
 #if defined(CONFIG_SCM_V1)
 #define IPQ_SCM_AUTHENTICATE_KERNEL(param, a, b, c, d, e)		\
 		_IPQ_SCM_AUTHENTICATE_KERNEL_V1(param, a, b, c, d, e)
@@ -613,10 +645,13 @@
 
 
 #if defined(CONFIG_SCM_V1)
-#define IPQ_SCM_FUSE_IPQ(param, a)					\
-		_IPQ_SCM_FUSE_IPQ_V1(param, a)
+#define IPQ_SCM_FUSE_IPQ(param, a, b, c, d, e)				\
+		_IPQ_SCM_FUSE_IPQ_V1(param, a, b, c, d, e)
+#elif defined(CONFIG_SCM_V2)
+#define IPQ_SCM_FUSE_IPQ(param, a, b, c, d, e)				\
+		_IPQ_SCM_FUSE_IPQ_V2(param, a, b, c, d, e)
 #else
-#define IPQ_SCM_FUSE_IPQ(param, a)					\
+#define IPQ_SCM_FUSE_IPQ(param, a, b, c, d, e)				\
 		_IPQ_SCM_FUSE_IPQ(param, a)
 #endif
 
@@ -767,6 +802,12 @@
 #else
 #define check_atf_support(param)					\
 		_check_atf_support(param)
+#endif
+
+#ifdef CONFIG_SCM_V1
+#define	IPQ_SCM_CLEAR_AES_KEY(param, a)	_IPQ_SCM_CLEAR_AES_KEY_V1(param, a)
+#else
+#define	IPQ_SCM_CLEAR_AES_KEY(...)	break;
 #endif
 
 #ifdef CONFIG_SMEM_VERSION_C

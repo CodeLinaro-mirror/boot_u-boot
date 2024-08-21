@@ -85,4 +85,21 @@ typedef enum {
 
 #define OEM_SEC_BOOT_ENABLE	BIT(7)
 
+struct fuse_payload {
+	u32 fuse_addr;
+	u32 lsb_val;
+	u32 msb_val;
+};
+
+#define TME_OEM_ATE_FUSE_START			0x000A00E0
+#define TME_OEM_ATE_FUSE_CNT			0x1
+#define TME_OEM_ATE_FUSE_READ_SIZE		0x8
+
+#define TME_OEM_MRC_HASH_FUSE_START		0x000A00F8
+#define TME_OEM_MRC_HASH_FUSE_CNT		0x7
+#define TME_OEM_MRC_HASH_FUSE_READ_SIZE		0x8
+
+#define TME_AUTH_EN_MASK			0x82
+#define TME_OEM_ID_MSK				0xFFFF0000
+#define TME_PRODUCT_ID_MSK			0x0000FFFF
 #endif /* _IPQ5424_H_ */

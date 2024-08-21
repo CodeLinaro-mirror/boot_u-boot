@@ -19,6 +19,7 @@
 
 #include <dt-bindings/clock/gcc-ipq5424.h>
 
+#define MHZ(X)	((X) * 1000000UL)
 static const struct bcr_regs gcc_qupv3_uart0_regs = {
 	.cfg_rcgr = GCC_QUPV3_UART0_CFG_RCGR,
 	.cmd_rcgr = GCC_QUPV3_UART0_CMD_RCGR,
@@ -344,9 +345,16 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 				0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
 		break;
 	case GCC_QUPV3_SE5_CLK:
-		/* Default: 50MHz */
-		clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_spi1_regs, 16, 0,
-				0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		switch(rate) {
+		case MHZ(32):
+			clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_spi1_regs,
+				24, 0, 0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN_DIV);
+			break;
+		default:
+			/* Default: 50MHz */
+			clk_rcg_set_rate_mnd(priv->base, &gcc_qupv3_spi1_regs,
+				16, 0, 0, QUPV3_SRC_SEL_GPLL0_OUT_MAIN);
+		}
 		break;
 	case GCC_USB0_MASTER_CLK:
 		/* Default: 200MHz */

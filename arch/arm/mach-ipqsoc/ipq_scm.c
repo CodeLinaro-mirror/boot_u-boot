@@ -336,6 +336,10 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_INFO;
 		desc.cmd = QCOM_CHECK_FEATURE_CMD;
 		break;
+	case SCM_CLEAR_AES_KEY:
+		desc.svc = QCOM_SCM_SVC_CRYPTO;
+		desc.cmd = QCOM_SCM_CMD_AES_CLEAR_KEY;
+		break;
 	default:
 		printf("Invalid call ID: %d\n", param->type);
 		ret = -EINVAL;

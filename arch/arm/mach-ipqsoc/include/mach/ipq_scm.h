@@ -112,6 +112,7 @@ struct qcom_scm_res {
 #define QCOM_SCM_CMD_AES_256_GEN_KEY	0x09
 #define QCOM_SCM_CMD_AES_256_MAX_CTXT_GEN_KEY	0x0E
 #define QCOM_SCM_SVC_CRYPTO		0x0A
+#define QCOM_SCM_CMD_AES_CLEAR_KEY	0x0A
 
 /* scm_arg*/
 #define SCM_VAL				0x00
@@ -161,7 +162,8 @@ enum scm_type {
 	SCM_AES_256_ENC,
 	SCM_AES_256_DEC,
 	SCM_ROOTFS_HASH_VERIFY,
-	SCM_CHECK_FEATURE_ID
+	SCM_CHECK_FEATURE_ID,
+	SCM_CLEAR_AES_KEY
 };
 
 typedef struct {

@@ -10,6 +10,7 @@
 
 	aliases {
 		console = &se0_uart0;
+		uart2 = &se1_uart1;
 	};
 
 	soc: soc@0 {

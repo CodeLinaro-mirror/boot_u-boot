@@ -123,7 +123,7 @@
 				assigned-clocks = <&gcc GCC_QUPV3_SE2_CLK>;
 				assigned-clock-rates = <64000000>;
 				clocks = <&gcc GCC_QUPV3_SE2_CLK>;
-				clock-names = "i2c-clk";
+				clock-names = "se-clk";
 				status = "disabled";
 			};
 
@@ -136,7 +136,7 @@
 				assigned-clocks = <&gcc GCC_QUPV3_SE3_CLK>;
 				assigned-clock-rates = <64000000>;
 				clocks = <&gcc GCC_QUPV3_SE3_CLK>;
-				clock-names = "i2c-clk";
+				clock-names = "se-clk";
 				status = "disabled";
 			};
 
@@ -191,6 +191,7 @@
 			write_pipe_grp = <0>;
 			cmd_pipe = <2>;
 			cmd_pipe_grp = <1>;
+			serial_training;
 			status = "disabled";
 			u-boot,dm-pre-reloc;
 		};
@@ -262,6 +263,8 @@
 				<&gcc GCC_USB0_PHY_CFG_AHB_CLK>;
 			resets = <&reset GCC_USB_BCR>;
 			ranges;
+			qti,quirk-ref-clk-per = <0x4004010>;
+			qti,quirk-ref-clk-adj = <0x4945720>;
 			status = "disabled";
 
 			dwc3@8a00000 {
@@ -288,6 +291,8 @@
 			resets = <&reset GCC_USB1_BCR>;
 			ranges;
 			qti,select-utmi-as-pipe-clk;
+			qti,quirk-ref-clk-per = <0x4004010>;
+			qti,quirk-ref-clk-adj = <0x4945720>;
 			status = "disabled";
 
 			dwc3@1e00000 {

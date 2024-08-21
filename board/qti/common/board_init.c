@@ -82,7 +82,9 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 
 uint32_t g_board_machid;
 uint32_t g_load_addr;
+#if defined(CONFIG_ENV_IS_IN_SPI_FLASH)
 uint32_t g_env_offset __attribute__((section(".data"))) = 0;
+#endif
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
 
@@ -286,6 +288,7 @@ int fdtdec_board_setup(const void *fdt_blob)
 	return ipq_uboot_fdt_fixup_smem((void*)fdt_blob);
 }
 
+#if defined(CONFIG_ENV_IS_IN_SPI_FLASH) && defined(CONFIG_BOARD_EARLY_INIT_R)
 static void ipq_update_env_offset(int blk_sz)
 {
 	int i;
@@ -303,6 +306,48 @@ static void ipq_update_env_offset(int blk_sz)
 		}
 	}
 }
+#endif
+
+#if defined(CONFIG_BOARD_EARLY_INIT_R)
+int board_early_init_r(void)
+{
+	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
+
+	if(sfi == NULL)
+		return 0;
+
+#if defined(CONFIG_IPQ_SPI_NOR) && defined(CONFIG_ENV_IS_IN_SPI_FLASH)
+	ipq_spi_probe();
+#endif
+
+	switch(sfi->flash_type) {
+#if defined(CONFIG_ENV_IS_IN_SPI_FLASH)
+	case SMEM_BOOT_SPI_FLASH:
+		ipq_update_env_offset(sfi->flash_block_size);
+		break;
+#if defined(CONFIG_NOR_BLK)
+	case SMEM_BOOT_NORGPT_FLASH:
+		struct disk_partition disk_info;
+		blkpart_info_t  bpart_info;
+		int ret;
+
+		BLK_PART_GET_INFO_S(bpart_info, "0:APPSBLENV", &disk_info,
+					sfi->flash_type);
+
+		ret = ipq_part_get_info_by_name(&bpart_info);
+		if (!ret)
+			g_env_offset = (u32)disk_info.start * disk_info.blksz;
+		break;
+#endif
+#endif
+	default:
+		sfi =  sfi;
+		break;
+	}
+
+	return 0;
+}
+#endif
 
 int board_init(void)
 {
@@ -397,8 +442,6 @@ int board_init(void)
 		if (ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
 			ptable->magic[1] != _SMEM_PTABLE_MAGIC_2)
 			return -ENOMSG;
-
-		ipq_update_env_offset(sfi->flash_block_size);
 	}
 
 	return 0;
@@ -434,7 +477,6 @@ int ipq_smem_get_socinfo()
 int mibib_ptable_init(unsigned int* addr)
 {
 	struct smem_ptable* mib_ptable;
-	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 
 	mib_ptable = (struct smem_ptable*) addr;
 	if (mib_ptable->magic[0] != _SMEM_PTABLE_MAGIC_1 ||
@@ -444,16 +486,11 @@ int mibib_ptable_init(unsigned int* addr)
 	/* In recovery & mmc boot, ptable will not be initialized.
 	 * So, allocate ptable memory in recovery mode.
 	 */
-	if ((sfi->flash_type == SMEM_BOOT_NO_FLASH) ||
-			(sfi->flash_type == SMEM_BOOT_MMC_FLASH)) {
-		if (!ptable) {
-			ptable = malloc(sizeof(struct smem_ptable));
-			if (!ptable)
-				return -ENOMEM;
-		}
-	} else
-		debug("smem ptable found: ver: %d len: %d\n",
-				ptable->version, ptable->len);
+	if (!ptable) {
+		ptable = malloc(sizeof(struct smem_ptable));
+		if (!ptable)
+			return -ENOMEM;
+	}
 
 	memcpy(ptable, addr, sizeof(struct smem_ptable));
 	return 0;
