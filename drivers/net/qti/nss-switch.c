@@ -29,6 +29,9 @@ static int tftp_acl_our_port;
 uchar ipq_def_enetaddr[6] = {0x00, 0x03, 0x7F, 0xBA, 0xDB, 0xAD};
 int mac_speed_config [] = {10, 100, 1000, 10000, 2500, 5000};
 
+#ifdef CONFIG_MDIO_QCOM_I2C
+extern struct mii_dev *qcom_mdio_i2c_alloc(ofnode node,	int phy_addr);
+#endif /* CONFIG_MDIO_QCOM_I2C */
 extern int get_eth_mac_address(uchar *enetaddr, int no_of_macs);
 extern int ipq_aquantia_load_fw(struct phy_device *phydev);
 
@@ -2940,12 +2943,21 @@ static int ipq_eth_probe(struct udevice *dev)
 		port->uniphy_base = priv->uniphy_base +
 					(port->uniphy_id * priv->uniphy_size);
 
-		ret = uclass_get_device_by_ofnode(UCLASS_MDIO, port->pnode,
-					&mdiodev);
-		if (ret)
-			continue;
+#ifdef CONFIG_MDIO_QCOM_I2C
+		if (port->i2c_bus) {
+			port->bus = (struct mii_dev *)(uintptr_t)
+					qcom_mdio_i2c_alloc(port->pnode,
+							port->phyaddr);
+		} else
+#endif /* CONFIG_MDIO_QCOM_I2C */
+		{
+			ret = uclass_get_device_by_ofnode(UCLASS_MDIO,
+					port->pnode, &mdiodev);
+			if (ret)
+				continue;
 
-		port->bus = miiphy_get_dev_by_name(mdiodev->name);
+			port->bus = miiphy_get_dev_by_name(mdiodev->name);
+		}
 
 		if (!port->bus)
 			continue;
@@ -3160,6 +3172,9 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 			port->xgmac = ofnode_read_bool(
 						phandle_args.node,
 						"xgmac");
+			port->i2c_bus = ofnode_read_bool(
+						phandle_args.node,
+						"i2c-bus");
 			port->interface = ofnode_read_phy_mode(
 						phandle_args.node);
 

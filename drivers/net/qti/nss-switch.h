@@ -1051,6 +1051,7 @@ struct port_info {
 	bool isforce_speed;
 	bool xgmac;
 	bool isconfigured;
+	bool i2c_bus;
 }__attribute__ ((aligned(8)));
 
 struct ppe_info {

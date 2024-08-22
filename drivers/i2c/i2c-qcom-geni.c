@@ -304,14 +304,10 @@ static int geni_i2c_rx_one_msg(struct geni_i2c_dev *gi2c, struct i2c_msg *msg,
 	writel(len, gi2c->base + SE_I2C_RX_TRANS_LEN);
 	writel(0, gi2c->base + SE_I2C_TX_TRANS_LEN);
 
-	mdelay(10);
 	geni_se_setup_m_cmd(gi2c->base, I2C_READ, m_param);
-
-	mdelay(10);
+	udelay(500);
 
 	gi2c->cur_rd = 0;
-
-
 	cur = gi2c->cur;
 	return geni_i2c_irq(gi2c);
 
