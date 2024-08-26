@@ -151,4 +151,9 @@ extern uint32_t g_load_addr;
 #define CONFIG_NET_RETRY_COUNT			500
 
 #define MTDPARTS_MAXLEN				4096
+
+#ifdef CONFIG_BOOTDELAY
+#undef CONFIG_BOOTDELAY
+#endif
+#define CONFIG_BOOTDELAY			2
 #endif
