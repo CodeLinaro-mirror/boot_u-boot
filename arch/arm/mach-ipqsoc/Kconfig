@@ -391,6 +391,7 @@ config TARGET_IPQ5424
 	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
 	imply FUSEIPQ_V2 if IPQ_SECURE && SCM_V2
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
+	imply BOARD_EARLY_INIT_R
 	help
 	  Support for IPQ5424 SoC.
 
