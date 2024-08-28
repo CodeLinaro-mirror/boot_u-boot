@@ -225,6 +225,28 @@ int ipq_uboot_fdt_fixup_smem(void *blob)
 	return 0;
 }
 
+void ipq_uboot_fdt_fixup_usb(void *blob)
+{
+	int ret = 0;
+
+	if (!(readl(USB_SOFTSKU_STATUS) & USB_SOFTSKU_STATUS_DISABLE))
+		return;
+
+	ret = fdt_status_okay_by_pathf(blob, "/soc@0/usb2@8af8800/");
+	if (ret <0) {
+		printf("failed to disable the usb2@8af8800"
+				" node, err: %d \n", ret);
+		return;
+	}
+
+	ret = fdt_status_disabled_by_pathf(blob, "/soc@0/usb@8af8800/");
+	if (ret <0) {
+		printf("failed to enable the usb@8af8800"
+				" node, err: %d \n", ret);
+		return;
+	}
+}
+
 #ifdef CONFIG_ARM64
 /*
  * Set XN (PTE_BLOCK_PXN | PTE_BLOCK_UXN)bit for all dram regions
