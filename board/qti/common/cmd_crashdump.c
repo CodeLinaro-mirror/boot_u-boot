@@ -595,13 +595,15 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 		}
 
 		dump_config->iface_cfg.dump2mem_rsvd_limit =
-			CFG_SYS_SDRAM_BASE + gd->ram_size -
+			dump_config->iface_cfg.dump2mem_rsvd_addr +
 			dump_config->iface_cfg.dump2mem_rsvd_limit;
 		/* range check for the dump2mem_addr */
 		if ((dump_config->iface_cfg.dump2mem_rsvd_addr <
-			CFG_SYS_SDRAM_BASE) ||
-			(dump_config->iface_cfg.dump2mem_rsvd_addr >
-			dump_config->iface_cfg.dump2mem_rsvd_limit)) {
+				CFG_SYS_SDRAM_BASE) ||
+				(dump_config->iface_cfg.dump2mem_rsvd_addr >
+				 gd->ram_top) ||
+				(dump_config->iface_cfg.dump2mem_rsvd_limit >
+				 gd->ram_top)) {
 			printf("Invalid dump_to_mem param\n");
 			ret = CMD_RET_FAILURE;
 		}
