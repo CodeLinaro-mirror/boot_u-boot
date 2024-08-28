@@ -275,6 +275,48 @@
 				dr_mode = "host";
 				snps,dis_u2_susphy_quirk;
 				snps,dis_u3_susphy_quirk;
+				phys = <&qusb2_phy_0>, <&qmp_ssphy_0>;
+				phy-names = "usb2-phy", "usb3-phy";
+				maximum-speed = "super-speed";
+			};
+		};
+
+		/*
+		* usb3_1 node configuration makes usb 3.0 controller
+		* to use usb 3.0 devices as usb 2.0 device
+		*/
+		usb3_1: usb2@8af8800 {
+			compatible = "qti,dwc3-ipq";
+			reg = <0x8af8800 0x100>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			assigned-clocks = <&gcc GCC_USB0_MASTER_CLK>,
+				<&gcc GCC_USB0_MOCK_UTMI_CLK>,
+				<&gcc GCC_USB0_AUX_CLK>;
+			assigned-clock-rates = <200000000>,
+				<60000000>,
+				<24000000>;
+			clocks = <&gcc GCC_USB0_MASTER_CLK>,
+				<&gcc GCC_USB0_AUX_CLK>,
+				<&gcc GCC_USB0_SLEEP_CLK>,
+				<&gcc GCC_USB0_MOCK_UTMI_CLK>,
+				<&gcc GCC_USB0_PHY_CFG_AHB_CLK>;
+			resets = <&reset GCC_USB_BCR>;
+			ranges;
+			qti,quirk-ref-clk-per = <0x4004010>;
+			qti,quirk-ref-clk-adj = <0x4945720>;
+			qti,select-utmi-as-pipe-clk;
+			status = "disabled";
+
+			dwc3@8a00000 {
+				compatible = "snps,dwc3";
+				reg = <0x8a00000 0xf8000>;
+				dr_mode = "host";
+				snps,dis_u2_susphy_quirk;
+				snps,dis_u3_susphy_quirk;
+				phys = <&qusb2_phy_0>;
+				phy-names = "usb2-phy";
+				maximum-speed = "high-speed";
 			};
 		};
 
@@ -303,6 +345,9 @@
 				dr_mode = "host";
 				snps,dis_u2_susphy_quirk;
 				snps,dis_u3_susphy_quirk;
+				phys = <&qusb2_phy_1>;
+				phy-names = "usb2-phy";
+				maximum-speed = "high-speed";
 			};
 		};
 
