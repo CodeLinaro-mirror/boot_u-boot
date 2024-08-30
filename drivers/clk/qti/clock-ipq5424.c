@@ -19,6 +19,13 @@
 
 #include <dt-bindings/clock/gcc-ipq5424.h>
 
+/*UNIPHY status register*/
+#define SOFTSKU_STATUS_6			0xA6264
+#define SOFTSKU_STATUS_7			0xA626C
+#define SOFTSKU_STATUS_8			0xA6274
+
+#define UNIPHY_STAT_BIT				0
+
 #define MHZ(X)	((X) * 1000000UL)
 static const struct bcr_regs gcc_qupv3_uart0_regs = {
 	.cfg_rcgr = GCC_QUPV3_UART0_CFG_RCGR,
@@ -380,7 +387,7 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		break;
 	case GCC_SDCC1_APPS_CLK:
 		/* SDCC1: 192 MHz */
-		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 6, 0, 0,
+		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 3, 0, 0,
 				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
 		break;
 	case GCC_PCIE_AUX_CLK:
@@ -667,6 +674,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE0_AXI_S_CBCR);
 		break;
 	case GCC_PCIE0_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE0_PIPE_CBCR);
 		break;
 	case GCC_PCIE1_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_PCIE1_AHB_CBCR);
@@ -684,6 +692,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE1_AXI_S_CBCR);
 		break;
 	case GCC_PCIE1_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE1_PIPE_CBCR);
 		break;
 	case GCC_PCIE2_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_PCIE2_AHB_CBCR);
@@ -701,6 +710,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE2_AXI_S_CBCR);
 		break;
 	case GCC_PCIE2_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE2_PIPE_CBCR);
 		break;
 	case GCC_PCIE3_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_PCIE3_AHB_CBCR);
@@ -718,6 +728,7 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_PCIE3_AXI_S_CBCR);
 		break;
 	case GCC_PCIE3_PIPE_CLK:
+		clk_enable_cbc(priv->base + GCC_PCIE3_PIPE_CBCR);
 		break;
 	case GCC_CNOC_PCIE0_1LANE_S_CLK:
 		clk_enable_cbc(priv->base + GCC_CNOC_PCIE0_1LANE_S_CBCR);
@@ -765,22 +776,49 @@ int msm_enable(struct clk *clk)
 		clk_enable_cbc(priv->base + GCC_NSSNOC_SNOC_1_CBCR);
 		break;
 	case GCC_UNIPHY0_SYS_CLK:
+		if(readl(SOFTSKU_STATUS_6) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY0_SYS_CBCR);
 		break;
 	case GCC_UNIPHY1_SYS_CLK:
+		if(readl(SOFTSKU_STATUS_7) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY1_SYS_CBCR);
 		break;
 	case GCC_UNIPHY2_SYS_CLK:
+		if(readl(SOFTSKU_STATUS_8) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY2_SYS_CBCR);
 		break;
 	case GCC_UNIPHY0_AHB_CLK:
+		if(readl(SOFTSKU_STATUS_6) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY0_AHB_CBCR);
 		break;
 	case GCC_UNIPHY1_AHB_CLK:
+		if(readl(SOFTSKU_STATUS_7) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY1_AHB_CBCR);
 		break;
 	case GCC_UNIPHY2_AHB_CLK:
+		if(readl(SOFTSKU_STATUS_8) & BIT(UNIPHY_STAT_BIT))
+			break;
 		clk_enable_cbc(priv->base + GCC_UNIPHY2_AHB_CBCR);
+		break;
+	case GCC_QPIC_SLEEP_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_SLEEP_CBCR);
+		break;
+	case GCC_QPIC_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_AHB_CBCR);
+		break;
+	case GCC_QPIC_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_CBCR);
+		break;
+	case GCC_QPIC_IO_MACRO_CLK:
+		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
+		break;
+	case GCC_MDIO_AHB_CLK:
+		clk_enable_cbc(priv->base + GCC_MDIO_AHB_CBCR);
 		break;
 
 	/* NSS clocks */
@@ -875,18 +913,6 @@ int msm_enable(struct clk *clk)
 	case UNIPHY1_NSS_TX_CLK:
 	case UNIPHY2_NSS_RX_CLK:
 	case UNIPHY2_NSS_TX_CLK:
-		break;
-	case GCC_QPIC_SLEEP_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_SLEEP_CBCR);
-		break;
-	case GCC_QPIC_AHB_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_AHB_CBCR);
-		break;
-	case GCC_QPIC_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_CBCR);
-		break;
-	case GCC_QPIC_IO_MACRO_CLK:
-		clk_enable_cbc(priv->base + GCC_QPIC_IO_MACRO_CBCR);
 		break;
 	default:
 	}

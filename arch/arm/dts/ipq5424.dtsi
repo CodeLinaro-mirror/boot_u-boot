@@ -173,6 +173,7 @@
 					<&gcc GCC_QPIC_IO_MACRO_CLK>;
 			assigned-clock-rates = <100000000>,
 						<200000000>;
+			max_clk_feaquency = <400000000>;
 			clock-names =	"qpic-clk",
 					"qpic-io-macro-clk",
 					"qpic-sleep-clk",
@@ -258,6 +259,7 @@
 				<60000000>,
 				<24000000>;
 			clocks = <&gcc GCC_USB0_MASTER_CLK>,
+				<&gcc GCC_USB0_AUX_CLK>,
 				<&gcc GCC_USB0_SLEEP_CLK>,
 				<&gcc GCC_USB0_MOCK_UTMI_CLK>,
 				<&gcc GCC_USB0_PHY_CFG_AHB_CLK>;
@@ -309,6 +311,7 @@
 			#size-cells = <0>;
 			compatible = "qcom,ipq4019-mdio";
 			reg = <0x90000 0x64>;
+			clocks = <&gcc GCC_MDIO_AHB_CLK>;
 			status = "disabled";
 		};
 
@@ -476,6 +479,7 @@
 			tdm_offset = <0xc000>;
 			tdm_mode = <0>;
 			no_tdm_reg = <126>;
+			bridge_mode;
 			status = "disabled";
 		};
 
@@ -574,9 +578,6 @@
 				 <&gcc GCC_PCIE0_AHB_CLK>,
 				 <&gcc GCC_PCIE0_AUX_CLK>,
 				 <&gcc GCC_PCIE0_AXI_S_BRIDGE_CLK>,
-				 <&gcc GCC_PCIE0_PIPE_CLK>,
-				 <&gcc GCC_CNOC_PCIE0_1LANE_S_CLK>,
-				 <&gcc GCC_ANOC_PCIE0_1LANE_M_CLK>,
 				 <&gcc GCC_PCIE0_RCHNG_CLK>;
 
 			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
@@ -624,9 +625,6 @@
 				 <&gcc GCC_PCIE1_AHB_CLK>,
 				 <&gcc GCC_PCIE1_AUX_CLK>,
 				 <&gcc GCC_PCIE1_AXI_S_BRIDGE_CLK>,
-				 <&gcc GCC_PCIE1_PIPE_CLK>,
-				 <&gcc GCC_CNOC_PCIE1_1LANE_S_CLK>,
-				 <&gcc GCC_ANOC_PCIE1_1LANE_M_CLK>,
 				 <&gcc GCC_PCIE1_RCHNG_CLK>;
 
 			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
@@ -675,9 +673,6 @@
 				 <&gcc GCC_PCIE2_AHB_CLK>,
 				 <&gcc GCC_PCIE2_AUX_CLK>,
 				 <&gcc GCC_PCIE2_AXI_S_BRIDGE_CLK>,
-				 <&gcc GCC_PCIE2_PIPE_CLK>,
-				 <&gcc GCC_CNOC_PCIE2_2LANE_S_CLK>,
-				 <&gcc GCC_ANOC_PCIE2_2LANE_M_CLK>,
 				 <&gcc GCC_PCIE2_RCHNG_CLK>;
 
 			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,
@@ -725,9 +720,6 @@
 				 <&gcc GCC_PCIE3_AHB_CLK>,
 				 <&gcc GCC_PCIE3_AUX_CLK>,
 				 <&gcc GCC_PCIE3_AXI_S_BRIDGE_CLK>,
-				 <&gcc GCC_PCIE3_PIPE_CLK>,
-				 <&gcc GCC_CNOC_PCIE3_2LANE_S_CLK>,
-				 <&gcc GCC_ANOC_PCIE3_2LANE_M_CLK>,
 				 <&gcc GCC_PCIE3_RCHNG_CLK>;
 
 			assigned-clocks = <&gcc GCC_PCIE_AUX_CLK>,

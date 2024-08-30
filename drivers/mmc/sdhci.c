@@ -719,7 +719,7 @@ static int sdhci_init(struct mmc *mmc)
 #endif
 	bus_pwr_off_rst = dev_read_bool(mmc->dev, "bus_pwr_off_rst");
 	if (bus_pwr_off_rst) {
-		val = sdhci_readb(host, SDHCI_HOST_CONTROL);
+		val = sdhci_readb(host, SDHCI_POWER_CONTROL);
 		sdhci_writeb(host,(val & (~SDHCI_POWER_ON)),
 				SDHCI_POWER_CONTROL);
 	}

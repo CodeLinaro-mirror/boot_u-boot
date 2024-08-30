@@ -1054,18 +1054,22 @@ void ipq_ppe_provision_init(struct ppe_info *info)
 {
 	phys_addr_t reg_base = info->base;
 	uint32_t queue, bridge_ctrl, val;
-	int i, port;
+	int i, j, port;
 	struct ppe_acl_set acl_set;
 
 	/* tdm/sched configuration */
 	ipq_ppe_tdm_configuration(info);
 
-	/* Add CPU port 0 to VSI 2 */
-	ipq_ppe_vp_port_tbl_set(reg_base, 0, 2);
+	if (info->bridge_mode)
+		/* Add CPU port 0 to VSI 2 */
+		ipq_ppe_vp_port_tbl_set(reg_base, 0, 2);
 
-	for (i = 1; i <= info->no_ports; ++i) {
+	for (i = 1, j = 2; i <= info->no_ports; ++i) {
 		/* Add port 1 - 2 to VSI 2 */
-		ipq_ppe_vp_port_tbl_set(reg_base, i, 2);
+		ipq_ppe_vp_port_tbl_set(reg_base, i, j);
+
+		if (!info->bridge_mode)
+			++j;
 	}
 
 	/* Unicast priority map */
@@ -1204,8 +1208,14 @@ void ipq_ppe_provision_init(struct ppe_info *info)
 	/* Global learning */
 	writel(0xc0, reg_base + 0x060038);
 
-	ipq_vsi_setup(reg_base, 2, info->vsi);
-
+	if (info->bridge_mode) {
+		ipq_vsi_setup(reg_base, 2, info->vsi);
+	} else {
+		for (i = 0,j = 2;
+			i <= info->no_ports && i < CONFIG_ETH_MAX_MAC;
+			++i, ++j)
+			ipq_vsi_setup(reg_base, j, nb_vsi_config[i]);
+	}
 	/*
 	 * STP
 	 * For IPQ5332 ==> Port 0-3
@@ -2505,6 +2515,7 @@ static int ipq_eth_send(struct udevice *dev, void *packet, int length)
 {
 	struct ipq_eth_dev *priv = dev_get_priv(dev);
 	struct ipq_edma_hw *ehw = &priv->hw;
+	struct ppe_info *ppe = &priv->ppe;
 	struct ipq_edma_txdesc_desc *txdesc;
 	struct ipq_edma_txdesc_ring *txdesc_ring;
 	uint16_t hw_next_to_use, hw_next_to_clean, chk_idx;
@@ -2566,9 +2577,21 @@ static int ipq_eth_send(struct udevice *dev, void *packet, int length)
 			(uintptr_t)txdesc->tdes0, (uintptr_t)txdesc->tdes1,
 			length,	hw_next_to_use, hw_next_to_clean);
 
-	/* VP 0x0 share vsi 2 with port 1-4 */
-	/* src is 0x2000, dest is 0x0 */
-	txdesc->tdes4 = 0x00002000;
+	if (ppe->bridge_mode) {
+		/* VP 0x0 share vsi 2 with port 1-4 */
+		/* src is 0x2000, dest is 0x0 */
+		txdesc->tdes4 = 0x00002000;
+	} else {
+	/*
+	 * Populate Tx dst info, port id is macid in dp_dev
+	 * We have separate netdev for each port in Kernel but that is not the
+	 * case in U-Boot.
+	 * This part needs to be fixed to support multiple ports in non bridged
+	 * mode during when all the ports are currently under same netdev.
+	 */
+		txdesc->tdes4 |= (EDMA_DST_PORT_TYPE_SET(EDMA_DST_PORT_TYPE) |
+					EDMA_DST_PORT_ID_SET(ppe->nbport));
+	}
 	/*
 	 * Set opaque field
 	 */
@@ -2940,9 +2963,8 @@ static int ipq_eth_probe(struct udevice *dev)
 							port->phyaddr,
 							PHY_FIXED_ID,
 							true);
-				phy_connect_dev(port->phydev,
-						dev,
-						port->interface);
+				port->phydev->dev = dev;
+				port->phydev->interface = port->interface;
 		} else {
 			port->phydev = phy_connect(port->bus, port->phyaddr,
 							dev,port->interface);
@@ -3067,6 +3089,9 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 	ppe->tdm_mode = dev_read_u32_default(dev, "tdm_mode", 0);
 	ppe->no_reg = dev_read_u32_default(dev, "no_tdm_reg", 0);
 	ppe->tm = dev_read_bool(dev, "tdm_tm_support");
+	ppe->bridge_mode = dev_read_bool(dev, "bridge_mode");
+	if (!ppe->bridge_mode)
+		ppe->nbport = dev_read_u32_default(dev, "port", 0);
 
 	for (i = 0; i < CONFIG_ETH_MAX_MAC; ++i) {
 		struct port_info *port = NULL;
@@ -3078,16 +3103,14 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 			uint8_t uniphy_id = ofnode_read_u32_default(
 						phandle_args.node,
 						"uniphy_id", -1);
-			if (-1 != uniphy_id) {
-				if ((ipq_uniphy) &&
-					(uniphy_id < ipq_uniphy->max_uniphy)) {
-					if(readl(ipq_uniphy->reg) &
-						(1 << ipq_uniphy->uniphy_bit[
-							uniphy_id]))
-						continue;
-				}
-			} else {
+			if (-1 == uniphy_id)
 				continue;
+
+			if ((ipq_uniphy) && (uniphy_id <
+						CONFIG_ETH_MAX_UNIPHY)) {
+				if(readl(ipq_uniphy[uniphy_id].reg) & (1 <<
+						ipq_uniphy[uniphy_id].bit))
+					continue;
 			}
 
 			port = malloc_cache_aligned(sizeof(struct port_info));

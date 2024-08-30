@@ -12,10 +12,6 @@ config ARCH_64BIT_SUPPORT
 	select ARM64
 	default n
 
-config IPQ_MMU_SETUP
-	bool "IPQ MMU setup for ARCH 32"
-	default n
-
 config IPQ_SECURE
 	bool "IPQSOC secure call support"
 	default n
@@ -304,7 +300,6 @@ config TARGET_IPQ5332
 	bool "QTI IPQ5332 SOC"
 	select SMEM_VERSION_C
 	select SCM
-	select IPQ_MMU_SETUP if ARCH_32BIT_SUPPORT
 	select IPQ_DEFAULTS
 	imply IPQ_I2C
 	select IPQ_NET
@@ -338,7 +333,6 @@ config TARGET_IPQ9574
 	bool "QTI IPQ9574 SOC"
 	select SMEM_VERSION_C
 	select SCM
-	select IPQ_MMU_SETUP if ARCH_32BIT_SUPPORT
 	select IPQ_DEFAULTS
 	imply IPQ_I2C
 	select IPQ_NET
@@ -397,6 +391,7 @@ config TARGET_IPQ5424
 	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
 	imply FUSEIPQ_V2 if IPQ_SECURE && SCM_V2
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
+	imply BOARD_EARLY_INIT_R
 	help
 	  Support for IPQ5424 SoC.
 

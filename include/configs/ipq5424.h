@@ -146,4 +146,9 @@ extern uint32_t g_env_offset;
 #ifdef CONFIG_NET_RETRY_COUNT
 #undef CONFIG_NET_RETRY_COUNT
 #define CONFIG_NET_RETRY_COUNT			500
+
+#ifdef CONFIG_BOOTDELAY
+#undef CONFIG_BOOTDELAY
+#endif
+#define CONFIG_BOOTDELAY			2
 #endif
