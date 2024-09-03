@@ -39,15 +39,8 @@
 			status = "okay";
 		};
 
-		usb3_0: usb@8af8800 {
+		usb3_1: usb2@8af8800 {
 			status = "okay";
-			qti,select-utmi-as-pipe-clk;
-
-			dwc3@8a00000 {
-				phys = <&qusb2_phy_0>;
-				phy-names = "usb2-phy";
-				maximum-speed = "high-speed";
-			};
 		};
 
 		pcie2_phy: phy@f4000 {

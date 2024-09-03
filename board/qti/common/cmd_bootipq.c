@@ -921,7 +921,7 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 		ret = -ENOTSUPP;
 		IPQ_SCM_VERIFY_HASH(param, rootfs_img_info.type,
 						rootfs_img_info.addr,
-						rootfs_img_info.addr,
+						rootfs_img_info.size,
 						(uintptr_t) hash_buff,
 						SHA384_SUM_LEN);
 		ret = ipq_scm_call(&param);

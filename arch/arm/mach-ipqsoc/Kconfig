@@ -392,6 +392,7 @@ config TARGET_IPQ5424
 	imply FUSEIPQ_V2 if IPQ_SECURE && SCM_V2
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
 	imply BOARD_EARLY_INIT_R
+        imply IPQ_QCN9224_FUSING
 	help
 	  Support for IPQ5424 SoC.
 

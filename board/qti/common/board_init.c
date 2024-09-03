@@ -109,6 +109,11 @@ __weak int ipq_uboot_fdt_fixup_smem(void *blob)
 	return 0;
 }
 
+__weak void ipq_uboot_fdt_fixup_usb(void *blob)
+{
+	return;
+}
+
 __weak void ipq_uboot_fdt_fixup(uint32_t machid)
 {
 	return;
@@ -538,6 +543,7 @@ int board_fix_fdt(void *rw_fdt_blob)
 {
 	ipq_uboot_fdt_fixup_smem(rw_fdt_blob);
 	ipq_uboot_fdt_fixup(g_board_machid);
+	ipq_uboot_fdt_fixup_usb(rw_fdt_blob);
 	return 0;
 }
 
@@ -859,7 +865,18 @@ int dram_init_banksize(void)
 				p->partition_type == RAM_PARTITION_SYS_MEMORY)
 		{
 			gd->bd->bi_dram[bidx].start = p->start_address;
-			gd->bd->bi_dram[bidx].size = p->length;
+
+#ifndef CONFIG_ARM64
+			if (((uint64_t)p->start_address + p->length) >
+				ULONG_MAX) {
+				gd->bd->bi_dram[bidx].size = ULONG_MAX -
+					p->start_address;
+			} else
+#endif
+			{
+				gd->bd->bi_dram[bidx].size = p->length;
+			}
+
 			debug("Detected memory bank %u: "
 				"start: 0x%llx size: 0x%llx\n",
 					bidx, p->start_address, p->length);
