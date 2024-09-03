@@ -163,6 +163,6 @@ struct edma_config ipq_edma_config = {
 	.ports			= 3,
 	.start_ports		= 1,
 	.vsi			= 0xf,
+	.ipo_action		= 6,
 	.tdm_ctrl_val		= 0x8000007E,
 };
-

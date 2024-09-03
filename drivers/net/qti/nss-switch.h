@@ -74,7 +74,7 @@
 	} while(0)
 
 #define UPDATE_ACL_SET(_base, _var1, _var2, _var3, _var4, _var5, _var6,	\
-			_var7, _var8)					\
+			_var7, _var8, _var9)					\
 			do {						\
 				_base.reg_base = _var1;			\
 				_base.rule_id = _var2;			\
@@ -84,6 +84,7 @@
 				_base.mask = _var6;			\
 				_base.permit = _var7;			\
 				_base.deny = _var8;			\
+				_base.ipo_cnt = _var9;			\
 			}while(0)
 
 #define LINK_STATUS				BIT(7)
@@ -907,10 +908,11 @@ struct ipo_action {
 	uint32_t  _reserved2:32;
 	uint32_t  _reserved3:32;
 	uint32_t  _reserved4:32;
+	uint32_t  _reserved5:32;
 };
 
 union ipo_action_u {
-        uint32_t val[5];
+        uint32_t val[6];
         struct ipo_action bf;
 };
 
@@ -923,6 +925,7 @@ struct ppe_acl_set {
 	uint32_t mask;
 	uint32_t permit;
 	uint32_t deny;
+	uint32_t ipo_cnt;
 };
 
 
@@ -973,6 +976,7 @@ struct edma_config {
 	uint8_t vsi;
 	uint8_t tx_map;
 	uint8_t rx_map;
+	uint8_t ipo_action;
 	bool  hw_reset;
 };
 
@@ -1059,6 +1063,7 @@ struct ppe_info {
 	uint8_t tdm_mode;
 	uint8_t no_reg;
 	uint8_t nbport; /* non bridge port*/
+	uint8_t ipo_action;
 	bool tm;
 	bool bridge_mode;
 }__attribute__ ((aligned(8)));

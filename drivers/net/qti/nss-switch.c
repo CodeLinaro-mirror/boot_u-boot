@@ -928,11 +928,11 @@ void ppe_ipo_mask_reg_set(phys_addr_t reg_base, union ipo_mask_reg_u *hw_mask,
 }
 
 void ppe_ipo_action_set(phys_addr_t reg_base, union ipo_action_u *hw_act,
-		uint32_t rule_id)
+		uint32_t rule_id, uint32_t ipo_cnt)
 {
 	uint32_t i;
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < ipo_cnt; i++) {
 		writel(hw_act->val[i], reg_base + (IPE_L2_BASE_ADDR +
 			IPO_ACTION_ADDRESS + (rule_id * IPO_ACTION_INC) +
 			(i * 4)));
@@ -990,7 +990,7 @@ void ipq_ppe_acl_set(struct ppe_acl_set * acl_set)
 		ppe_ipo_mask_reg_set(acl_set->reg_base, &hw_mask,
 				acl_set->rule_id);
 		ppe_ipo_action_set(acl_set->reg_base, &hw_act,
-				acl_set->rule_id);
+				acl_set->rule_id, acl_set->ipo_cnt);
 	}
 }
 
@@ -1225,17 +1225,17 @@ void ipq_ppe_provision_init(struct ppe_info *info)
 		writel(0x3, reg_base + PPE_STP_BASE + (0x4 * i));
 
 	UPDATE_ACL_SET(acl_set, reg_base, 0, ADPT_ACL_HPPE_IPV4_DIP_RULE,
-			UDP_PKT, 67, 0xffff, 0, 0);
+			UDP_PKT, 67, 0xffff, 0, 0, info->ipo_action);
 	/* Allowing DHCP packets */
 	ipq_ppe_acl_set(&acl_set);
 
 	UPDATE_ACL_SET(acl_set, reg_base, 1, ADPT_ACL_HPPE_IPV4_DIP_RULE,
-			UDP_PKT, 68, 0xffff, 0, 0);
+			UDP_PKT, 68, 0xffff, 0, 0, info->ipo_action);
 
 	ipq_ppe_acl_set(&acl_set);
 
 	UPDATE_ACL_SET(acl_set, reg_base, 2, ADPT_ACL_HPPE_IPV4_DIP_RULE,
-			UDP_PKT, 0, 0, 0, 1);
+			UDP_PKT, 0, 0, 0, 1, info->ipo_action);
 
 	/* Dropping all the UDP packets */
 	ipq_ppe_acl_set(&acl_set);
@@ -1244,7 +1244,8 @@ void ipq_ppe_provision_init(struct ppe_info *info)
 		tftp_acl_our_port = 1024 + (get_timer(0) % 3072);
 
 		UPDATE_ACL_SET(acl_set, reg_base, 3, 0x4, 0x1,
-				tftp_acl_our_port, 0xffff, 0, 0);
+				tftp_acl_our_port, 0xffff, 0, 0,
+				info->ipo_action);
 
 		/* Allowing tftp packets */
 		ipq_ppe_acl_set(&acl_set);
@@ -2093,6 +2094,7 @@ int ipq_edma_hw_init(struct udevice *dev, struct ipq_eth_dev *eth)
 	ppe->nos_iports = config->iports;
 	ppe->vsi = config->vsi;
 	ppe->tdm_ctrl_val = config->tdm_ctrl_val;
+	ppe->ipo_action = config->ipo_action;
 
 	ipq_ppe_provision_init(ppe);
 
