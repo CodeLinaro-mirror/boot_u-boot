@@ -174,6 +174,10 @@ typedef struct {
 #endif
 /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	char emmc_part_dev[5];
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 } crashdump_interface_cfg_t;
 
 typedef struct {
@@ -545,6 +549,11 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 		dump_config->dump_to = DUMP_TO_FLASH;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	if (env_get("dump_to_emmc"))
+		dump_config->dump_to = DUMP_TO_EMMC;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 	dump_config->force_collect_dump =
 		env_get("force_collect_dump") ? 1 : 0;
 
@@ -771,6 +780,21 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	case DUMP_TO_EMMC:
+		if (dump_config->dump_level != FULLDUMP) {
+			printf("Only Fulldump is supported in dump_to_emmc\n");
+			ret = CMD_RET_FAILURE;
+		}
+
+		if (!dump_config->is_compress_enabled) {
+			printf("Only Compressed full dump allowed "
+					"in dump_to_emmc\n");
+			ret = CMD_RET_FAILURE;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 	default:
 		ret = CMD_RET_FAILURE;
 		break;
@@ -930,6 +954,33 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	case DUMP_TO_EMMC:
+		char *tmp = env_get("dump_to_emmc");
+		struct disk_partition disk_info;
+		int part_idx = 0;
+		struct blk_desc *blk_dev = blk_get_devnum_by_uclass_id(
+							UCLASS_MMC, 0);
+		if (!blk_dev) {
+			printf("No EMMC Device \n");
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		part_idx = part_get_info_by_name(blk_dev, tmp, &disk_info);
+		if (part_idx < 0) {
+			printf(" %s Partition not found, ret %d !!!\n",
+					tmp, ret);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		snprintf(dump_config->iface_cfg.emmc_part_dev,
+				sizeof(dump_config->iface_cfg.emmc_part_dev),
+				"0:%x", part_idx);
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
 
 	default:
 		ret = CMD_RET_FAILURE;
@@ -1763,6 +1814,33 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 					TEMP_COMPRESS_BUF_NAME);
 				break;
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+			case DUMP_TO_EMMC:
+				loff_t len;
+
+				if (fs_set_blk_dev("mmc",
+						iface_cfg->emmc_part_dev,
+						FS_TYPE_EXT))
+				{
+					printf("failed to set block device "
+							"to mmc\n");
+					return CMD_RET_FAILURE;
+				}
+
+				if (fs_write("/EBICS0.BIN.gz",
+						iface_cfg->comp_out_addr,
+						0, SZ_16M, &len) < 0)
+				{
+					printf("failed to write temp "
+							"compress buffer\n");
+					return CMD_RET_FAILURE;
+				}
+
+				printf("temp compress buffer written of size "
+						"%llu bytes\n", len);
+				break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 			default:
 				break;
 			}
@@ -1899,6 +1977,35 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	case DUMP_TO_EMMC:
+		loff_t len;
+		int ret;
+		char abs_file_path[DUMP_NAME_STR_MAX_LEN+1];
+		snprintf(abs_file_path, DUMP_NAME_STR_MAX_LEN+1, "/%s",
+				dump_entry->name);
+
+		if (fs_set_blk_dev("mmc", iface_cfg->emmc_part_dev,
+					FS_TYPE_EXT)) {
+			printf("failed to set block device to mmc\n");
+			return CMD_RET_FAILURE;
+		}
+
+		printf("Writing %s into MMC \n", dump_entry->name);
+		ret = fs_write(abs_file_path, dump_entry->start_addr, 0,
+					dump_entry->size, &len);
+		if (ret < 0) {
+			printf("failed to write %s file, error : %d\n",
+					dump_entry->name, ret);
+			return CMD_RET_FAILURE;
+		}
+
+		printf("%s written of size %llu bytes\n",
+				dump_entry->name, len);
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 	}
 
 	if (runcmd[0] != 0) {
@@ -1935,6 +2042,35 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 						iface_cfg->tftp_dumpdir,
 						TEMP_COMPRESS_BUF_NAME);
 					break;
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+				case DUMP_TO_EMMC:
+					loff_t len;
+
+					if (fs_set_blk_dev("mmc",
+						iface_cfg->emmc_part_dev,
+						FS_TYPE_EXT))
+					{
+						printf("failed to set block "
+							"device to mmc\n");
+						return CMD_RET_FAILURE;
+					}
+
+
+					if (fs_read("/EBICS0.BIN.gz",
+						dump_entry->start_addr,
+						0, 0, &len) < 0)
+					{
+						printf("failed to load temp "
+							"compress buffer\n");
+						return CMD_RET_FAILURE;
+					}
+
+					printf("temp compress buffer loaded "
+							"of size %llu bytes\n",
+							len);
+					break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
 
 				default:
 					break;
