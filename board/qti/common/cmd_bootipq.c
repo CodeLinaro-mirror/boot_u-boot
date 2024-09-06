@@ -194,11 +194,14 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 #endif
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
-void set_crashdump_bootargs(uint8_t flash_type)
+void set_crashdump_bootargs(char *bootargs, uint8_t flash_type)
 {
 	char *part_name = env_get("dump_to_nvmem");
 	int ret;
 	uint32_t * buf = NULL;
+
+	if (bootargs == NULL)
+		return;
 
 	if (!part_name) {
 		printf("%s: dump_to_nvmem env not available\n", __func__);
@@ -259,7 +262,14 @@ void set_crashdump_bootargs(uint8_t flash_type)
 
 	if (buf && (buf[0] == DUMP2MEM_MAGIC1_COOKIE) &&
 			(buf[1] == DUMP2MEM_MAGIC2_COOKIE)) {
-		run_command("setenv bootargs ${bootargs} collect_minidump", 0);
+		if ((strlen(bootargs) + strlen(" collect_minidump")) >
+						CONFIG_SYS_CBSIZE) {
+			printf("%s: bootargs update failed, env size exceeds\n",
+					__func__);
+		} else {
+			snprintf(bootargs, CONFIG_SYS_CBSIZE,
+					"%s collect_minidump", bootargs);
+		}
 	}
 
 retn:
@@ -270,12 +280,45 @@ retn:
 }
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
+void set_fs_bootargs(char *bootargs)
+{
+	int len;
+	char *fit_bootargs = (char *)fdt_getprop((void *)
+					boot_info.load_address, 0,
+					FIT_BOOTARGS_PROP, &len);
+	if (bootargs == NULL)
+		return;
+
+	if ((fit_bootargs != NULL) && len) {
+		if ((strlen(bootargs) + len) > CONFIG_SYS_CBSIZE) {
+			printf("%s: bootargs update failed, env size exceeds\n",
+					__func__);
+			return;
+		}
+	} else {
+		fit_bootargs = env_get("fsbootargs");
+		if(!fit_bootargs) {
+			printf("%s: fsbootargs not available\n", __func__);
+			return;
+		}
+
+		if ((strlen(bootargs) + strlen(fit_bootargs) +
+				strlen("  rootwait")) > CONFIG_SYS_CBSIZE) {
+			printf("%s: bootargs update failed, env size exceeds\n",
+					__func__);
+			return;
+		}
+	}
+
+	snprintf(bootargs, CONFIG_SYS_CBSIZE, "%s %s rootwait",
+			bootargs, fit_bootargs);
+	return;
+}
+
 int set_bootargs(void)
 {
-	char *fit_bootargs =  NULL;
-	char *strings = env_get("bootargs");
-	int len, ret = CMD_RET_SUCCESS;
-	char * cmd_line;
+	char *cmd_line, *strings = env_get("bootargs");
+	int ret = CMD_RET_SUCCESS;
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 #endif
@@ -308,52 +351,27 @@ int set_bootargs(void)
 		return -ENXIO;
 	}
 
-#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
-	if (env_get("dump_to_nvmem")) {
-		set_crashdump_bootargs(sfi->flash_secondary_type ?
-				sfi->flash_secondary_type : sfi->flash_type);
-	}
-#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
-
 	cmd_line = malloc(CONFIG_SYS_CBSIZE);
 	if(!cmd_line) {
 		printf("%s: Memory allocation failed\n", __func__);
 		return -ENOMEM;
 	}
 
-
 	memset(cmd_line, 0, CONFIG_SYS_CBSIZE);
-	fit_bootargs = (char *)fdt_getprop((void *)boot_info.load_address, 0,
-						FIT_BOOTARGS_PROP, &len);
-	if ((fit_bootargs != NULL) && len) {
-		if ((strlen(strings) + len) > CONFIG_SYS_CBSIZE) {
-			ret = CMD_RET_FAILURE;
-		} else {
-			memcpy(cmd_line, strings, strlen(strings));
-			snprintf(cmd_line + strlen(strings), CONFIG_SYS_CBSIZE,
-					" %s rootwait", fit_bootargs);
-		}
-	} else {
-		fit_bootargs = env_get("fsbootargs");
-		if(!fit_bootargs) {
-			printf("%s: bootargs not available\n", __func__);
-			return -ENXIO;
-		}
+	strlcpy(cmd_line, strings, strlen(strings)+1);
 
-		memcpy(cmd_line, strings, strlen(strings));
-		len = snprintf(cmd_line + strlen(strings), CONFIG_SYS_CBSIZE,
-			" %s rootwait", fit_bootargs);
-		if (len >= CONFIG_SYS_CBSIZE)
-			ret = CMD_RET_FAILURE;
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
+	if (env_get("dump_to_nvmem")) {
+		set_crashdump_bootargs(cmd_line,
+				sfi->flash_secondary_type ?
+				sfi->flash_secondary_type : sfi->flash_type);
 	}
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
-	if (ret == CMD_RET_FAILURE) {
-		printf("Env size exceed ...\n");
-	} else {
-		env_set("bootargs", NULL);
-		env_set("bootargs", cmd_line);
-	}
+	set_fs_bootargs(cmd_line);
 
+	env_set("bootargs", NULL);
+	env_set("bootargs", cmd_line);
 	if(cmd_line)
 		free(cmd_line);
 
