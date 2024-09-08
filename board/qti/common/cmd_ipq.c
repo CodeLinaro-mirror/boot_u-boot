@@ -468,6 +468,8 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		goto exit;
 	}
 
+	watchdog_reset();
+
 	fuse_bin_addr = simple_strtoul(argv[1], NULL, 16);
 #ifdef CONFIG_FUSEIPQ_V2
 	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
@@ -564,6 +566,8 @@ static int do_list_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	memset(fuse, 0, size);
+
+	watchdog_reset();
 
 	for (index = 0; index < fuse_read_cnt ; index++) {
 		if (index < TME_OEM_ATE_FUSE_CNT) {
@@ -780,6 +784,8 @@ static int fuse_qcn9224(const struct pci_device_id *ids, int device_id)
 	 */
 	flush_dcache_all();
 
+	watchdog_reset();
+
 	writel(0, bar0_base + BHI_STATUS);
 	writel(upper_32_bits(load_addr), bar0_base + BHI_IMGADDR_HIGH);
 	writel(lower_32_bits(load_addr), bar0_base + BHI_IMGADDR_LOW);
@@ -990,6 +996,8 @@ static void list_pci_device(struct udevice *bus)
 				dev_seq(bus),
 				bar0_base & 0xFF000000,
 				PCI_VENDEV(vendor,device));
+
+		watchdog_reset();
 	}
 }
 
@@ -1198,6 +1206,8 @@ do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			goto fail;
 		}
 
+		watchdog_reset();
+
 		img_addr = simple_strtoul(argv[2], NULL, 16);
 		img_size = simple_strtoul(argv[3], NULL, 16);
 
@@ -1219,6 +1229,8 @@ do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			printf("Unsupported SCM call\n");
 			goto fail;
 		}
+
+		watchdog_reset();
 
 		tzt_loaded = 1;
 		return 0;
@@ -1663,6 +1675,8 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
 	}
 
+	watchdog_reset();
+
 	do {
 		ret = -ENOTSUPP;
 		IPQ_SCM_GENERATE_AES_256_KEY(param, (uintptr_t)req_ptr,
@@ -1758,6 +1772,8 @@ static int do_derive_aes_256_max_ctxt_key(struct cmd_tbl *cmdtp, int flag,
 	while (i < context_len) {
 		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
 	}
+
+	watchdog_reset();
 
 	do {
 		ret = -ENOTSUPP;
@@ -1886,6 +1902,8 @@ do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	req_ptr->iv_len = iv_len;
 	req_ptr->resp_buf = (uint64_t)dst_addr;
 	req_ptr->resp_len = resp_len;
+
+	watchdog_reset();
 
 	do {
 		ret = -ENOTSUPP;
@@ -2037,6 +2055,7 @@ static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
 		ubi_exit();
 	}
 #endif
+	watchdog_reset();
 
 	ret = device_remove(mtd->dev, DM_REMOVE_NORMAL);
 	if (ret)

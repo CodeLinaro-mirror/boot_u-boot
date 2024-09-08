@@ -29,6 +29,13 @@
 #define ipq_scm_call(...)		-ENODATA
 #endif
 
+#if defined(CONFIG_WDT) && defined(CONFIG_WDT_QTI)
+#include <watchdog.h>
+#define watchdog_reset()	schedule()
+#else
+#define watchdog_reset()
+#endif
+
 #ifndef IPQ_NAND_FLASH_VALID_BIT
 #define IPQ_NAND_FLASH_VALID_BIT	3
 #endif
