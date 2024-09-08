@@ -844,6 +844,7 @@ static void fix_in_seq(const fdt_fixup_t fixup_f[], void *blob)
 	const fdt_fixup_t *fixup_ptr;
 	for(fixup_ptr = fixup_f ; *fixup_ptr ; ++fixup_ptr) {
 		(*fixup_ptr)(blob);
+		watchdog_reset();
 	}
 	return;
 }
