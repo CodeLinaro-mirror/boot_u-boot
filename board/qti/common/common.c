@@ -152,6 +152,8 @@ long long ubi_get_volume_size(char *volume)
 			return vol->used_bytes;
 	}
 
+	watchdog_reset();
+
 	printf("Volume %s not found!\n", volume);
 	return -ENODEV;
 }
@@ -176,6 +178,8 @@ bool is_secure_boot_v1(void)
 		return false;
 	}
 
+	watchdog_reset();
+
 	do {
 		ret = -ENOTSUPP;
 		IPQ_SCM_SECURE_BOOT(param, (uintptr_t)buff, sizeof(uint8_t));
@@ -196,6 +200,8 @@ bool is_secure_boot_v1(void)
 
 	if(buff)
 		free(buff);
+
+	watchdog_reset();
 
 	return status;
 }
@@ -221,6 +227,8 @@ bool is_secure_boot_v2(void)
 		return false;
 
 	memset(fuse, 0, sizeof(struct fuse_payload));
+
+	watchdog_reset();
 
 	fuse[0].fuse_addr = QFPROM_CORR_TME_OEM_ATE_ROW0_LSB;
 
@@ -251,6 +259,9 @@ bool is_secure_boot_v2(void)
 
 	if(fuse)
 		free(fuse);
+
+	watchdog_reset();
+
 	return status;
 }
 
@@ -300,6 +311,8 @@ int mmc_send_wp_set_clr(struct mmc *mmc, unsigned int start,
 			return err;
 	}
 
+	watchdog_reset();
+
 	return 0;
 }
 
@@ -347,6 +360,8 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 
 	err = mmc_send_wp_set_clr(mmc, start_blk, cnt_blk, set_clr);
 
+	watchdog_reset();
+
 	return err;
 }
 
@@ -383,6 +398,8 @@ static int do_mmc_protect (struct cmd_tbl *cmdtp, int flag,
 
 	if (!ret)
 		printf("Offset: 0x%x Count: %d blocks\nDone!\n", blk, cnt);
+
+	watchdog_reset();
 
 	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
 }
@@ -453,6 +470,8 @@ struct spi_flash *ipq_spi_probe(void)
 				CONFIG_SF_DEFAULT_SPEED,
 				CONFIG_SF_DEFAULT_MODE);
 #endif
+	watchdog_reset();
+
 	return flash;
 }
 #endif
@@ -478,6 +497,8 @@ uint64_t smem_get_flash_size(uint8_t flash_type)
 		break;
 	};
 
+	watchdog_reset();
+
 	return flash_size;
 }
 
@@ -502,6 +523,8 @@ bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize)
 	}
 
 exit:
+	watchdog_reset();
+
 	return ret;
 }
 /*
@@ -548,10 +571,14 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 		*size = psize;
 		break;
 		}
+
+		watchdog_reset();
 	}
 
 	if (i == ptable->len)
 		return -ENOENT;
+
+	watchdog_reset();
 
 	return 0;
 }
@@ -574,6 +601,8 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 	} else
 		return NULL;
 
+	watchdog_reset();
+
 	if(*pp_gpt_pte)
 #ifdef UPDATE_GPT_RUNTIME
 		free(*pp_gpt_pte);
@@ -594,6 +623,8 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 		else
 			*pp_gpt_pte = NULL;
 	}
+
+	watchdog_reset();
 
 	if(ret || !(*pp_gpt_pte))
 		return NULL;
@@ -625,6 +656,8 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 		return -ENODEV;
 	}
 
+	watchdog_reset();
+
 #ifdef CONFIG_EFI_PARTITION
 	if((dev->part_type == PART_TYPE_UNKNOWN) && (id == UCLASS_MMC))
 		dev->part_type = PART_TYPE_EFI;
@@ -637,6 +670,9 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 		if (env_get("verbose"))
 			printf(" %s Partition not found, ret %d !!!\n",
 				blkpart->name, ret);
+
+		watchdog_reset();
+
 		return -ENODEV;
 	}
 
@@ -654,6 +690,9 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 #else
 	blkpart->isnand = 0;
 #endif
+
+	watchdog_reset();
+
 	return 0;
 }
 #endif
@@ -692,6 +731,8 @@ void update_nand_training_partition(ipq_smem_flash_info_t *sfi)
 			part->size = part_size;
 		}
 	}
+
+	watchdog_reset();
 }
 
 
@@ -709,6 +750,8 @@ int ipq_get_training_part_info(uint32_t *offset, uint32_t *size)
 		*offset = part->offset;
 		*size = part->size;
 	}
+
+	watchdog_reset();
 
 	return 0;
 }
@@ -803,6 +846,8 @@ void get_kernel_fs_part_details(int flash_type)
 				part->size = ((loff_t)size) * bsize;
 			}
 		}
+
+		watchdog_reset();
 	}
 
 	return;
@@ -859,6 +904,8 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 		*size = p->size;
 	}
 
+	watchdog_reset();
+
 	return 0;
 }
 
@@ -913,6 +960,8 @@ int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size)
 		}
 	}
 
+	watchdog_reset();
+
 	return -ENOENT;
 }
 
@@ -925,6 +974,8 @@ int init_ubi_part(void)
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	struct ubi_device *ubi = ubi_get_device(0);
 	char env_strings[64];
+
+	watchdog_reset();
 
 	if(ubi == NULL) {
 		offset = sfi->rootfs.offset;
@@ -981,7 +1032,8 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 	int i, rdatacnt = 0, buf_cur_pos = 0;
 #endif
 #endif
-	 memset(&part, 0, sizeof(ipq_part_entry_t));
+
+	memset(&part, 0, sizeof(ipq_part_entry_t));
 
 	if ((sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) &&
 		((fl_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
@@ -991,6 +1043,8 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 	} else {
 		flash_type = fl_type;
 	}
+
+	watchdog_reset();
 
 	switch(flash_type) {
 	case SMEM_BOOT_NAND_FLASH:
@@ -1110,6 +1164,9 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 		ret = -ENXIO;
 		break;
 	}
+
+	watchdog_reset();
+
 #ifdef CONFIG_IPQ_SPI_NOR
 	if ((flash_type == SMEM_BOOT_SPI_FLASH) ||
 		(flash_type == SMEM_BOOT_NORGPT_FLASH)) {
@@ -1143,5 +1200,8 @@ exit:
 		mmc_blk = NULL;
 	}
 #endif
+
+	watchdog_reset();
+
 	return ret;
 }
