@@ -387,6 +387,7 @@ config TARGET_IPQ5424
 	select IPQ_NET
 	select QTI_NSS_SWITCH
 	imply PHY_QTI_8X8X
+	imply PHY_QCA_81XX
 	imply PHY_AQUANTIA
 	imply IPQ_USB
 	imply IPQ_PCIE

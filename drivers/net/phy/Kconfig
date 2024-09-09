@@ -388,3 +388,9 @@ config PHY_QTI_8081
 	bool "QTI Ethernet QCA8081 support"
 	---help---
 	  Adds support for the QTI Ethernet QCA8081.
+
+config PHY_QCA_81XX
+	select PHY_QTI
+	bool "QTI Ethernet QCA81XX support"
+	---help---
+	  Adds support for the QTI Ethernet QCA81XX.

@@ -20,5 +20,8 @@ int phy_qti_init(void)
 #ifdef CONFIG_PHY_QTI_8081
 	phy_8081_init();
 #endif
+#ifdef CONFIG_PHY_QCA_81XX
+	phy_81xx_init();
+#endif
 	return 0;
 }
