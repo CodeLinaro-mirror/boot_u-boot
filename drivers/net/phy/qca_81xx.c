@@ -162,8 +162,12 @@
 #define GCC_E2S_RX_DIV_CDIVR				0x800020
 #define GCC_E2S_SRDS_CH0_TX_CBCR			0x800028
 #define GCC_E2S_GEPHY_RX_CBCR				0x80002c
+#define GCC_AHB_CMD_RCGR				0x80003c
+#define GCC_AHB_CFG_RCGR				0x800040
 #define GCC_SRDS_SYS_CBCR				0x80007c
 #define GCC_GEPHY_SYS_CBCR				0x800080
+#define GCC_SEC_CTRL_CMD_RCGR				0x800088
+#define GCC_SEC_CTRL_CFG_RCGR				0x80008c
 #define GCC_SERDES_CTL					0x80030C
 
 /*SOC GCC registers field*/
@@ -308,6 +312,8 @@ static void qca81xx_soc_mdio_write(struct phy_device *phydev, u32 reg, u32 val)
 	struct phy_device local_phydev;
 
 	qca81xx_split_addr(reg, &reg_low, &reg_mid, &reg_high);
+
+	memcpy(&local_phydev, phydev, sizeof(struct phy_device));
 	local_phydev.addr = FIELD_GET(GENMASK(28, 24), reg);
 
 	lo = val & 0xffff;
@@ -344,8 +350,9 @@ static int qca81xx_soc_modify(struct phy_device *phydev, u32 reg,
 			QCA81XX_SOC_ADDR_OFFSET), reg), val);
 
 	/*debug log*/
-	printf("soc phy_addr:0x%x, reg:0x%x, reg_value:0x%x\n", phydev->addr,
-		reg, qca81xx_soc_read(phydev, TO_QCA81XX_PHY_SOC_ADDR(
+	debug("soc phy_addr:0x%x, reg:0x%x, reg_value:0x%x\n", phydev->addr +
+			QCA81XX_SOC_ADDR_OFFSET,
+			reg, qca81xx_soc_read(phydev, TO_QCA81XX_PHY_SOC_ADDR(
 			(phydev->addr +	QCA81XX_SOC_ADDR_OFFSET), reg)));
 	return 0;
 }
@@ -379,7 +386,7 @@ static void qca81xx_pcs_print_reg(struct phy_device *phydev, int devad,
 		u32 regnum)
 {
 	u16 phy_data = qca81xx_pcs_read_mmd(phydev, devad, regnum);
-	printf("uniphy_addr:0x%x, mmd_num:%d, mmd_reg:0x%x, reg_value:0x%x\n",
+	debug("uniphy_addr:0x%x, mmd_num:%d, mmd_reg:0x%x, reg_value:0x%x\n",
 			phydev->addr + QCA81XX_PCS_ADDR_OFFSET,
 			devad, regnum, phy_data);
 }
@@ -568,7 +575,7 @@ static int qca81xx_phy_speed_clk_set(struct phy_device *phydev)
 	if(ret < 0)
 		return ret;
 
-	ret = qca81xx_soc_modify(phydev, GCC_E2S_TX_CFG_RCGR,
+	ret = qca81xx_soc_modify(phydev, GCC_E2S_TX_DIV_CDIVR,
 			CLK_DIV_MASK, div1);
 	if(ret < 0)
 		return ret;
@@ -583,7 +590,7 @@ static int qca81xx_phy_speed_clk_set(struct phy_device *phydev)
 	if(ret < 0)
 		return ret;
 
-	ret = qca81xx_soc_modify(phydev, GCC_E2S_RX_CFG_RCGR,
+	ret = qca81xx_soc_modify(phydev, GCC_E2S_RX_DIV_CDIVR,
 			CLK_DIV_MASK, div1);
 	if(ret < 0)
 		return ret;
@@ -605,7 +612,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 	uint16_t phy_data = 0;
 	bool port_clk_en = false;
 
-	printf("wait autoneg complete interrupt and clear it\n");
+	debug("wait autoneg complete interrupt and clear it\n");
 	count = 0;
 	ret = -ETIMEDOUT;
 	do {
@@ -638,7 +645,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 	mdelay(10);
 
 	if(phydev->link) {
-		printf("set gmii,xgmii clock to uniphy and ethphy\n");
+		debug("set gmii,xgmii clock to uniphy and ethphy\n");
 		ret = qca81xx_phy_speed_clk_set(phydev);
 		if(ret < 0)
 			return ret;
@@ -648,7 +655,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 		port_clk_en = true;
 	}
 
-	printf("GMII/XGMII clock and ETHPHY GMII clock enable/disable\n");
+	debug("GMII/XGMII clock and ETHPHY GMII clock enable/disable\n");
 	ret = qca81xx_pcs_clk_en_set(phydev, port_clk_en);
 	if(ret < 0)
 		return ret;
@@ -657,7 +664,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 		return ret;
 	mdelay(100);
 
-	printf("UNIPHY GMII/XGMII interface and "
+	debug("UNIPHY GMII/XGMII interface and "
 			"ETHPHY GMII interface reset and release\n");
 	ret = qca81xx_pcs_clk_reset(phydev);
 	if(ret < 0)
@@ -666,7 +673,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 	if(ret < 0)
 		return ret;
 
-	printf("do function adptreset\n");
+	debug("do function adptreset\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MII_DIG_CTRL,
 			QCA81XX_PCS_MMD3_USXG_FIFO_RESET,
@@ -678,7 +685,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 			QCA81XX_PCS_MMD31_MII_ERR_SEL);
 
 	/*do ethphy function reset*/
-	printf("do ethphy function reset\n");
+	debug("do ethphy function reset\n");
 	ret = qca_81xx_phy_fifo_reset(phydev, true);
 	if (ret)
 		goto fail;
@@ -712,6 +719,8 @@ static int qca81xx_pcs_eee_enable(struct phy_device *phydev)
 			QCA81XX_PCS_MMD3_EEE_SIGN_BIT_REGS);
 	if (ret)
 		goto fail;
+	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
+			QCA81XX_PCS_MMD3_EEE_MODE_CTRL);
 
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_EEE_TX_TIMER, 0x1fff,
@@ -720,6 +729,8 @@ static int qca81xx_pcs_eee_enable(struct phy_device *phydev)
 			QCA81XX_PCS_MMD3_EEE_TWL_REGS);
 	if (ret)
 		goto fail;
+	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
+			QCA81XX_PCS_MMD3_EEE_TX_TIMER);
 
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_EEE_RX_TIMER, 0x1fff,
@@ -727,6 +738,8 @@ static int qca81xx_pcs_eee_enable(struct phy_device *phydev)
 			QCA81XX_PCS_MMD3_EEE_RWR_REG_REGS);
 	if (ret)
 		goto fail;
+	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
+			QCA81XX_PCS_MMD3_EEE_RX_TIMER);
 
 	/*enable TRN_LPI*/
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
@@ -735,6 +748,8 @@ static int qca81xx_pcs_eee_enable(struct phy_device *phydev)
 			QCA81XX_PCS_MMD3_EEE_TRANS_RX_LPI_MODE);
 	if (ret)
 		goto fail;
+	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
+			QCA81XX_PCS_MMD3_EEE_MODE_CTRL1);
 
 	/*enable TX/RX LPI pattern*/
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
@@ -742,6 +757,8 @@ static int qca81xx_pcs_eee_enable(struct phy_device *phydev)
 			QCA81XX_PCS_MMD3_EEE_EN);
 	if (ret)
 		goto fail;
+	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
+			QCA81XX_PCS_MMD3_EEE_MODE_CTRL);
 
 fail:
 	if (ret)
@@ -768,6 +785,27 @@ static int qca81xx_phy_gcc_post_init(struct phy_device *phydev)
 {
 	int ret;
 
+	/* ahb clock use srds_txclk and switch to 312.5M/3 */
+	ret = qca81xx_soc_modify(phydev, GCC_AHB_CFG_RCGR,
+			GCC_E2S_SRC_MASK | SRC_DIV_MASK,
+			(GCC_E2S_SRC3_SRDS_TXCLK << 8) | 0x5);
+	if (ret < 0)
+		return ret;
+
+	ret = qca81xx_soc_modify(phydev, GCC_AHB_CMD_RCGR,
+			CLK_CMD_UPDATE, CLK_CMD_UPDATE);
+
+	/* security control clock switch as 25M */
+	ret = qca81xx_soc_modify(phydev, GCC_SEC_CTRL_CFG_RCGR,
+			GCC_E2S_SRC_MASK | SRC_DIV_MASK, 0x3);
+	if (ret < 0)
+		return ret;
+
+	ret = qca81xx_soc_modify(phydev, GCC_SEC_CTRL_CMD_RCGR,
+			CLK_CMD_UPDATE, CLK_CMD_UPDATE);
+	if (ret < 0)
+		return ret;
+
 	/*select uphy rx, ephy tx clock source as srds_rxclk*/
 	ret = qca81xx_soc_modify(phydev, GCC_E2S_TX_CFG_RCGR,
 			GCC_E2S_SRC_MASK, GCC_E2S_SRC4_SRDS_RXCLK << 8);
@@ -786,7 +824,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	uint16_t count, phy_data = 0;
 	int ret = 0;
 
-	printf("disable uniphy GMII/XGMII clock and "
+	debug("disable uniphy GMII/XGMII clock and "
 			"ethphy GMII/XGMII clock\n");
 	ret = qca81xx_phy_clk_en_set(phydev, false);
 	if(ret < 0)
@@ -795,29 +833,23 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	if(ret < 0)
 		return ret;
 
-	printf("enable uniphy system clock\n");
-	//write 1 to GCC_SRDS_SYS_CBCR__CLK_ENABLE
+	debug("enable uniphy system clock\n");
 	ret = qca81xx_pcs_sysclk_en_set(phydev, true);
 	if(ret < 0)
 		return ret;
 
-	printf("reset and release uniphy_phy_sys_cbcr_clk\n");
-	//write 1 and then 0 to GCC_SRDS_SYS_CBCR__CLK_ARES
+	debug("reset and release uniphy_phy_sys_cbcr_clk\n");
 	ret = qca81xx_pcs_sysclk_reset(phydev);
 	if(ret < 0)
 		return ret;
 
-	printf("reset xpcs\n");
-	//Write 1 to GCC_SERDES_CTL__XPCS_PWR_ARES
+	debug("reset xpcs\n");
 	ret = qca81xx_xpcs_clk_reset_update(phydev, true);
 	if(ret < 0)
 		return ret;
 
-	printf("uniphy usxgmii Mode configuration\n");
-	//optional, would settle after SOD VI, write 1b1 to
-	//CSR0 MMD1_reg0x7c[3],to invert uphy_txclk
-
-	printf("select xpcs mode\n");
+	debug("uniphy usxgmii Mode configuration\n");
+	debug("select xpcs mode\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PMAPMD,
 			QCA81XX_PCS_MMD1_MODE_CTRL,
 			QCA81XX_PCS_MMD1_MODE_MASK,
@@ -828,7 +860,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PMAPMD,
 			QCA81XX_PCS_MMD1_MODE_CTRL);
 
-	printf("reset and release uniphy GMII/XGMII and ethphy GMII/XGMII\n");
+	debug("reset and release uniphy GMII/XGMII and ethphy GMII/XGMII\n");
 	ret = qca81xx_pcs_clk_reset(phydev);
 	if(ret < 0)
 		return ret;
@@ -836,7 +868,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	if(ret < 0)
 		return ret;
 
-	printf("ana sw reset and release\n");
+	debug("ana sw reset and release\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_DEVAD_NONE,
 			QCA81XX_PCS_PLL_POWER_ON_AND_RESET,
 			QCA81XX_PCS_ANA_SOFT_RESET_MASK,
@@ -858,7 +890,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 
 	count = 0;
 	ret = -ETIMEDOUT;
-	printf("Wait calibration done\n");
+	debug("Wait calibration done\n");
 	do {
 		phy_data = qca81xx_pcs_read_mmd(phydev, MDIO_MMD_PMAPMD,
 				QCA81XX_PCS_MMD1_CALIBRATION4);
@@ -877,7 +909,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PMAPMD,
 			QCA81XX_PCS_MMD1_CALIBRATION4);
 
-	printf("enable uniphy sscg(pread Spectrum Clock Generator)\n");
+	debug("enable uniphy sscg(pread Spectrum Clock Generator)\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PMAPMD,
 			QCA81XX_PCS_MMD1_CDA_CONTROL1,
 			QCA81XX_PCS_MMD1_SSCG_ENABLE,
@@ -887,26 +919,24 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PMAPMD,
 			QCA81XX_PCS_MMD1_CDA_CONTROL1);
 
-	printf("Enable uniphy_phy mix_phy_tx_clk\n");
-	//Write 1 to GCC_E2S_SRDS_CH0_TX_CBCR__CLK_ENABLE
+	debug("Enable uniphy_phy mix_phy_tx_clk\n");
 	ret = qca81xx_pcs_txclk_en_set(phydev, true);
 	if(ret < 0)
 		return ret;
 
-	printf("release XPCS\n");
-	//Write 0 to GCC_SERDES_CTL__XPCS_PWR_ARES
+	debug("release XPCS\n");
 	ret = qca81xx_xpcs_clk_reset_update(phydev, false);
 	if(ret < 0)
 		return ret;
 
-	printf("ethphy software reset\n");
+	debug("ethphy software reset\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PMAPMD,
 			QCAPHY_MMD1_PMA_CONTROL, QCAPHY_CTRL_SOFTWARE_RESET,
 			QCAPHY_CTRL_SOFTWARE_RESET);
 	if (ret)
 		goto fail;
 
-	printf("Set BaseR mode\n");
+	debug("Set BaseR mode\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_PCS_CTRL2,
 			QCA81XX_PCS_MMD3_PCS_TYPE_MASK,
@@ -919,7 +949,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 
 	count = 0;
 	ret = -ETIMEDOUT;
-	printf("wait 10G base_r link up\n");
+	debug("wait 10G base_r link up\n");
 	do {
 		phy_data = qca81xx_pcs_read_mmd(phydev, MDIO_MMD_PCS,
 				QCA81XX_PCS_MMD3_10GBASE_R_PCS_STATUS1);
@@ -939,7 +969,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_10GBASE_R_PCS_STATUS1);
 
-	printf("enable UQSXGMII mode\n");
+	debug("enable UQSXGMII mode\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_DIG_CTRL1,
 			QCA81XX_PCS_MMD3_USXGMII_EN,
@@ -950,7 +980,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_DIG_CTRL1);
 
-	printf("xpcs software reset\n");
+	debug("xpcs software reset\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_DIG_CTRL1,
 			QCA81XX_PCS_MMD3_XPCS_SOFT_RESET,
@@ -979,7 +1009,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_PCS,
 			QCA81XX_PCS_MMD3_DIG_CTRL1);
 
-	printf("enable auto-neg complete interrupt,Mii using mii-4bits,"
+	debug("enable auto-neg complete interrupt,Mii using mii-4bits,"
 		"configure as PHY mode\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_VEND2,
 			QCA81XX_PCS_MMD31_MII_AN_INT_MSK, 0x109,
@@ -992,8 +1022,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_VEND2,
 			QCA81XX_PCS_MMD31_MII_AN_INT_MSK);
 
-	printf("Enable SGMII PHY Mode control\n");
-	/*phy mode control will be enabled with P3*/
+	debug("Enable SGMII PHY Mode control\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_VEND2,
 			QCA81XX_PCS_MMD31_MII_DIG_CTRL, BIT(0),
 			QCA81XX_PCS_MMD31_PHY_MODE_CTRL_EN);
@@ -1003,7 +1032,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_VEND2,
 			QCA81XX_PCS_MMD31_MII_DIG_CTRL);
 
-	printf("enable autoneg ability\n");
+	debug("enable autoneg ability\n");
 	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_VEND2,
 			QCA81XX_PCS_MMD31_MII_CTRL,
 			QCA81XX_PCS_MMD31_MII_AN_ENABLE,
@@ -1014,7 +1043,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 	qca81xx_pcs_print_reg(phydev, MDIO_MMD_VEND2,
 			QCA81XX_PCS_MMD31_MII_CTRL);
 
-	printf("enable EEE for xpcs\n");
+	debug("enable EEE for xpcs\n");
 	ret = qca81xx_pcs_eee_enable(phydev);
 
 fail:
@@ -1027,7 +1056,6 @@ static int qca_81xx_phy_cdt_thresh_init(struct phy_device *phydev)
 {
 	int ret = 0;
 
-	printf("%s %d \n", __func__, __LINE__);
 	ret = qca81xx_phy_debug_write(phydev,
 			QCA81XX_ANA_DEBUG_AFE_DAC8_DP, 0);
 	if (ret < 0)
@@ -1120,9 +1148,7 @@ static int qca_81xx_config(struct phy_device *phydev)
 	struct qca_81xx_device *dev = phydev->priv;
 	int ret = 0;
 
-	printf("%s %d \n", __func__, __LINE__);
 	dev->bus_num = ofnode_read_u32_default(phydev->node, "i2c-bus", -1);
-
 	if (dev->bus_num != -1) {
 		ret = uclass_get_device_by_ofnode(UCLASS_I2C, phydev->node,
 				&dev->i2c_bus);
@@ -1159,7 +1185,6 @@ static int qca_81xx_startup(struct phy_device *phydev)
 {
 	uint16_t phy_data, link, speed;
 
-	printf("%s %d \n", __func__, __LINE__);
 	phy_data = phy_read(phydev, MDIO_MMD_VEND2, QCAPHY_SPEC_STATUS);
 	if (phy_data & QCAPHY_STATUS_LINK_PASS)
 		link = 1;
