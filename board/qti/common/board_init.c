@@ -364,7 +364,9 @@ int board_init(void)
 	uint32_t *flash_index;
 	uint32_t *flash_block_size;
 	uint32_t *flash_density;
-
+#ifdef CONFIG_BOOTCONFIG_V3
+	uint32_t *edl_mode;
+#endif
 	gd->bd->bi_boot_params = BOOT_PARAMS_ADDR;
 
 	flash_type = smem_get_item(SMEM_BOOT_FLASH_TYPE);
@@ -405,17 +407,18 @@ int board_init(void)
 	}
 
 	ipq_smem_bootconfig_info = smem_get_item(SMEM_BOOT_DUALPARTINFO);
-	if (IS_ERR_OR_NULL(ipq_smem_bootconfig_info) ||
-		((ipq_smem_bootconfig_info->magic_start !=
-			_SMEM_DUAL_BOOTINFO_MAGIC_START) &&
-		 (ipq_smem_bootconfig_info->magic_start !=
-			_SMEM_DUAL_BOOTINFO_MAGIC_START_TRY_MODE)) ||
-		(ipq_smem_bootconfig_info->magic_end !=
-			_SMEM_DUAL_BOOTINFO_MAGIC_END)) {
+	if (!is_valid_bootconfig(ipq_smem_bootconfig_info)) {
 		debug("Failed to get SMEM item: SMEM_BOOT_DUALPARTINFO\n");
 		ipq_smem_bootconfig_info = NULL;
 	}
 
+#ifdef CONFIG_BOOTCONFIG_V3
+	edl_mode = smem_get_item(SMEM_EDL_MODE);
+	if (IS_ERR_OR_NULL(edl_mode)) {
+		debug("Failed to get SMEM item: SMEM_EDL_MODE\n");
+		edl_mode = NULL;
+	}
+#endif
 	sfi->flash_type = (!flash_type ? SMEM_BOOT_NO_FLASH : *flash_type);
 	sfi->flash_index = (!flash_index ? 0 : *flash_index);
 	sfi->flash_chip_select = (!flash_chip_select ? 0 : *flash_chip_select);
@@ -423,6 +426,9 @@ int board_init(void)
 	sfi->flash_density = (!flash_density ? 0 : *flash_density);
 	sfi->primary_mibib = (!primary_mibib ? 0 : *primary_mibib);
 	sfi->ipq_smem_bootconfig_info = ipq_smem_bootconfig_info;
+#ifdef CONFIG_BOOTCONFIG_V3
+	sfi->edl_mode = (!edl_mode ? 0 : *edl_mode);
+#endif
 #if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
 	sfi->mmc_gpt_pte.gpt_pte = NULL;
 	sfi->nor_gpt_pte.gpt_pte = NULL;
@@ -724,10 +730,17 @@ out:
 }
 #endif
 
+
+__weak int read_bootconfig(void)
+{
+	return 1;
+}
+
 int board_late_init(void)
 {
 	ipq_smem_flash_info_t *sfi = &ipq_smem_flash_info;
 	uint32_t board_type;
+	int ret = 0, active_part = 0;
 
 #ifdef CONFIG_IPQ_MMC
 	init_mmc();
@@ -773,6 +786,20 @@ int board_late_init(void)
 	} else {
 		g_load_addr = CONFIG_SYS_LOAD_ADDR;
 	}
+
+	/*
+	 * Get active boot partition from bootconfig data
+	 */
+	if(sfi->ipq_smem_bootconfig_info == NULL)
+		ret = read_bootconfig();
+
+	active_part = get_rootfs_active_partition(sfi);
+	if(active_part >= 0)
+		gd->board_type |= active_part ? ACTIVE_BOOT_SET : 0;
+#ifdef CONFIG_BOOTCONFIG_V3
+	else
+		gd->board_type |= INVALID_BOOT;
+#endif
 
 	switch(sfi->flash_type) {
 	case SMEM_BOOT_SPI_FLASH:

@@ -2341,9 +2341,16 @@ void reset_crashdump(int reset_version)
 			cookie |= CRASHDUMP_RESET;
 
 		cookie &= DLOAD_DISABLE;
+#ifdef CONFIG_FAILSAFE
+		cookie &= MARK_UBOOT_MILESTONE;
+#endif
 	}
 
-	if(cookie & CRASHDUMP_RESET)
+	if(cookie & CRASHDUMP_RESET
+#ifdef CONFIG_FAILSAFE
+		|| cookie & MARK_UBOOT_MILESTONE
+#endif
+		)
 	{
 		do {
 			ret = -ENOTSUPP;
@@ -2371,6 +2378,11 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct udevice *dev;
 #endif
 
+#ifdef CONFIG_FAILSAFE
+	if(set_uboot_milestone()) {
+		printf("Faile to set uboot milestone\n");
+	}
+#endif
 	if (ipq_iscrashed()) {
 		ulong debug = env_get_ulong("debug", 10, 0);
 		if ((debug != DBG_DISABLE) && (debug != DBG_CRASHDUMP))

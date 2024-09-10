@@ -521,3 +521,35 @@ void board_early_clock_enable(void) {
 		GCC_BASE + GCC_IM_SLEEP_CBCR);
 }
 #endif
+
+int read_bootconfig(void)
+{
+	int ret = 0;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	sfi->ipq_smem_bootconfig_info =
+		(ipq_smem_bootconfig_info_t *)malloc(
+				sizeof(ipq_smem_bootconfig_info_t));
+
+	if(sfi->ipq_smem_bootconfig_info == NULL) {
+		printf("No Enough Memory\n");
+		return 1;
+	}
+
+	ret = get_partition_data("0:BOOTCONFIG", 0,
+			( uint8_t*)sfi->ipq_smem_bootconfig_info,
+			sizeof(ipq_smem_bootconfig_info_t), sfi->flash_type);
+
+	if (ret < 0)
+		return !!ret;
+
+	if(!is_valid_bootconfig(sfi->ipq_smem_bootconfig_info)) {
+		printf("Invalid Bootconfig\n");
+		sfi->ipq_smem_bootconfig_info = NULL;
+		ret = 0;
+	} else {
+		ret = 0;
+	}
+
+	return ret;
+}
