@@ -205,5 +205,9 @@
 			pinctrl-0 = <&qspi_pinmux>;
 			status = "okay";
 		};
+
+		watchdog: non-sec@f410000 {
+			status = "okay";
+		};
 	};
 };
