@@ -96,6 +96,7 @@ extern uint32_t g_env_offset;
 #define IPQ5424_DDR_LOWER_SIZE			(CONFIG_TEXT_BASE - \
 							CFG_SYS_SDRAM_BASE)
 #define ROOT_FS_PART_NAME			"rootfs"
+#define ROOT_FS_ATL_PART_NAME			"rootfs_1"
 
 #define CONFIG_ROOTFS_LOAD_ADDR			CFG_SYS_SDRAM_BASE + (32 << 20)
 
