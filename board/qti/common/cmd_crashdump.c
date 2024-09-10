@@ -2367,11 +2367,19 @@ void reset_crashdump(int reset_version)
 int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
 {
+#if defined(WDT)
+	struct udevice *dev;
+#endif
+
 	if (ipq_iscrashed()) {
 		ulong debug = env_get_ulong("debug", 10, 0);
 		if ((debug != DBG_DISABLE) && (debug != DBG_CRASHDUMP))
 			debug = 0;
 
+#if defined(WDT)
+	if (uclass_find_device_by_seq(UCLASS_WDT, 0, &dev) == 0)
+		wdt_stop(dev);
+#endif
 		printf("Crashdump magic found, "
 				"initializing dump activity..\n");
 		ipq_dump_func(&dump_config, debug);
