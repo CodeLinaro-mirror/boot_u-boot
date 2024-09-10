@@ -344,8 +344,8 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
-		active_part = get_rootfs_active_partition();
-		active_part = active_part ? ALT_PARTITION : PRI_PARTITION;
+		active_part = gd->board_type & ACTIVE_BOOT_SET?
+					ALT_PARTITION : PRI_PARTITION;
 		do {
 			scm_ret = -ENOTSUPP;
 			IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
