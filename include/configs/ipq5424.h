@@ -152,3 +152,7 @@ extern uint32_t g_env_offset;
 #endif
 #define CONFIG_BOOTDELAY			2
 #endif
+
+#ifdef CONFIG_EARLY_CLOCK_ENABLE
+#define GCC_BASE 0x1800000
+#endif

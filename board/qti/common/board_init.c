@@ -501,6 +501,11 @@ int mibib_ptable_init(unsigned int* addr)
 	return 0;
 }
 
+__weak void board_early_clock_enable(void)
+{
+	return;
+}
+
 /*
  * This function is called in the very beginning.
  * Retreive the machtype info from SMEM and map the board specific
@@ -535,6 +540,10 @@ int board_early_init_f(void)
 	g_board_machid = machid_info->machid;
 #endif
 	ipq_uboot_uart_fdt_fixup(g_board_machid);
+
+#ifdef CONFIG_EARLY_CLOCK_ENABLE
+	board_early_clock_enable();
+#endif
 
 	return 0;
 }

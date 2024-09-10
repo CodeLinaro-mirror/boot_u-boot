@@ -452,3 +452,11 @@ void ipq_fdt_fixup_atf(void *blob)
 	fdt_status_disabled_by_pathf(blob, "/reserved-memory/tz@0x8a600000");
 	return;
 }
+
+#ifdef CONFIG_EARLY_CLOCK_ENABLE
+void board_early_clock_enable(void) {
+	/* Enable the IM_SLEEP clock */
+	writel((readl(GCC_BASE + GCC_IM_SLEEP_CBCR) | 0x1),
+		GCC_BASE + GCC_IM_SLEEP_CBCR);
+}
+#endif
