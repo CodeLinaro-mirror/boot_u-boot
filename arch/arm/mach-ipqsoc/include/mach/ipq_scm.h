@@ -50,6 +50,9 @@ struct qcom_scm_res {
         uint64_t result[MAX_QCOM_SCM_RETS];
 };
 
+#define SCM_SIP_FNID(s, c) (((((s) & 0xFF) << 8) | \
+				((c) & 0xFF)) | 0x02000000)
+
 #define SCM_SMC_FNID(s, c)      ((((s) & 0xFF) << 8) | ((c) & 0xFF))
 #define scm_smc_call(desc, res, atomic) \
         __scm_smc_call((desc), qcom_scm_convention, (res), (atomic))

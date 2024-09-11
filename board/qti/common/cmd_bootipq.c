@@ -605,7 +605,9 @@ int config_select(void)
 		printf("[debug]Get Config\n");
 
 
-	if(!(gd->board_type & SECURE_BOARD))
+	if(!(gd->board_type & SECURE_BOARD) ||
+		((gd->board_type & SECURE_BOARD) &&
+		(gd->board_type & ATF_ENABLED)))
 	{
 		request = boot_info.load_address;
 		ret = genimg_get_format((void *)request);

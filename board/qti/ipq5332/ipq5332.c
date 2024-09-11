@@ -748,7 +748,7 @@ bool is_atf_enbled(void)
 
 	do {
 		ret = -ENOTSUPP;
-		IPQ_SCM_CHECK_SCM_SUPPORT(param, SCM_SMC_FNID(QCOM_SCM_SVC_INFO,
+		IPQ_SCM_CHECK_SCM_SUPPORT(param, SCM_SIP_FNID(QCOM_SCM_SVC_INFO,
 						QCOM_GET_SECURE_STATE_CMD));
 		param.get_ret = true;
 		ret = ipq_scm_call(&param);
@@ -757,6 +757,8 @@ bool is_atf_enbled(void)
 			do {
 				ret = -ENOTSUPP;
 				check_atf_support(param);
+				param.get_ret = true;
+
 				ret = ipq_scm_call(&param);
 				if(ret == 0 && (param.res.result[0] & 0x08))
 					atf_status = ATF_STATE_ENABLED;
