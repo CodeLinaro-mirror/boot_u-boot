@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) Nelson Integration, LLC 2016
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * Author: Eric Nelson<eric@nelint.com>
  *
  */
@@ -8,6 +9,7 @@
 #include <blk.h>
 #include <log.h>
 #include <malloc.h>
+#include <memalign.h>
 #include <part.h>
 #include <asm/global_data.h>
 #include <linux/ctype.h>
@@ -116,14 +118,14 @@ void blkcache_fill(int iftype, int devnum,
 			node->cache = 0;
 		}
 	} else {
-		node = malloc(sizeof(*node));
+		node = malloc_cache_aligned(sizeof(*node));
 		if (!node)
 			return;
 		node->cache = 0;
 	}
 
 	if (!node->cache) {
-		node->cache = malloc(bytes);
+		node->cache = malloc_cache_aligned(bytes);
 		if (!node->cache) {
 			free(node);
 			return;
