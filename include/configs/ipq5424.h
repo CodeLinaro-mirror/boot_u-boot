@@ -25,7 +25,7 @@ extern uint32_t g_env_offset;
 	        |		      |
 	        |		      |
 	        |		      |
-   8A10_0000--> |_____________________|
+   8A20_0000--> |_____________________|
 	        |                     |
 	        |    STACK - 502KB    |
 	        |_____________________|
@@ -34,17 +34,17 @@ extern uint32_t g_env_offset;
 	        |_____________________|
 	        |		      |
 	        |      Board Data     |
-   8A18_0000--> |_____________________|
+   8A28_0000--> |_____________________|
 	        |		      |
 	        |    HEAP - 1024KB    |
 	        |      (inc. ENV)     |
-   8A28_0000--> |_____________________|
+   8A38_0000--> |_____________________|
 	        |		      |
                 |    TEXT - 1536KB    |
-   8A40_0000--> |_____________________|
+   8A50_0000--> |_____________________|
 	        |		      |
 	        | NONCACHED MEM - 1MB |
-   8A50_0000--> |_____________________|
+   8A60_0000--> |_____________________|
 	        |                     |
 	        |                     |
    C000_0000--> |_____________________| DRAM End
@@ -114,7 +114,7 @@ extern uint32_t g_env_offset;
  * Non-Cached Memory should not begin at above 0x8A400000 since upcoming
  * memory regions are being used in the other boot components
  */
-#if (NONCACHED_MEM_REGION_ADDR > 0x8A400000)
+#if (NONCACHED_MEM_REGION_ADDR > 0x8A500000)
 #error "###: Text Segment overlaps with the Non-Cached Region"
 #endif
 
