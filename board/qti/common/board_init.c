@@ -406,8 +406,10 @@ int board_init(void)
 
 	ipq_smem_bootconfig_info = smem_get_item(SMEM_BOOT_DUALPARTINFO);
 	if (IS_ERR_OR_NULL(ipq_smem_bootconfig_info) ||
-		(ipq_smem_bootconfig_info->magic_start !=
-			_SMEM_DUAL_BOOTINFO_MAGIC_START) ||
+		((ipq_smem_bootconfig_info->magic_start !=
+			_SMEM_DUAL_BOOTINFO_MAGIC_START) &&
+		 (ipq_smem_bootconfig_info->magic_start !=
+			_SMEM_DUAL_BOOTINFO_MAGIC_START_TRY_MODE)) ||
 		(ipq_smem_bootconfig_info->magic_end !=
 			_SMEM_DUAL_BOOTINFO_MAGIC_END)) {
 		debug("Failed to get SMEM item: SMEM_BOOT_DUALPARTINFO\n");
