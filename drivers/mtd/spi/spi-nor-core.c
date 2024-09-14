@@ -369,7 +369,11 @@ static ssize_t spi_nor_read_data(struct spi_nor *nor, loff_t from, size_t len,
 		op.dummy.nbytes *= 2;
 
 	while (remaining) {
+#ifdef CONFIG_MSM_GENI_SPI
+		op.data.nbytes = remaining < 0xFFFFFF ? remaining : 0xFFFFFF;
+#else
 		op.data.nbytes = remaining < UINT_MAX ? remaining : UINT_MAX;
+#endif
 
 		if (CONFIG_IS_ENABLED(SPI_DIRMAP) && nor->dirmap.rdesc) {
 			/*
