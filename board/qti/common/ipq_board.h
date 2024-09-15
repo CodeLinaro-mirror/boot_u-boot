@@ -1124,6 +1124,7 @@ enum {
 	DUMP_TO_MEM,
 	DUMP_TO_NVMEM,
 	DUMP_TO_FLASH,
+	DUMP_TO_EMMC,
 };
 
 enum {
