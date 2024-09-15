@@ -108,6 +108,56 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.is_aligned_access = false,
 		.compression_support = false
 	},
+	{
+		.name = "CPU_INFO.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = true
+	},
+	{
+		.name = "UNAME.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = true
+	},
+	{
+		.name = "DMESG.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false
+	},
+	{
+		.name = "PT.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false
+	},
+	{
+		.name = "WLAN_MOD.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false
+	},
 };
 
 static uint8_t dump_entries_n = ARRAY_SIZE(dumpinfo_n);

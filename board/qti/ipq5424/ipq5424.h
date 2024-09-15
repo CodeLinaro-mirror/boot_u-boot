@@ -59,6 +59,14 @@ typedef enum {
 #define DLOAD_DISABLE				(~BIT(4))
 #define CRASHDUMP_RESET				BIT(11)
 
+/* Crashdump minimal configs */
+#define CFG_CPU_CONTEXT_DUMP_SIZE		0x180F0
+#define TME_CTXT_SIZE				(128 * 1024)
+#define CPU_CNTXT_HDR_SIZE			4624
+#define TLV_BUF_OFFSET				(500 * 1024) - TME_CTXT_SIZE \
+							- CPU_CNTXT_HDR_SIZE
+#define CFG_TLV_DUMP_SIZE			(12 * 1024)
+
 /* DT Fixup nodes */
 #define LINUX_6_x_NAND_DTS_NODE		"/soc@0/nand@79b0000/"
 #define LINUX_6_x_MMC_DTS_NODE		"/soc@0/mmc@7804000/"
