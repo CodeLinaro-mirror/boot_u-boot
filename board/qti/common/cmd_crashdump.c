@@ -71,6 +71,13 @@ typedef struct {
 #endif
 /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
+#ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
+
+#define TEMP_COMPRESS_BUF_NAME			"EBICS0.BIN.gz"
+#define TEMP_COMPRESS_BUF_SZ			SZ_16M
+
+#endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
+
 #ifdef CONFIG_IPQ_MINIDUMP
 
 #define	CPU_DUMP_NAME_PREFIX			"CPU_INFO"
@@ -131,6 +138,11 @@ typedef struct {
 	char *tftp_serverip;
 	char *tftp_dumpdir;
 
+#ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
+	uint64_t comp_out_addr;
+	uint64_t comp_out_size;
+#endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
+
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
 	uint8_t usb_dev_idx;
 	uint8_t usb_part_idx;
@@ -174,6 +186,7 @@ typedef struct {
 	crashdump_infos_t *dump_infos;
 	uint8_t nos_dumps;
 	uint16_t actual_nos_dumps;
+	uint64_t ram_top;
 } crashdump_config_t;
 
 static LIST_HEAD(actual_dumps_list);
@@ -1708,7 +1721,7 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 	crashdump_interface_cfg_t *iface_cfg = &dump_config->iface_cfg;
 
 	if (dump_entry->is_aligned_access) {
-		long unsigned int aligned_addr = (gd->ram_top -
+		long unsigned int aligned_addr = (dump_config->ram_top -
 				roundup(dump_entry->size, ARCH_DMA_MINALIGN));
 		memcpy((void*)aligned_addr,
 				(void*)(uintptr_t)dump_entry->start_addr,
@@ -1718,22 +1731,67 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 
 #ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
 	if (dump_entry->compression_support) {
-		long unsigned int compress_out_sz = ((dump_entry->size > SZ_1M)
-				? dump_entry->size : SZ_1M);
-		long unsigned int compress_out_addr = gd->ram_top -
-			compress_out_sz;
+		phys_addr_t compressed_out_sz;
+
+		if ((dump_entry->start_addr + dump_entry->size) ==
+				dump_config->ram_top)
+		{
+			iface_cfg->comp_out_addr = dump_entry->start_addr
+				- TEMP_COMPRESS_BUF_SZ;
+			iface_cfg->comp_out_size = dump_entry->size;
+
+			printf("Backing up temporary compress buffer\n");
+			switch (dump_config->dump_to) {
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
+			case DUMP_TO_USB:
+				snprintf(runcmd, sizeof(runcmd),
+					"fatwrite usb %x:%x 0x%llx %s 0x%x",
+					iface_cfg->usb_dev_idx,
+					iface_cfg->usb_part_idx,
+					iface_cfg->comp_out_addr,
+					TEMP_COMPRESS_BUF_NAME,
+					TEMP_COMPRESS_BUF_SZ);
+				break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
+
+			case DUMP_TO_TFTP:
+				snprintf(runcmd, sizeof(runcmd),
+					"tftpput 0x%llx 0x%x %s/%s",
+					iface_cfg->comp_out_addr,
+					TEMP_COMPRESS_BUF_SZ,
+					iface_cfg->tftp_dumpdir,
+					TEMP_COMPRESS_BUF_NAME);
+				break;
+
+			default:
+				break;
+			}
+
+			if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+				return CMD_RET_FAILURE;
+		}
+
+		if ((iface_cfg->comp_out_addr == 0) ||
+				(iface_cfg->comp_out_size == 0)) {
+			printf("No temporary compression out buffer \n");
+			return CMD_RET_FAILURE;
+		}
 
 		printf("Compressing %s... ", dump_entry->name);
 		if (!strncmp(dump_entry->name, "EBICS0.BIN",
 					strlen("EBICS0.BIN"))) {
-			memcpy((void*)compress_out_addr, (void*)
-					(uintptr_t)dump_entry->start_addr,
+			memcpy((void*)(uintptr_t)iface_cfg->comp_out_addr,
+				(void*)(uintptr_t)dump_entry->start_addr,
 					dump_entry->size);
-			dump_entry->start_addr = compress_out_addr;
+			dump_entry->start_addr = iface_cfg->comp_out_addr;
+			iface_cfg->comp_out_addr = dump_entry->start_addr
+				- TEMP_COMPRESS_BUF_SZ;
+			iface_cfg->comp_out_size = dump_entry->size;
 		}
 
-		if (gzip((void *)(uintptr_t) compress_out_addr,
-				&compress_out_sz,
+		compressed_out_sz = iface_cfg->comp_out_size;
+		if (gzip((void *)(uintptr_t) iface_cfg->comp_out_addr,
+				(void*)(uintptr_t) &compressed_out_sz,
 				(void*)(uintptr_t) dump_entry->start_addr,
 				dump_entry->size) != 0) {
 			printf("failed\n");
@@ -1741,8 +1799,8 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 		}
 		printf("done!!\n");
 
-		dump_entry->start_addr = compress_out_addr;
-		dump_entry->size = compress_out_sz;
+		dump_entry->start_addr = iface_cfg->comp_out_addr;
+		dump_entry->size = compressed_out_sz;
 		snprintf(dump_entry->name, DUMP_NAME_STR_MAX_LEN,
 				"%s.gz", dump_entry->name);
 	}
@@ -1847,6 +1905,47 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
 			return CMD_RET_FAILURE;
 	}
+
+#ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
+	if (dump_entry->compression_support) {
+		if (iface_cfg->comp_out_addr == dump_entry->start_addr)
+		{
+			iface_cfg->comp_out_addr += TEMP_COMPRESS_BUF_SZ;
+
+			if (strncmp(dump_entry->name, "EBICS0.BIN",
+						strlen("EBICS0.BIN")))
+			{
+				printf("Load back temporary compress buffer\n");
+				switch (dump_config->dump_to) {
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
+				case DUMP_TO_USB:
+					snprintf(runcmd, sizeof(runcmd),
+						"fatload usb %x:%x 0x%llx %s",
+						iface_cfg->usb_dev_idx,
+						iface_cfg->usb_part_idx,
+						dump_entry->start_addr,
+						TEMP_COMPRESS_BUF_NAME);
+					break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
+
+				case DUMP_TO_TFTP:
+					snprintf(runcmd, sizeof(runcmd),
+						"tftpboot 0x%llx %s/%s",
+						dump_entry->start_addr,
+						iface_cfg->tftp_dumpdir,
+						TEMP_COMPRESS_BUF_NAME);
+					break;
+
+				default:
+					break;
+				}
+
+				if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+					return CMD_RET_FAILURE;
+			}
+		}
+	}
+#endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
 
 	return CMD_RET_SUCCESS;
 }
@@ -2032,6 +2131,8 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 	bool skip_crashdump = 1;
 
 	dump_config->debug = debug;
+	dump_config->ram_top = ((gd->ram_top & BIT(0)) ? (gd->ram_top + 1) :
+					gd->ram_top);
 	parse_crashdump_config(dump_config);
 	if (!dump_config->force_collect_dump) {
 		etime = get_timer(0) + (10 * CONFIG_SYS_HZ);
