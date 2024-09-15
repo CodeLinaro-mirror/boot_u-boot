@@ -1288,10 +1288,10 @@ int ipq_get_training_part_info(uint32_t *offset, uint32_t *size);
 #endif
 int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 			size_t size, uint32_t fl_type);
-int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
-				unsigned int arg);
-void bring_secondary_core_down(unsigned int state);
-int is_secondary_core_off(unsigned int cpuid);
+int bring_secondary_core_up(unsigned long cpuid, unsigned long entry,
+				unsigned long arg);
+void bring_secondary_core_down(unsigned long state);
+int is_secondary_core_off(unsigned long cpuid);
 uint64_t smem_get_flash_size(uint8_t flash_type);
 bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize);
 struct spi_flash *ipq_spi_probe(void);
