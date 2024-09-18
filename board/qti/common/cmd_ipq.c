@@ -513,16 +513,17 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		if (ret)
 			printf("%s: Error in QFPROM write (%d)\n",
 				__func__, ret);
-
-		if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
-			printf("Fuse already blown\n");
-		else if (fuse_status == FUSEPROV_INVALID_HASH)
-			printf("Invalid sec.dat\n");
-		else if (fuse_status == FUSEPROV_SUCCESS)
-			printf("Fuse Blow Success\n");
-		else
-			printf("Fuse blow failed with err code : 0x%x\n",
-				fuse_status);
+		else {
+			if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
+				printf("Fuse already blown\n");
+			else if (fuse_status == FUSEPROV_INVALID_HASH)
+				printf("Invalid sec.dat\n");
+			else if (fuse_status == FUSEPROV_SUCCESS)
+				printf("Fuse Blow Success\n");
+			else
+				printf("Fuse blow failed with err code :"
+					" 0x%x\n", fuse_status);
+		}
 	} while (0);
 
 	if (ret == -ENOTSUPP) {
