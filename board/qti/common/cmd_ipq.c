@@ -35,7 +35,7 @@
 
 #include "ipq_board.h"
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
 #include <cli.h>
 #include <console.h>
 
@@ -44,6 +44,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SECONDARY_CORE_STACKSZ	(8 * 1024)
 #define CPU_POWER_DOWN		(1 << 16)
 
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT)
 struct cpu_entry_arg {
 	void *stack_ptr;
 	volatile void *gd_ptr;
@@ -53,13 +54,24 @@ struct cpu_entry_arg {
 	int cmd_result;
 	void *stack_top_ptr;
 };
+#elif defined (CONFIG_IPQ_SMP64_CMD_SUPPORT)
+struct cpu_entry_arg {
+	void *stack_ptr;
+	volatile void *gd_ptr;
+	void *arg_ptr;
+	int64_t  cpu_up;
+	int64_t cmd_complete;
+	int64_t cmd_result;
+	void *stack_top_ptr;
+};
+#endif
 
 extern void secondary_cpu_init(void);
 extern void *global_core_array;
 
 struct cpu_entry_arg core[CFG_NR_CPUS - 1];
 
-#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT */
+#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT || CONFIG_IPQ_SMP64_CMD_SUPPORT */
 
 #define PRINT_BUF_LEN		0x400
 #define MDT_SIZE		0x1B88
@@ -1347,7 +1359,7 @@ U_BOOT_CMD(
 	"uart write - write strings to second UART\n"
 );
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
 asmlinkage void secondary_core_entry(char *argv, int *cmd_complete,
 					int *cmd_result)
 {
@@ -1431,7 +1443,8 @@ int do_runmulticore(struct cmd_tbl *cmdtp,
 		printf("Scheduling Core %d\n", i);
 		delay = 0;
 		console_silent_enable();
-		ret = bring_secondary_core_up(i, (uint32_t)secondary_cpu_init,
+		ret = bring_secondary_core_up(i,
+				(unsigned long)secondary_cpu_init,
 				(uintptr_t)&core[i - 1]);
 		if (ret) {
 			panic("Some problem to getting core %d up\n", i);
@@ -1507,7 +1520,7 @@ exit:
 U_BOOT_CMD(runmulticore, 4, 0, do_runmulticore,
 	   "Enable and schedule secondary cores",
 	   "runmulticore <\"command to core1\"> [core2 core3 ...]");
-#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT */
+#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT || CONFIG_IPQ_SMP64_CMD_SUPPORT */
 
 #ifdef CONFIG_CMD_AES_256
 enum tz_crypto_service_aes_type_t {
