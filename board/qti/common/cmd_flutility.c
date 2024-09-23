@@ -308,6 +308,8 @@ int ubi_vol_present(char* ubi_vol_name)
 
 	get_kernel_fs_part_details(g_flash? g_flash : sfi->flash_type);
 
+	watchdog_reset();
+
 	if (init_ubi_part())
 		goto ubi_detach;
 
@@ -835,6 +837,8 @@ mmc:
 
 	UPDATE_FL_INFO(&fl, flash_type, offset, load_addr, part_size,
 			file_size, part_name, is_ubi);
+
+	watchdog_reset();
 
 	switch(flash_cmd) {
 	case CMD_FLERASE:

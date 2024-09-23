@@ -136,6 +136,7 @@ static struct mmc *__init_mmc_dev(int dev, bool force_init,
 	struct blk_desc *bd = mmc_get_blk_desc(mmc);
 	blkcache_invalidate(bd->uclass_id, bd->devnum);
 #endif
+	watchdog_reset();
 
 	return mmc;
 }
@@ -1178,6 +1179,8 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 					*state_sequence_ptr;
 					++state_sequence_ptr, state++)
 	{
+		watchdog_reset();
+
 		ret = (*state_sequence_ptr)();
 		if(ret)
 		{
