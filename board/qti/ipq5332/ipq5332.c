@@ -760,7 +760,7 @@ bool is_atf_enbled(void)
 				param.get_ret = true;
 
 				ret = ipq_scm_call(&param);
-				if(ret == 0 && (param.res.result[0] & 0x08))
+				if((ret == 0) && (param.res.result[0] & 0x80))
 					atf_status = ATF_STATE_ENABLED;
 			} while (0);
 
