@@ -390,6 +390,13 @@ class FlashScript(object):
         """
         self.append("xtract_n_flash $imgaddr %s %s" % (part, part_name))
 
+    def erase_partition(self, part_name):
+        """Generate code, to erase a partition.
+
+        part_name -- string, partition name
+        """
+        self.append("flerase %s" % (part_name))
+
     def echo(self, msg, nl=True, verbose=False):
         """Generate code, to print a message.
 
@@ -624,6 +631,10 @@ class Pack(object):
                 pftype = pinfo[3]
                 pre_cmd_list = pinfo[4]
                 post_cmd_list = pinfo[5]
+                erase_only = pinfo[6]
+
+                if (erase_only == 'true'):
+                    script.erase_partition(pname)
 
                 if fname == "":
                     continue
@@ -813,6 +824,7 @@ class Pack(object):
         images -- list of ImageInfo, append images used by the board here
         """
 
+        erase_only = "false"
         if "nand" in ftype:
             if "4k" in ftype:
                 list_entry = ".//data[@type='NORPLUSNAND-GPT_PARAMETER']/entry[@type='4k']"
@@ -895,7 +907,7 @@ class Pack(object):
                         pname = "0:GPT"
                     else:
                         pname = "0:NORGPT"
-                    part_img_map.append([pname, part_fname, psize, ftype, pre_cmd_hook, post_cmd_hook])
+                    part_img_map.append([pname, part_fname, psize, ftype, pre_cmd_hook, post_cmd_hook, erase_only])
 
                 part_fname = os.path.join(self.images_dname, part_fname)
                 print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, part_fname, flinfo)
@@ -921,14 +933,19 @@ class Pack(object):
                     except KeyError as e:
                         fname = partition.attrib['filename_' + MODE]
 
+                    if("erase-only" in partition.attrib) :
+                        erase_only = partition.attrib['erase-only']
+                    else :
+                        erase_only = "false"
+
                     pinfo = self.__get_part_info(pname)
                     psize = pinfo.length * flinfo.blocksize
                     ptype = ftype
                     if ftype == "nor-gpt" and pinfo.which_flash == 1:
                         ptype = "nand"
 
-                    part_img_map.append([pname, fname, psize, ptype, pre_cmd_hook, post_cmd_hook])
-                    print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, pname, fname, psize, pinfo.which_flash, ptype)
+                    part_img_map.append([pname, fname, psize, ptype, pre_cmd_hook, post_cmd_hook, erase_only])
+                    print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, pname, fname, psize, pinfo.which_flash, ptype, erase_only)
 
                     try:
                         if ptype == "nand" and pname == "rootfs":
@@ -955,7 +972,7 @@ class Pack(object):
                                         size = "dynamic"
                                     else:
                                         size = vol_info["vol_size"]
-                                    part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook, post_cmd_hook])
+                                    part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook, post_cmd_hook, erase_only])
                     except KeyError as e:
                         pass
 
@@ -967,7 +984,7 @@ class Pack(object):
                         pname = "0:GPTBACKUP"
                     else:
                         pname = "0:NORGPTBACKUP"
-                    part_img_map.append([pname, part_info.find('partition_mbn_backup').text, psize, ptype, pre_cmd_hook, post_cmd_hook])
+                    part_img_map.append([pname, part_info.find('partition_mbn_backup').text, psize, ptype, pre_cmd_hook, post_cmd_hook, erase_only])
 
                 if self.flash_type != "norplusemmc":
                     images[layout] = dict()
@@ -1082,6 +1099,11 @@ class Pack(object):
 
                 # parse part_name, part_size, part_type, fw_img infos
                 pname = partition.findall('name')[0].text
+                if ('erase-only' in partition.findall('name')[0].attrib) :
+                    erase_only = partition.findall('name')[0].attrib['erase-only']
+                else :
+                    erase_only = "false"
+
                 pinfo = self.__get_part_info(pname)
                 psize = pinfo.length
                 if ftype in [ "nand" , "nand-4k" ] or pinfo.which_flash == 1:
@@ -1102,7 +1124,7 @@ class Pack(object):
                         fname = partition.findall('img_name')[0].text
                         pass
 
-                part_img_map.append([pname, fname, psize, ptype, pre_cmd_hook_list, post_cmd_hook_list])
+                part_img_map.append([pname, fname, psize, ptype, pre_cmd_hook_list, post_cmd_hook_list, erase_only])
 
                 # incase of nand rootfs partition, parse ubi volumes from ubinize config add those as partition
                 if ptype == "nand" and pname == "rootfs":
@@ -1131,7 +1153,7 @@ class Pack(object):
                                 size = "dynamic"
                             else:
                                 size = vol_info["vol_size"]
-                            part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook_list, post_cmd_hook_list])
+                            part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook_list, post_cmd_hook_list, erase_only])
 
             images[layout]["part_info"] = part_img_map
             images[layout]["flinfo"] = flinfo
@@ -1409,8 +1431,8 @@ class Pack(object):
 
         # generate partition to fw_img map for all the layouts
         # Eg: {
-        #       layout1 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd ]
-        #       layout2 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd ]
+        #       layout1 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd, erase_only ]
+        #       layout2 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd, erase_only ]
         #     }
         flayout_def_map = {}
         ret = self.__process_board(flayout_def_map, root)
@@ -1427,8 +1449,8 @@ class Pack(object):
 
         # generate partition to fw_img map for all the machids after overrides
         # Eg: {
-        #       machid1 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd ]
-        #       machid2 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd ]
+        #       machid1 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd, erase_only ]
+        #       machid2 : [ part_name, image_name, part_size, part_type, pre_hook_cmd, post_hook_cmd, erase_only ]
         #     }
         machid_map = {}
         ret = self.__process_machid_board(flayout_def_map, machid_map, root)
