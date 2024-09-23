@@ -63,6 +63,8 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5332_DB_MI01_1, "ipq5332-db-mi01.1"},
 	{ MACH_TYPE_IPQ5332_DB_MI02_1, "ipq5332-db-mi02.1"},
 	{ MACH_TYPE_IPQ5332_DB_MI03_1, "ipq5332-db-mi03.1"},
+	{ MACH_TYPE_IPQ5332_TB_MI03_1, "ipq5332-tb-mi03.1"},
+	{ MACH_TYPE_IPQ5332_TB_MI05_1, "ipq5332-tb-mi05.1"},
 };
 
 int machid_dts_nos = ARRAY_SIZE(machid_dts);
