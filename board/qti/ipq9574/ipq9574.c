@@ -512,3 +512,21 @@ void ipq_board_power_cycle_sdx(void)
 	dm_gpio_set_value(&rst_gpio, 0);
 }
 #endif
+
+uint32_t image_auth_check(void) {
+
+	uint32_t board_type = gd->board_type;
+	uint32_t ret = -1;
+
+	switch (gd->ram_size) {
+	case SZ_128M:
+		ret = 0;
+		break;
+	default:
+		ret = (board_type & SECURE_BOARD) &&
+			!(board_type & ATF_ENABLED);
+		break;
+	}
+
+	return ret;
+}

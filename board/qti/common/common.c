@@ -114,20 +114,13 @@ void arch_preboot_os(void)
  */
 	uint32_t board_type = gd->board_type;
 
-	if(!(board_type & SECURE_BOARD))
+	if (!image_auth_check())
 		return;
 
-	if((board_type & SECURE_BOARD) && (board_type & ATF_ENABLED))
-		return;
+	if (board_type & KERNEL_AUTH_SUCCESS) {
 
-	if((board_type & SECURE_BOARD) &&
-		!(board_type & ATF_ENABLED) &&
-		(board_type & KERNEL_AUTH_SUCCESS))
-	{
-		char *env = env_get("rootfs_auth");
-
-		if(env)
-			if(board_type & ROOTFS_AUTH_SUCCESS)
+		if (check_rootfs_authentication())
+			if (board_type & ROOTFS_AUTH_SUCCESS)
 				return;
 			else
 				reset_cpu();

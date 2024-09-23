@@ -784,3 +784,24 @@ bool is_atf_enbled(void)
 
 	return atf_status == ATF_STATE_ENABLED;
 }
+
+uint32_t image_auth_check(void) {
+
+	uint32_t board_type = gd->board_type;
+	uint32_t ret = -1;
+
+	switch (gd->ram_size) {
+	case SZ_128M:
+		ret = 0;
+		break;
+	case SZ_256M:
+		ret = (board_type & SECURE_BOARD);
+		break;
+	default:
+		ret = (board_type & SECURE_BOARD) &&
+			!(board_type & ATF_ENABLED);
+		break;
+	}
+
+	return ret;
+}

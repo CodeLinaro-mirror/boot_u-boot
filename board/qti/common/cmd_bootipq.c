@@ -456,8 +456,7 @@ static int boot_mmc(void)
 
 	ret = ipq_part_get_info_by_name(&bpart_info);
 	if (ret == 0) {
-		if((gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED)) {
+		if (image_auth_check()) {
 #ifdef CONFIG_IPQ_ELF_AUTH
 			addr = (void *)boot_info.load_address;
 			blk = (uint32_t) disk_info.start;
@@ -528,8 +527,7 @@ static int boot_nand(void)
 	}
 
 #ifdef CONFIG_IPQ_ELF_AUTH
-	if((gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED)) {
+	if (image_auth_check()) {
 		ret = ubi_volume_read("kernel", (char *)boot_info.load_address,
 					(uintptr_t)ELF_HDR_PLUS_PHDR_SIZE);
 		if(ret)
@@ -576,8 +574,7 @@ static int boot_nor(void)
 	}
 
 #ifdef CONFIG_IPQ_ELF_AUTH
-	if((gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED)) {
+	if (image_auth_check()) {
 		ret = spi_flash_read(boot_info.flash, sfi->hlos.offset,
 				ELF_HDR_PLUS_PHDR_SIZE,
 				(void *)boot_info.load_address);
@@ -622,10 +619,7 @@ int config_select(void)
 		printf("[debug]Get Config\n");
 
 
-	if(!(gd->board_type & SECURE_BOARD) ||
-		((gd->board_type & SECURE_BOARD) &&
-		(gd->board_type & ATF_ENABLED)))
-	{
+	if (!(gd->board_type & SECURE_BOARD) || !image_auth_check()) {
 		request = boot_info.load_address;
 		ret = genimg_get_format((void *)request);
 		if ((ret != IMAGE_FORMAT_LEGACY) && (ret != IMAGE_FORMAT_FIT))
@@ -970,10 +964,10 @@ exit:
 }
 #endif
 
-static int check_rootfs_authentication(void)
+int check_rootfs_authentication(void)
 {
 #ifdef ROOTFS_AUTH_FUSE
-	return (readl(ROOTFS_AUTH_FUSE) & 0x20);
+	return (readl(ROOTFS_AUTH_FUSE) & ROOTFS_AUTH_EN);
 #else
 	return 0;
 #endif
@@ -988,8 +982,8 @@ int image_authentication(void)
 	int active_part = (gd->board_type & ACTIVE_BOOT_SET)?
 				SECONDARY_PARTITION : PRIMARY_PARTITION;
 #endif
-	int secure_boot = (gd->board_type & SECURE_BOARD) &&
-				!(gd->board_type & ATF_ENABLED);
+	int secure_boot = image_auth_check();
+
 	if(!secure_boot)
 		return CMD_RET_SUCCESS;
 

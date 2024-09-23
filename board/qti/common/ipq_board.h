@@ -55,6 +55,7 @@
 #define DUMP2MEM_MAGIC1_COOKIE			0x4D494E49
 #define DUMP2MEM_MAGIC2_COOKIE			0x44554D50
 
+#define ROOTFS_AUTH_EN			0x20
 /*
  * Execute DPR
  */
@@ -1360,4 +1361,6 @@ void set_edl_mode(void);
 #ifdef CONFIG_GPIO_CONFIG
 void ipq_board_gpio_config(int type);
 #endif
+uint32_t image_auth_check(void);
+int check_rootfs_authentication(void);
 #endif
