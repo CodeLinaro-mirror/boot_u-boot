@@ -2965,6 +2965,9 @@ static int ipq_eth_probe(struct udevice *dev)
 							port->phyaddr,
 							PHY_FIXED_ID,
 							true);
+				if (IS_ERR_OR_NULL(port->phydev))
+					continue;
+
 				port->phydev->dev = dev;
 				port->phydev->interface = port->interface;
 		} else {
