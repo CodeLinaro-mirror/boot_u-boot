@@ -964,6 +964,11 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 			break;
 		}
 
+		if (!tmp) {
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
 		part_idx = part_get_info_by_name(blk_dev, tmp, &disk_info);
 		if (part_idx < 0) {
 			printf(" %s Partition not found, ret %d !!!\n",
