@@ -928,6 +928,10 @@ enum {
 	SMEM_BOOT_NORGPT_FLASH     = 12,
 };
 
+enum {
+	SECURE_SYS_UPGRADE	= 0,
+};
+
 struct version_entry
 {
 	char index[INDEX_LENGTH];
