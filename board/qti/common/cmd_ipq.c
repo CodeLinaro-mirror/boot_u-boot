@@ -507,6 +507,11 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 					meta_data_size, 0x2B,
 					(uintptr_t)load_seg_buff,
 					load_seg_cnt);
+#ifdef CONFIG_FUSEIPQ_V1
+	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
+	if (IS_ELF(*(Elf32_Ehdr *)load_addr))
+		param.type = SCM_FUSE_IPQ_UIE_KEY;
+#endif
 		param.get_ret = true;
 		ret = ipq_scm_call(&param);
 
