@@ -86,9 +86,44 @@ static const struct qusb2_phy_cfg_tbl ipq9574_phy_cfg_tbl[] = {
 	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_TEST, 0x80),
 };
 
+static const struct qusb2_phy_cfg_tbl ipq5424_phy_cfg_tbl[] = {
+	/* QUSB2PHY_PLL:PLL Feedback Divider Value */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL, 0x14),
+	/* QUSB2PHY_PORT_TUNE1: USB Product Application Tuning Register A */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PORT_TUNE1, 0x0),
+	/* QUSB2PHY_PORT_TUNE2: USB Product Application Tuning Register B */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PORT_TUNE2, 0x53),
+	/* QUSB2PHY_PORT_TUNE4: USB Product Application Tuning Register D */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PORT_TUNE4, 0xC3),
+	/* QUSB2PHY_PORT_TEST2 */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PORT_TEST2, 0x14),
+	/* QUSB2PHY_PLL_TUNE: PLL Test Configuration */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_TUNE, 0x30),
+	/* QUSB2PHY_PLL_USER_CTL1: PLL Control Configuration */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_USER_CTL1, 0x79),
+	/* QUSB2PHY_PLL_USER_CTL2: PLL Control Configuration */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_USER_CTL2, 0x21),
+	/* QUSB2PHY_PORT_TUNE5 */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PORT_TUNE5, 0x00),
+	/* QUSB2PHY_PLL_PWR_CTL: PLL Manual SW Programming
+	 * and Biasing Power Options */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_PWR_CTRL, 0x00),
+	/* QUSB2PHY_PLL_AUTOPGM_CTL1: Auto vs. Manual PLL/Power-mode
+	 * programming State Machine Control Options */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_AUTOPGM_CTL1, 0x9F),
+	/* QUSB2PHY_PLL_TEST: PLL Test Configuration-Disable diff ended
+	 * clock */
+	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_TEST, 0x80),
+};
+
 static const struct qusb2_phy_cfg ipq9574_phy_cfgs = {
 	.cfg_tbl = ipq9574_phy_cfg_tbl,
 	.cfg_num = ARRAY_SIZE(ipq9574_phy_cfg_tbl)
+};
+
+static const struct qusb2_phy_cfg ipq5424_phy_cfgs = {
+	.cfg_tbl = ipq5424_phy_cfg_tbl,
+	.cfg_num = ARRAY_SIZE(ipq5424_phy_cfg_tbl)
 };
 
 static int qusb2_phy_do_reset(struct qusb2_phy_priv *priv)
@@ -189,6 +224,10 @@ static const struct udevice_id qusb2_phy_ids[] = {
 	{
 		.compatible = "qti,ipq9574-qusb2-phy",
 		.data	    = (long unsigned int)&ipq9574_phy_cfgs,
+	},
+	{
+		.compatible = "qti,ipq5424-qusb2-phy",
+		.data	    = (long unsigned int)&ipq5424_phy_cfgs,
 	},
 	{ }
 };
