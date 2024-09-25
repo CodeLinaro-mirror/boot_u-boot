@@ -513,16 +513,17 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		if (ret)
 			printf("%s: Error in QFPROM write (%d)\n",
 				__func__, ret);
-
-		if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
-			printf("Fuse already blown\n");
-		else if (fuse_status == FUSEPROV_INVALID_HASH)
-			printf("Invalid sec.dat\n");
-		else if (fuse_status == FUSEPROV_SUCCESS)
-			printf("Fuse Blow Success\n");
-		else
-			printf("Fuse blow failed with err code : 0x%x\n",
-				fuse_status);
+		else {
+			if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
+				printf("Fuse already blown\n");
+			else if (fuse_status == FUSEPROV_INVALID_HASH)
+				printf("Invalid sec.dat\n");
+			else if (fuse_status == FUSEPROV_SUCCESS)
+				printf("Fuse Blow Success\n");
+			else
+				printf("Fuse blow failed with err code :"
+					" 0x%x\n", fuse_status);
+		}
 	} while (0);
 
 	if (ret == -ENOTSUPP) {
@@ -2155,3 +2156,19 @@ U_BOOT_CMD(switch_to_user, 1, 0, do_switch_to_user,
 	   "switch to the user partition layout\n",
 	   "- switch to the user partition layout\n");
 #endif
+
+static int do_canary(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	char buffer[10] = {0};
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	strlcpy(buffer, argv[1], strlen(argv[1]));
+
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(canary, 2, 0, do_canary, "Test stack protection\n",
+		"- canary <strings>\n");
