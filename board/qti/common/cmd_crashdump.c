@@ -868,6 +868,12 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 		ret = find_usb_dev_for_crashdump(
 				&dump_config->iface_cfg.usb_dev_idx,
 				&dump_config->iface_cfg.usb_part_idx);
+		if (ret) {
+			printf("No USB dev partition available for "
+					"dump collection\n");
+			ret = CMD_RET_FAILURE;
+			break;
+		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
 
