@@ -73,7 +73,9 @@ ENTRY(secondary_cpu_init)
 	bl	lowlevel_init
 
 	mrs     x0, MPIDR_EL1
+#if defined (BASE_CPU_64BIT_BOOTUP)
 	lsr     x0, x0, #8
+#endif
 	and     x1, x0, #0xff
 	sub	x0, x1, #1
 
