@@ -2156,3 +2156,19 @@ U_BOOT_CMD(switch_to_user, 1, 0, do_switch_to_user,
 	   "switch to the user partition layout\n",
 	   "- switch to the user partition layout\n");
 #endif
+
+static int do_canary(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	char buffer[10] = {0};
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	strlcpy(buffer, argv[1], strlen(argv[1]));
+
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(canary, 2, 0, do_canary, "Test stack protection\n",
+		"- canary <strings>\n");
