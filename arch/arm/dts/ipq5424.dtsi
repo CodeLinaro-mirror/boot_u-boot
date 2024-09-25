@@ -232,7 +232,7 @@
 		};
 
 		qusb2_phy_0: qusb2@7B000 {
-			compatible = "qti,ipq9574-qusb2-phy";
+			compatible = "qti,ipq5424-qusb2-phy";
 			reg = <0x07B000 0x180>;
 			#phy-cells = <0>;
 			resets = <&reset GCC_QUSB2_0_PHY_BCR>;
@@ -240,7 +240,7 @@
 		};
 
 		qusb2_phy_1: qusb2@71000 {
-			compatible = "qti,ipq9574-qusb2-phy";
+			compatible = "qti,ipq5424-qusb2-phy";
 			reg = <0x071000 0x180>;
 			#phy-cells = <0>;
 			resets = <&reset GCC_QUSB2_1_PHY_BCR>;
