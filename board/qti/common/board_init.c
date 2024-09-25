@@ -339,6 +339,12 @@ int board_early_init_r(void)
 		BLK_PART_GET_INFO_S(bpart_info, "0:APPSBLENV", &disk_info,
 					sfi->flash_type);
 
+		/*
+		 * add flash details in sfi structure
+		 */
+		sfi->flash_block_size = (ipq_spi_probe())->sector_size;
+		sfi->flash_density = (ipq_spi_probe())->size;
+
 		ret = ipq_part_get_info_by_name(&bpart_info);
 		if (!ret)
 			g_env_offset = (u32)disk_info.start * disk_info.blksz;
