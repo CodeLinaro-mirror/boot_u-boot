@@ -142,6 +142,23 @@ config IPQ_TINY
 	imply ETH_LOW_MEM
 	default n
 
+config FAILSAFE
+	bool "Enable failsafe support"
+	default n
+
+config BOOTCONFIG_V2
+	bool "Version 2 bootconfig structure"
+	default n
+
+config BOOTCONFIG_V3
+	bool "Version 3 bootconfig structure"
+	imply FAILSAFE
+	default n
+
+config CRC32_BE
+	bool "crc32 big endian support"
+	default n
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
@@ -175,6 +192,8 @@ config IPQ_DEFAULTS
 	imply CMD_AES_256
 	imply FUSE_IPQ
 	imply LIST_FUSE
+	imply WDT
+	imply WDT_QTI
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -335,6 +354,7 @@ config TARGET_IPQ5332
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V1
+	select BOOTCONFIG_V2
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -370,6 +390,7 @@ config TARGET_IPQ9574
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	imply LIST_FUSE_V1 if IPQ_SECURE && SCM_V1
+	select BOOTCONFIG_V2
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
@@ -411,6 +432,8 @@ config TARGET_IPQ5424
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
 	imply BOARD_EARLY_INIT_R
         imply IPQ_QCN9224_FUSING
+	select BOOTCONFIG_V3
+        imply CRC32_BE
 	help
 	  Support for IPQ5424 SoC.
 
