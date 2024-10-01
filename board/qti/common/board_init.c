@@ -88,7 +88,6 @@ uint32_t g_env_offset __attribute__((section(".data"))) = 0;
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
 uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
 
-ipq_smem_target_info_t ipq_smem_target_info;
 ipq_smem_flash_info_t ipq_smem_flash_info;
 struct smem_ptable *ptable;
 socinfo_t ipq_socinfo;
@@ -135,11 +134,6 @@ __weak void board_cache_init(void)
 #if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
 	dcache_enable();
 #endif
-}
-
-ipq_smem_target_info_t * get_ipq_smem_target_info(void)
-{
-	return &ipq_smem_target_info;
 }
 
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void)
