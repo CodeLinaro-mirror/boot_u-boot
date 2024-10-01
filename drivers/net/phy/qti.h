@@ -11,5 +11,6 @@
 int phy_8x8x_init(void);
 int phy_8075_init(void);
 int phy_8081_init(void);
+int phy_81xx_init(void);
 
 #endif                          /* _QTI_H_ */
