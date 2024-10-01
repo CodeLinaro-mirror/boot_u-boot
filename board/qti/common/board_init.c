@@ -644,6 +644,9 @@ static void init_mmc(void)
 	if (dev != NULL && dev->part_type == PART_TYPE_UNKNOWN)
 		dev->part_type = PART_TYPE_EFI;
 #endif
+
+	watchdog_reset();
+
 	return;
 }
 #endif
@@ -720,6 +723,9 @@ void board_flash_protect(void)
 out:
 	if (gpt_pte)
 		free(gpt_pte);
+
+	watchdog_reset();
+
 	return;
 }
 #endif
@@ -784,6 +790,8 @@ int board_late_init(void)
 		;
 	}
 
+	watchdog_reset();
+
 #ifdef CONFIG_QTI_NSS_SWITCH
 	/*
 	 * configure CMN clock for ethernet
@@ -795,6 +803,7 @@ int board_late_init(void)
 	 */
 	set_ethmac_addr();
 
+	watchdog_reset();
 	/*
 	 * setup default env
 	 */
@@ -805,6 +814,8 @@ int board_late_init(void)
 	 * Update RFA register based on caldata
 	 */
 	board_update_RFA_settings();
+
+	watchdog_reset();
 #endif
 
 #ifdef CONFIG_MMC_FLASH_PARTITION_WRITE_PROTECT
@@ -1001,6 +1012,9 @@ static int ipq_aquantia_load_memory(struct phy_device *phydev, u32 addr,
 		       phydev->dev->name, crc, up_crc);
 		return -EINVAL;
 	}
+
+	watchdog_reset();
+
 	return 0;
 }
 
@@ -1096,6 +1110,8 @@ static int ipq_aquantia_upload_firmware(struct phy_device *phydev,
 	mdelay(100);
 	printf("PHYFW loading done.\n");
 exit:
+	watchdog_reset();
+
 	return ret;
 }
 
@@ -1143,6 +1159,8 @@ int ipq_aquantia_load_fw(struct phy_device *phydev)
 free_nd_exit:
 	free(fw_load_addr);
 exit:
+	watchdog_reset();
+
 	return ret;
 }
 #endif /* CONFIG_PHY_AQUANTIA */
