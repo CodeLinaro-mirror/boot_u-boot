@@ -54,10 +54,14 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_RDP464, "ipq5424-rdp464"},
 	{ MACH_TYPE_IPQ5424_RDP464_C2, "ipq5424-rdp464-c2"},
 	{ MACH_TYPE_IPQ5424_RDP466, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP466_C2, "ipq5424-rdp466-c2"},
 	{ MACH_TYPE_IPQ5424_RDP485, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP485_C2, "ipq5424-rdp485-c2"},
 	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
 	{ MACH_TYPE_IPQ5424_RDP466_RFFE, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP466_RFFE_C2, "ipq5424-rdp466-c2"},
 	{ MACH_TYPE_IPQ5424_RDP485_RFFE, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP485_RFFE_C2, "ipq5424-rdp485-c2"},
 	{ MACH_TYPE_IPQ5424_DB_MR01_1, "ipq5424-db-mr01.1"},
 };
 
@@ -442,6 +446,12 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 			break;
 		case MACH_TYPE_IPQ5424_RDP485_RFFE:
 			config_list[config_nos++] = "config-rdp485-rffe";
+			break;
+		case MACH_TYPE_IPQ5424_RDP466_RFFE_C2:
+			config_list[config_nos++] = "config-rdp466-rffe-c2";
+			break;
+		case MACH_TYPE_IPQ5424_RDP485_RFFE_C2:
+			config_list[config_nos++] = "config-rdp485-rffe-c2";
 			break;
 	}
 
