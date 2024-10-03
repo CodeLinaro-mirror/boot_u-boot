@@ -196,7 +196,7 @@ void lowlevel_init(void)
 	return;
 }
 
-int board_get_smem_target_info(void)
+int board_get_smem_target_info(ipq_smem_target_info_t *smem_tinfo_ptr)
 {
 	uint32_t tcsr_wonce0_val;
 	uint32_t tcsr_wonce1_val;
@@ -278,8 +278,7 @@ int board_get_smem_target_info(void)
 	tcsr_wonce1_val = readl(TCSR_TZ_WONCE1);
 #endif
 
-	ipq_smem_target_info_t *ipq_smem_target_info_ptr, *smem_tinfo_ptr =
-		get_ipq_smem_target_info();
+	ipq_smem_target_info_t *ipq_smem_target_info_ptr;
 
 	ipq_smem_target_info_addr = tcsr_wonce0_val |
 		(((uint64_t)(tcsr_wonce1_val)) << 32);
@@ -366,12 +365,11 @@ int ipq_read_tcsr_boot_misc(void)
 void ipq_fdt_fixup_smem(void *blob)
 {
 	uint32_t reg[4];
-	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+	ipq_smem_target_info_t ipq_smem_target_info;
+	ipq_smem_target_info_t *smem_tinfo_ptr = &ipq_smem_target_info;
 
-	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
-		if (board_get_smem_target_info())
-			return;
-	}
+	if (board_get_smem_target_info(&ipq_smem_target_info))
+		return;
 
 	reg[0] = 0;
 	reg[1] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
@@ -385,12 +383,11 @@ void ipq_fdt_fixup_smem(void *blob)
 int ipq_uboot_fdt_fixup_smem(void *blob)
 {
 	uint32_t reg[2];
-	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+	ipq_smem_target_info_t ipq_smem_target_info;
+	ipq_smem_target_info_t *smem_tinfo_ptr = &ipq_smem_target_info;
 
-	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
-		if (board_get_smem_target_info())
-			return -EFAULT;
-	}
+	if (board_get_smem_target_info(&ipq_smem_target_info))
+		return -EFAULT;
 
 	reg[0] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
 	reg[1] = cpu_to_fdt32(smem_tinfo_ptr->smem_size);
