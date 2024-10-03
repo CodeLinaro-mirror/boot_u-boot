@@ -1866,11 +1866,11 @@ int sec_image_auth(void)
 int read_bootinfo(struct flash_dual_boot_info *info)
 {
 	printf("magic: %x\n", info->magic);
-	printf("image_set_status_A: %lu\n", info->image_set_status_A);
-	printf("image_set_status_B: %lu\n", info->image_set_status_B);
-	printf("owner: %lu\n", info->owner);
-	printf("boot_set: %lu\n", info->boot_set);
-	printf("reserved1: %lu\n", info->reserved1);
+	printf("image_set_status_A: %u\n", info->image_set_status_A);
+	printf("image_set_status_B: %u\n", info->image_set_status_B);
+	printf("owner: %u\n", info->owner);
+	printf("boot_set: %u\n", info->boot_set);
+	printf("reserved1: %u\n", info->reserved1);
 	printf("crc: %x\n", info->crc);
 
 	int bfd = open(TEMP_BOOTMEM_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -1879,10 +1879,16 @@ int read_bootinfo(struct flash_dual_boot_info *info)
 		return 0;
 	}
 
-	char buffer[800];
+	char buffer[256];
 	int length = snprintf(buffer, sizeof(buffer),
 				"magic:%x\nowner:%u\nImage-set-status-A:%u\nImage-set-status-B:%u\nBoot-set:%u\nCRC:%x\n",
 				info->magic, info->owner, info->image_set_status_A, info->image_set_status_B, info->boot_set, info->crc);
+
+	if (length < 0 || length >= sizeof(buffer)) {
+		perror("Boot-info data is higher than file size");
+		close(bfd);
+		return 0;
+	}
 
 	if (write(bfd, buffer, length) == -1) {
 		perror("Failed to write to bootconfig_members.txt");
@@ -1986,7 +1992,7 @@ int invalidate_bootconfig(int arg)
 	read_bootinfo(&info);
 
 	//Integrity check for CRC
-	uint32_t crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	uint32_t crc_result = crc32_be((uint8_t const *)&info, sizeof(info) - sizeof(info.crc));
 	if (info.crc == crc_result) {
 		printf(" CRC matched proceeding to upgrade....\n");
 	} else {
@@ -2006,7 +2012,7 @@ int invalidate_bootconfig(int arg)
 		update_bootinfo(&info,value);
 	}
 
-	crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	crc_result = crc32_be((uint8_t const *)&info, sizeof(info) - sizeof(info.crc));
 	info.crc = crc_result;
 	read_bootinfo(&info);
 
@@ -2044,7 +2050,7 @@ int update_bootconfig(char *member,char *arg)
 	read_bootinfo(&info);
 
 	//Integrity check for CRC
-	uint32_t crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	uint32_t crc_result = crc32_be((uint8_t const *)&info, sizeof(info) - sizeof(info.crc));
 	if (info.crc == crc_result) {
 		printf(" CRC matched\n");
 	} else {
@@ -2079,7 +2085,7 @@ int update_bootconfig(char *member,char *arg)
 	}
 
 	info.owner = 0x2;
-	crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	crc_result = crc32_be((uint8_t const *)&info, sizeof(info) - sizeof(info.crc));
 	info.crc = crc_result;
 	read_bootinfo(&info);
 
