@@ -141,6 +141,8 @@ enum {
 #define FUSEPROV_SUCCESS		0x0
 #define FUSEPROV_INVALID_HASH		0x09
 #define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
+#define SEC_IMG_AUTH_FAILURE		0x101
+
 #define MAX_FUSE_ADDR_SIZE		0x8
 
 typedef struct load_seg_info {
@@ -521,15 +523,25 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			printf("%s: Error in QFPROM write (%d)\n",
 				__func__, ret);
 		else {
-			if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
-				printf("Fuse already blown\n");
-			else if (fuse_status == FUSEPROV_INVALID_HASH)
-				printf("Invalid sec.dat\n");
-			else if (fuse_status == FUSEPROV_SUCCESS)
+			switch (fuse_status) {
+			case FUSEPROV_SUCCESS:
 				printf("Fuse Blow Success\n");
-			else
+				break;
+			case FUSEPROV_SECDAT_LOCK_BLOWN:
+				printf("Fuse already blown\n");
+				break;
+			case FUSEPROV_INVALID_HASH:
+				printf("Invalid sec.dat\n");
+				break;
+#ifdef CONFIG_FUSEIPQ_V1
+			case SEC_IMG_AUTH_FAILURE:
+				printf("Image authentication failure\n");
+				break;
+#endif
+			default:
 				printf("Fuse blow failed with err code :"
 					" 0x%x\n", fuse_status);
+			}
 		}
 	} while (0);
 
