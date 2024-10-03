@@ -1422,7 +1422,6 @@ int set_uboot_milestone(void) {
 	unsigned int cookie = ipq_read_tcsr_boot_misc();
 
 	cookie &= MARK_UBOOT_MILESTONE;
-	printf("TCSR REG UBOOT MILESTONE: 0x%x\n", cookie);
 
 	do {
 		ret = -ENOTSUPP;

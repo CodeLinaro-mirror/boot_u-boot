@@ -2390,7 +2390,8 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 #ifdef CONFIG_FAILSAFE
-	if(set_uboot_milestone()) {
+	if((SMEM_BOOT_NO_FLASH != (gd->board_type & FLASH_TYPE_MASK)) &&
+			set_uboot_milestone()) {
 		printf("Faile to set uboot milestone\n");
 	}
 #endif
