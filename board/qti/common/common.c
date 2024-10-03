@@ -1215,7 +1215,7 @@ exit:
 
 int get_rootfs_active_partition(ipq_smem_flash_info_t *sfi)
 {
-	ipq_smem_bootconfig_info_t *binfo;
+	ipq_smem_bootconfig_info_t *binfo = NULL;
 	int ret = 0;
 
 	if (sfi != NULL)
