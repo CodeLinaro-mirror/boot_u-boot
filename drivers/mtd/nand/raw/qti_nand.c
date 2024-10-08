@@ -21,6 +21,7 @@
 #include <dm/pinctrl.h>
 #include <dm.h>
 #include <clk.h>
+#include <watchdog.h>
 
 #include "qti_nand.h"
 
@@ -1575,6 +1576,7 @@ qti_nandc_add_wr_page_cws_cmd_desc(struct mtd_info *mtd, struct cfg_params *cfg,
 
 	/* Add CE for all the CWs */
 	for (i = 0; i < (nandc->cws_per_page); i++) {
+		schedule();
 		cmd_list_ptr_start = cmd_list_ptr;
 		int_flag = BAM_DESC_INT_FLAG;
 
@@ -2460,6 +2462,7 @@ int qti_nandc_multi_page_read(struct mtd_info *mtd, uint32_t page,
 	 * and do a single bam transfer at the end.
 	 */
 	for (j = 0; j < num_pages; j++) {
+		schedule();
 
 		for (i = 0; i < (nandc->cws_per_page); i++) {
 			num_data_desc = 0;
@@ -2767,6 +2770,7 @@ int qti_nandc_page_read(struct mtd_info *mtd, uint32_t page,
 	/* Queue up the command and data descriptors for all the
 	 * codewords in a page and do a single bam transfer at the end.*/
 	for (i = 0; i < (nandc->cws_per_page); i++) {
+		schedule();
 		num_cmd_desc = 0;
 		num_data_desc = 0;
 		num_status_desc = 0;
@@ -3548,6 +3552,7 @@ qti_nandc_erase(struct mtd_info *mtd, struct erase_info *instr)
 	debug("number of blks to erase: %lu\n", blocks);
 
 	for (i = start; i < (start + blocks); i++) {
+		schedule();
 		offs = i << chip->phys_erase_shift;
 		pageno = offs >> chip->page_shift;
 
