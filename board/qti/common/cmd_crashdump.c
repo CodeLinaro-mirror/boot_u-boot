@@ -852,7 +852,6 @@ static int find_usb_dev_for_crashdump(uint8_t *dev_idx, uint8_t *part_idx)
 static int verify_crashdump_iface(crashdump_config_t * dump_config)
 {
 	int ret = CMD_RET_SUCCESS;
-	uint64_t etime;
 	char runcmd[50] = {0};
 	uint8_t ping_status = 0;
 
@@ -928,10 +927,10 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 
 	case DUMP_TO_TFTP:
 		printf("Trying to ping server.....\n");
+		uint8_t retry = 3;
 		snprintf(runcmd, sizeof(runcmd), "ping %s",
 				dump_config->iface_cfg.tftp_serverip);
-		etime = get_timer(0) + (10 * CONFIG_SYS_HZ);
-		while (get_timer(0) <= etime) {
+		while (retry--) {
 			if (run_command(runcmd, 0) == CMD_RET_SUCCESS) {
 				ping_status = 1;
 				break;
