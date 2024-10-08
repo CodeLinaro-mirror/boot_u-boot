@@ -874,20 +874,21 @@ static int authenticate_rootfs(uintptr_t kernel_addr,
 
 static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 {
-	int ret = -1, len;
+	int ret = -1;
 	uint32_t request;
 	image_info img_info;
 	auth_cmd_buf rootfs_img_info;
 	scm_param param;
+#ifdef CONFIG_SHA384
 	struct image_region root_data = {0, 0};
+	int len = 0;
 	char hash_buff[SHA384_SUM_LEN] = {0};
-
+#endif
 	if (parse_elf_image_phdr(&img_info, rootfs_hdr))
 		return CMD_RET_FAILURE;
 
 	request = img_info.img_load_addr - img_info.img_offset;
 	rootfs_img_info.addr = request;
-	rootfs_img_info.type = ROOTFS_SEC_AUTH_SW_ID;
 
 	memcpy((void *) (uintptr_t)request, (void *) (uintptr_t)rootfs_hdr,
 			img_info.img_offset);
@@ -896,6 +897,7 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 
 	/* copy rootfs from the boot device */
 	copy_rootfs(request, img_info.img_size);
+#ifdef CONFIG_SHA384
 	root_data.data  = (void *)(uintptr_t)img_info.img_load_addr;
 	root_data.size  = img_info.img_size;
 
@@ -906,10 +908,13 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 		printf("hash_calculate failed, ret %d", ret);
 		return CMD_RET_FAILURE;
 	}
+#endif
 
 #if IS_ENABLED(CONFIG_SCM_V1)
+	rootfs_img_info.type = SEC_AUTH_SW_ID;
 	rootfs_img_info.size = img_info.img_offset + img_info.img_size;
 #elif IS_ENABLED(CONFIG_SCM_V2)
+	rootfs_img_info.type = ROOTFS_SEC_AUTH_SW_ID;
 	rootfs_img_info.size = img_info.img_offset - 1;
 #endif
 
