@@ -228,6 +228,13 @@ static int fl_erase(struct fl_info *fl)
 	uint32_t offset = fl->offset;
 	uint32_t part_size = fl->part_size;
 	char runcmd[128] = { 0 };
+	char *verbose = env_get("verbose");
+	int ret = CMD_RET_FAILURE;
+
+	if (verbose)
+		env_set("stdout", "serial");
+	else
+		env_set("stdout", "nulldev");
 
 	switch (flash_type) {
 	case SMEM_BOOT_QSPI_NAND_FLASH:
@@ -248,9 +255,17 @@ static int fl_erase(struct fl_info *fl)
 	}
 
 	if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
-		return CMD_RET_FAILURE;
+		ret = CMD_RET_FAILURE;
+	else
+		ret = CMD_RET_SUCCESS;
 
-	return CMD_RET_SUCCESS;
+	if(!verbose) {
+		env_set("stdout", "serial");
+		printf("Eraseing %-30s %s\n", fl->ubi_vol_name,
+				ret ? "[ failed ]" : "[ done ]");
+	}
+
+	return ret;
 }
 
 static int fl_read(struct fl_info *fl)
