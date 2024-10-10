@@ -2396,6 +2396,10 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 #endif
 	if (ipq_iscrashed()) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+		ipq_board_gpio_config(SDX_POWER_CYCLE);
+#endif
+
 		ulong debug = env_get_ulong("debug", 10, 0);
 		if ((debug != DBG_DISABLE) && (debug != DBG_CRASHDUMP))
 			debug = 0;
@@ -2410,6 +2414,9 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	if (ipq_iscrashed_crashdump_disabled()) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+		ipq_board_gpio_config(SDX_POWER_CYCLE);
+#endif
 		printf("Crashdump disabled, resetting the board..\n");
 		run_command("reset", 0);
 	}

@@ -327,6 +327,15 @@ config GPT_UPDATE_PARAMS
 	depends on IPQ_MMC || NOR_BLK
 	default n
 
+config GPIO_CONFIG
+	bool "NOP driver for pincntrl configuration"
+	default n
+
+config SDX_ATTACH_SUPPORT
+	bool "enable SDX support"
+	imply GPIO_CONFIG
+	default n
+
 choice
 	prompt "IPQ board select"
 
@@ -391,6 +400,7 @@ config TARGET_IPQ9574
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	imply LIST_FUSE_V1 if IPQ_SECURE && SCM_V1
 	select BOOTCONFIG_V2
+	imply SDX_ATTACH_SUPPORT
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.

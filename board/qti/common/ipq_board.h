@@ -1161,6 +1161,10 @@ enum {
 	RESET_V2,
 };
 
+enum {
+	SDX_POWER_CYCLE	= 0,		/* Power cycle the SDX in crash path */
+};
+
 typedef struct {
 	char name[DUMP_NAME_STR_MAX_LEN];/* dump name */
 	uint64_t start_addr;		/* dump start addr */
@@ -1347,5 +1351,9 @@ int ipq_read_tcsr_boot_misc(void);
 #ifdef CONFIG_FAILSAFE
 int set_uboot_milestone(void);
 void set_edl_mode(void);
+#endif
+
+#ifdef CONFIG_GPIO_CONFIG
+void ipq_board_gpio_config(int type);
 #endif
 #endif

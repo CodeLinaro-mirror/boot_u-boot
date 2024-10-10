@@ -90,6 +90,20 @@
 					bias-pull-up;
 				};
 			};
+
+			sdx_rst_pinmux: sdx_pins{
+				power {
+					pins = "GPIO_40";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+
+				reset {
+					pins = "GPIO_47";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+			};
 		};
 
 		blsp3_i2c: i2c@78B8000 {
@@ -214,6 +228,15 @@
 			pinctrl-0 = <&pcie3_x2_pinmux>;
 			status = "okay";
 			perst_gpio = <&tlmm 32 0>;
+		};
+
+		sdx_rst: gpio{
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdx_rst>;
+			status = "okay";
+			power_gpio = <&tlmm 40 0>;
+			reset_gpio = <&tlmm 47 0>;
+			e911_gpio = <&tlmm 43 0>;
 		};
 	};
 };
