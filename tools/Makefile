@@ -125,7 +125,6 @@ dumpimage-mkimage-objs := aisimage.o \
 			stm32image.o \
 			$(ROCKCHIP_OBS) \
 			socfpgaimage.o \
-			sysupgrade.o \
 			sunxi_egon.o \
 			lib/crc16-ccitt.o \
 			lib/hash-checksum.o \
@@ -146,6 +145,11 @@ dumpimage-mkimage-objs := aisimage.o \
 			$(ECDSA_OBJS-y) \
 			$(RSA_OBJS-y) \
 			$(AES_OBJS-y)
+
+# Add sysupgrade.o if CONFIG_SYSUPGRADE_HELPER is enabled
+ifdef CONFIG_SYSUPGRADE_HELPER
+dumpimage-mkimage-objs += sysupgrade.o
+endif
 
 dumpimage-objs := $(dumpimage-mkimage-objs) dumpimage.o
 mkimage-objs   := $(dumpimage-mkimage-objs) mkimage.o
