@@ -65,6 +65,10 @@ int mmc_send_status(struct mmc *mmc, unsigned int *status);
 int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value);
 #endif
 
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+extern void ipq_board_power_cycle_sdx(void);
+#endif
+
 struct udevice *smem;
 struct spi_flash *flash = NULL;
 
@@ -1469,6 +1473,35 @@ void set_edl_mode(void) {
 	if(!ret) {
 		printf("Entering EDL Mode\n");
 		run_command("reset", 0);
+	}
+}
+#endif
+
+#ifdef CONFIG_GPIO_CONFIG
+/*
+ * NOP driver: only for GPIO configuration
+ */
+static const struct udevice_id gpio_ids[] = {
+	{ .compatible = "gpio, config", },
+	{ }
+};
+
+U_BOOT_DRIVER(gpio) = {
+	.name		= "gpio",
+	.id		= UCLASS_NOP,
+	.of_match	= gpio_ids,
+};
+
+void ipq_board_gpio_config(int type)
+{
+	switch(type) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+	case SDX_POWER_CYCLE:
+		ipq_board_power_cycle_sdx();
+		break;
+#endif
+	default:
+		break;
 	}
 }
 #endif

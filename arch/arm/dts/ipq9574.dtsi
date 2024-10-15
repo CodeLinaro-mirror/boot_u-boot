@@ -773,5 +773,10 @@
 			phy-names = "pcie-phy";
 			status = "disabled";
 		};
+
+		sdx_rst: gpio{
+			compatible = "gpio, config";
+			status = "disabled";
+		};
 	};
 };
