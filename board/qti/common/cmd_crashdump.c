@@ -46,6 +46,11 @@
 #endif
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+#ifdef CONFIG_WDT
+#include <dm/uclass-internal.h>
+#include <wdt.h>
+#endif
+
 #include "ipq_board.h"
 
 #define TFTP_MAX_TRF_SZ_LIMIT			SZ_1G
@@ -2384,7 +2389,7 @@ void reset_crashdump(int reset_version)
 int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
 {
-#if defined(WDT)
+#if defined(CONFIG_WDT)
 	struct udevice *dev;
 #endif
 
@@ -2403,7 +2408,7 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 		if ((debug != DBG_DISABLE) && (debug != DBG_CRASHDUMP))
 			debug = 0;
 
-#if defined(WDT)
+#if defined(CONFIG_WDT)
 	if (uclass_find_device_by_seq(UCLASS_WDT, 0, &dev) == 0)
 		wdt_stop(dev);
 #endif
