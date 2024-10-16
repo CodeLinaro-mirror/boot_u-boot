@@ -47,6 +47,7 @@ int * fnode_entires = &ipq_fnode_entires;
 struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5332_RDP468, "ipq5332-rdp468"},
 	{ MACH_TYPE_IPQ5332_RDP441, "ipq5332-rdp441"},
+	{ MACH_TYPE_IPQ5332_RDP441_QCA81XX, "ipq5332-rdp441-qca81xx"},
 	{ MACH_TYPE_IPQ5332_RDP442, "ipq5332-rdp442"},
 	{ MACH_TYPE_IPQ5332_RDP446, "ipq5332-rdp446"},
 	{ MACH_TYPE_IPQ5332_RDP474, "ipq5332-rdp474"},
