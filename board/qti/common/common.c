@@ -427,6 +427,9 @@ static int qti_invoke_psci_fn_smc
 
 int is_secondary_core_off(unsigned long cpuid)
 {
+#if defined (CONFIG_BASE_CPU_64BIT_BOOTUP)
+	cpuid = cpuid << 8;
+#endif
 	return qti_invoke_psci_fn_smc(PSCI_0_2_FN_AFFINITY_INFO, cpuid, 0, 0);
 }
 
@@ -440,7 +443,7 @@ int bring_secondary_core_up(unsigned long cpuid, unsigned long entry,
 {
 	int ret;
 	unsigned long mpidr_cpuid = 0;
-#if defined (BASE_CPU_64BIT_BOOTUP)
+#if defined (CONFIG_BASE_CPU_64BIT_BOOTUP)
 	mpidr_cpuid = cpuid << 8;
 #else
 	mpidr_cpuid = cpuid;
