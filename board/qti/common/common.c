@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
@@ -30,8 +30,10 @@
 #ifdef CONFIG_WDT
 #include <dm/device-internal.h>
 #include <wdt.h>
-#include <asm/io.h>
 #endif
+#include <asm/io.h>
+#include <linux/iopoll.h>
+#include <gzip.h>
 
 #include "ipq_board.h"
 
@@ -82,6 +84,16 @@ static int g_eth_initalized = 0;
 extern int eth_initialize(void);
 #endif
 
+#ifdef CONFIG_IPQ_PCIE
+struct pci_device_id device_table[] = {
+	{QCN_VENDOR_ID, QCN9224_DEVICE_ID},
+	{}
+};
+#endif
+
+extern int ubi_volume_read(char *volume, char *buf, size_t size);
+
+extern struct list_head *lhead;
 int gpt_find_which_flash(gpt_entry *p)
 {
 	/*
@@ -1530,5 +1542,531 @@ int initr_net(void)
 	}
 
 	return 0;
+}
+#endif
+#ifdef CONFIG_IPQ_PCIE
+void pci_select_window(uintptr_t base, u32 offset)
+{
+	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
+	u32 prev_window = 0, curr_window = 0, prev_cleared_window = 0;
+
+	prev_window = readl(base + QCN9224_PCIE_REMAP_BAR_CTRL_OFFSET);
+
+	/* Clear out last 6 bits of window register */
+	prev_cleared_window = prev_window & ~(0x3f);
+
+	/* Write the new last 6 bits of window register. Only window 1 values
+	 * are changed. Window 2 and 3 are unaffected.
+	 */
+	curr_window = prev_cleared_window | window;
+
+	writel(WINDOW_ENABLE_BIT | curr_window, base +
+			QCN9224_PCIE_REMAP_BAR_CTRL_OFFSET);
+}
+
+void print_error_code(pci_addr_t addr, bool pbl_log)
+{
+	int i;
+	u32 val;
+	struct {
+		char *name;
+		u32 offset;
+	} error_reg[] = {
+		{ "ERROR_CODE", BHI_ERRCODE },
+		{ "ERROR_DBG1", BHI_ERRDBG1 },
+		{ "ERROR_DBG2", BHI_ERRDBG2 },
+		{ "ERROR_DBG3", BHI_ERRDBG3 },
+		{ "BHI_STATUS", BHI_STATUS },
+		{ "BHI_IMGADDR_HIGH", BHI_IMGADDR_HIGH },
+		{ "BHI_IMGADDR_LOW", BHI_IMGADDR_LOW },
+		{ "BHI_IMGSIZE", BHI_IMGSIZE },
+		{ "BHI_IMGTXDB", BHI_IMGTXDB },
+		{ "PCIE_LOCAL_RSV0", PCIE_LOCAL_RSV0 },
+		{ NULL },
+	};
+
+	for (i = 0; error_reg[i].name; i++) {
+		val = readl(addr + error_reg[i].offset);
+		printf("Reg: %s value: 0x%x\n", error_reg[i].name, val);
+	}
+	if (pbl_log) {
+		pci_select_window(addr, QCN9224_TCSR_PBL_LOGGING_REG);
+		val = readl(addr + WINDOW_START +
+				(QCN9224_TCSR_PBL_LOGGING_REG &
+					WINDOW_RANGE_MASK));
+		printf("Reg: TCSR_PBL_LOGGING: 0x%x\n", val);
+	}
+}
+
+void qcn92xx_global_soc_reset(uintptr_t bar0_base)
+{
+	u32 val, ret, count = 0;
+	uintptr_t reg;
+
+	do {
+		reg = bar0_base + PCIE_SOC_GLOBAL_RESET_ADDRESS;
+		writel(PCIE_SOC_GLOBAL_RESET_VALUE, reg);
+
+		reg = bar0_base + BHI_EXECENV;
+		ret = readl_poll_sleep_timeout(reg, val, val == 0, 1 * 1000,
+					       20 * 1000);
+		if (ret == 0)
+			break;
+
+		++count;
+	} while (count < MAX_SOC_GLOBAL_RESET_WAIT_CNT);
+
+	if (val != 0)
+		printf("SoC global reset failed! Reset count : %d\n", count);
+}
+#endif
+
+#ifdef CONFIG_CB_CALIB
+static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
+{
+	struct udevice *dev;
+	uintptr_t bar0_base, reg, load_addr;
+	struct file_info *file;
+	int ret, i, version, val;
+	ulong vendor, device;
+	struct uboot_cal_tlv *tlv = NULL;
+	void *cal_fw, *bdf_addr, *regdb_addr, *rxgain_addr = NULL;
+	u32 cal_fw_size, bdf_size, rxgain_size = 0, regdb_size;
+	struct cal_fw_header *cal_fw_header;
+	void *cal_fw_image;
+	struct cal_per_dev_config *dev_cfg;
+	int num_macs;
+
+	if (!cfg)
+		return -EINVAL;
+
+	dev_cfg = &cfg->dev_cfg[index];
+
+	dev = dev_cfg->dev;
+	printf("%s: %d: Starting cal for %s index  %d slot %d\n", __func__, __LINE__,
+		dev->name, index, dev_cfg->pci_slot_id);
+
+	/* This slot doesn't have any EP attached */
+	if (!dev)
+		return 0;
+
+	dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, (u32 *)&bar0_base);
+	bar0_base &= 0xFFF00000;
+
+	dm_pci_read_config(dev, PCI_VENDOR_ID, &vendor, PCI_SIZE_16);
+	dm_pci_read_config(dev, PCI_DEVICE_ID, &device, PCI_SIZE_16);
+
+	/* Read QCN9224 version */
+	pci_select_window(bar0_base, QCN9224_TCSR_SOC_HW_VERSION);
+
+	version = readl(bar0_base + WINDOW_START +
+			(QCN9224_TCSR_SOC_HW_VERSION & WINDOW_RANGE_MASK));
+
+	version = (version & QCN9224_TCSR_SOC_HW_VERSION_MASK) >>
+					QCN9224_TCSR_SOC_HW_VERSION_SHIFT;
+
+	if (version == 1) {
+		printf("Calibration not supported in QCN9224 V1 in slot %d\n",
+		       dev_cfg->pci_slot_id);
+		return 0;
+	}
+
+	cal_fw_header = cfg->cal_fw_header;
+	cal_fw_image = (void *)(uintptr_t)cfg->cal_fw_header;
+
+	if (debug) {
+		for (i = 0; i < cal_fw_header->num_files; i++) {
+			file = &cal_fw_header->file[i];
+			printf("type: %x subtype: %x offset: %x size: %x\n",
+			       file->type, file->sub_type,
+			       file->offset, file->size);
+		}
+	}
+
+	printf("%s: %d: board_id: 0x%x \n", __func__, __LINE__, dev_cfg->board_id);
+	num_macs = ((dev_cfg->board_id & 0xF000) > 0xC) + 1;
+
+	for (i = 0; i < cal_fw_header->num_files; i++) {
+		file = &cal_fw_header->file[i];
+		switch (file->type) {
+		case CAL_FW:
+			if (file->sub_type == 2 && file->sub_type == num_macs) {
+				printf("Loading %d mac calfw for pci slot: %d\n",
+				       num_macs, dev_cfg->pci_slot_id);
+				memcpy(((void *)(uintptr_t)dev_cfg->cal_fw_image_addr),
+				       (void *)(uintptr_t)(cal_fw_image + file->offset),
+				       file->size);
+				cal_fw = (void *)(uintptr_t)dev_cfg->cal_fw_image_addr;
+				cal_fw_size = file->size;
+			} else if (file->sub_type == 1 && file->sub_type == num_macs) {
+				printf("Loading %d mac calfw for pci slot: %d\n",
+				       num_macs, dev_cfg->pci_slot_id);
+				memcpy(((void *)(uintptr_t)dev_cfg->cal_fw_image_addr),
+				       (void *)(uintptr_t)(cal_fw_image + file->offset),
+				       file->size);
+				cal_fw = (void *)(uintptr_t)dev_cfg->cal_fw_image_addr;
+				cal_fw_size = file->size;
+			}
+			break;
+		case BDF:
+			if (file->sub_type == dev_cfg->board_id) {
+				bdf_addr = cal_fw_image + file->offset;
+				bdf_size = file->size;
+			}
+			break;
+		case RXGAIN:
+			rxgain_addr = cal_fw_image + file->offset;
+			rxgain_size = file->size;
+			break;
+		case REGDB:
+			regdb_addr = cal_fw_image + file->offset;
+			regdb_size = file->size;
+			break;
+		default:
+			printf("Unsupported image type: %d\n", file->type);
+			break;
+		}
+	}
+
+	load_addr = (uintptr_t)cal_fw;
+
+	/* FILL TLV */
+	tlv = (struct uboot_cal_tlv *)memalign(SZ_4K, sizeof(struct uboot_cal_tlv));
+	if (!tlv) {
+		printf("Failed to allocate memory for cal tlv\n");
+		return -ENOMEM;
+	}
+
+	memset(tlv, 0, sizeof(struct uboot_cal_tlv));
+	tlv->magic = 0xCAFECACE;
+	tlv->pci_slot = dev_cfg->pci_slot_id;
+	tlv->caldb_addr = dev_cfg->caldb_addr;
+	tlv->caldb_size = dev_cfg->caldb_size;
+	tlv->host_ddr_status = dev_cfg->host_ddr_status;
+	tlv->hremote_addr = dev_cfg->hremote_addr;
+	tlv->hremote_size = dev_cfg->hremote_size;
+	tlv->rddm_addr = dev_cfg->rddm_addr;
+	tlv->rddm_size = dev_cfg->rddm_size;
+	tlv->num_images = MAX_IMG_TYPE;
+
+	for (i = 0; i < MAX_IMG_TYPE; i++) {
+		switch (i) {
+		case BDF:
+			tlv->img[i].img_type = i;
+			tlv->img[i].img_sram_addr = 0;
+			tlv->img[i].img_host_addr = (u32)(uintptr_t)(bdf_addr);
+			tlv->img[i].img_size = bdf_size;
+			break;
+		case CALDATA:
+			tlv->img[i].img_type = i;
+			tlv->img[i].img_sram_addr = 0;
+			memcpy(((void *)(uintptr_t)dev_cfg->host_ddr_status + SZ_4K),
+			       (void *)(uintptr_t)(cfg->caldata_addr + dev_cfg->caldata_offset),
+			       dev_cfg->caldata_size);
+			tlv->img[i].img_host_addr = dev_cfg->host_ddr_status + SZ_4K;
+			tlv->img[i].img_size = dev_cfg->caldata_size;
+			break;
+		case RXGAIN:
+			tlv->img[i].img_type = i;
+			tlv->img[i].img_sram_addr = 0;
+			tlv->img[i].img_host_addr = (u32)(uintptr_t)rxgain_addr;
+			tlv->img[i].img_size = rxgain_size;
+			break;
+		case REGDB:
+			tlv->img[i].img_type = i;
+			tlv->img[i].img_sram_addr = 0;
+			tlv->img[i].img_host_addr = (u32)(uintptr_t)regdb_addr;
+			tlv->img[i].img_size = regdb_size;
+			break;
+		default:
+			break;
+		}
+	}
+
+	printf("Starting calibration on Vendor ID:0x%lx device ID:0x%lx slot:%d cal_fw_size:%d cal_fw: 0x%lx 0x%p\n",
+	       vendor, device, dev_cfg->pci_slot_id, cal_fw_size, load_addr, tlv);
+
+	if (debug) {
+		printf("Dumping TLV:\n");
+		printf("magic: 0x%x\n", tlv->magic);
+		printf("pci_slot: 0x%x\n", tlv->pci_slot);
+		printf("caldb_addr: 0x%x\n", tlv->caldb_addr);
+		printf("caldb_size: 0x%x\n", tlv->caldb_size);
+		printf("host_ddr_status: 0x%x\n", tlv->host_ddr_status);
+		printf("hremote_addr: 0x%x\n", tlv->hremote_addr);
+		printf("hremote_size: 0x%x\n", tlv->hremote_size);
+		printf("rddm_addr: 0x%x\n", tlv->rddm_addr);
+		printf("rddm_size: 0x%x\n", tlv->rddm_size);
+		printf("num_images: 0x%x\n", tlv->num_images);
+
+		for (i = 0; i < MAX_IMG_TYPE; i++) {
+			printf("img_type:0x%x\n", tlv->img[i].img_type);
+			printf("img_sram_addr:0x%x\n", tlv->img[i].img_sram_addr);
+			printf("img_host_addr:0x%x\n", tlv->img[i].img_host_addr);
+			printf("img_size:0x%x\n", tlv->img[i].img_size);
+		}
+	}
+
+	/*
+	 *flush dcache
+	 */
+	flush_dcache_all();
+
+	writel(lower_32_bits((uintptr_t)tlv), bar0_base + PCIE_LOCAL_RSV0);
+	writel(0xFF, (uintptr_t)dev_cfg->host_ddr_status);
+	writel(0, bar0_base + BHI_STATUS);
+	writel(upper_32_bits(load_addr), bar0_base + BHI_IMGADDR_HIGH);
+	writel(lower_32_bits(load_addr), bar0_base + BHI_IMGADDR_LOW);
+	writel(cal_fw_size, bar0_base + BHI_IMGSIZE);
+	writel(1, bar0_base + BHI_IMGTXDB);
+
+	printf("Waiting for calibration bin download...\n");
+
+	reg = bar0_base + BHI_STATUS;
+	ret = readl_poll_sleep_timeout(reg, val,
+				       ((val & BHI_STATUS_MASK) >> BHI_STATUS_SHIFT) ==
+				       BHI_STATUS_SUCCESS, 250 * 1000, 12500 * 1000);
+	if (ret) {
+		printf("Calibration bin Download failed, BHI_STATUS 0x%x, ret %d\n", val, ret);
+		print_error_code(bar0_base, true);
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	reg = bar0_base + BHI_EXECENV;
+	ret = readl_poll_sleep_timeout(reg, val, (val & NO_MASK) == 1, 250 * 1000, 12500 * 1000);
+	if (ret) {
+		printf("EXECENV is not correct, BHI_EXECENV 0x%x, ret %d\n", val, ret);
+		print_error_code(bar0_base, true);
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	printf("Calibration bin loaded successfully\n");
+
+	free(tlv);
+	return 0;
+
+fail:
+	/* Target SoC global reset */
+	qcn92xx_global_soc_reset(bar0_base);
+
+	mdelay(1000);
+
+	/* Target MHI reset */
+	val = readl(bar0_base + MHICTRL);
+	writel(val | MHICTRL_RESET_MASK, bar0_base + MHICTRL);
+	free(tlv);
+	return ret;
+}
+
+static int get_pci_dev_by_slot(int slot_id, struct udevice **devp)
+{
+	struct udevice *rc, *dev;
+	int i;
+
+	for (i = 0; i < CONFIG_IPQ_MAX_PCIE; i++) {
+		if (pci_find_device_id(device_table, i, &dev))
+			continue;
+
+		rc = pci_get_controller(dev);
+		if (!rc)
+			continue;
+
+		if (slot_id == dev_read_u32_default(rc, "id", 0)) {
+			*devp = dev;
+			return 0;
+		}
+	}
+
+	printf("Failed to find device for slot_id %d\n", slot_id);
+	return -ENODEV;
+}
+
+static int populate_cfg(struct cal_dt_config *dt_cfg, struct cal_config *cfg)
+{
+	static bool global_cfg_filled;
+	struct cal_per_dev_config *dev_cfg;
+	struct udevice *dev = NULL;
+
+	if (dt_cfg->pci_slot_id >= CONFIG_IPQ_MAX_PCIE)
+		return -EINVAL;
+
+	if (!dt_cfg->rmem_base_addr)
+		return -ENOMEM;
+
+	if (get_pci_dev_by_slot(dt_cfg->pci_slot_id, &dev))
+		return -ENODEV;
+
+	/* Memory Layout for miniFW for calibration
+	 *
+	 * +==========+==============+=========+
+	 * |  Region  | Start Offset |   Size  |
+	 * +----------+--------------+---------+
+	 * | miniFW   |  0x00000000  |   4MB   |
+	 * +----------+--------------+---------+
+	 * | Hremote  |  0x00400000  |  24MB   |
+	 * +----------+--------------+---------+
+	 * |  Caldb   |  0x01C00000  |   8MB   |
+	 * +----------+--------------+---------+
+	 * | Host DDR |  0x02400000  |   1MB   |
+	 * | Status   |              |         |
+	 * |   +      |              |         |
+	 * | Per Dev  |              |         |
+	 * | CalData  |              |         |
+	 * +----------+--------------+---------+
+	 * | Cal Data |  0x02500000  |   1MB   |
+	 * | ART Part |              |         |
+	 * +----------+--------------+---------+
+	 * | cal_fw   |  0x02600000  |  12MB   |
+	 * |from flash|              |         |
+	 * +----------+--------------+---------+
+	 * |  RDDM    |  0x02C00000  |Last 6MB |
+	 * +===================================+
+	 *
+	 */
+	if (!global_cfg_filled) {
+		cfg->ddr_base_addr = dt_cfg->rmem_base_addr;
+		cfg->ddr_rmem_size = dt_cfg->rmem_size;
+		cfg->caldata_addr = cfg->ddr_base_addr + (37 * SZ_1M);
+		cfg->cal_fw_header =
+			(struct cal_fw_header *)(uintptr_t)(cfg->ddr_base_addr + (38 * SZ_1M));
+		global_cfg_filled = true;
+	}
+
+	dev_cfg = &cfg->dev_cfg[dt_cfg->pci_slot_id];
+
+	dev_cfg->dev = dev;
+	dev_cfg->pci_slot_id = dt_cfg->pci_slot_id;
+	dev_cfg->board_id = dt_cfg->board_id;
+	dev_cfg->caldata_offset = dt_cfg->caldata_offset;
+	dev_cfg->caldata_size = MAX_CALDATA_SIZE;
+	dev_cfg->cal_fw_image_addr = dt_cfg->rmem_base_addr;
+	dev_cfg->hremote_addr = dt_cfg->rmem_base_addr + SZ_4M;
+	dev_cfg->hremote_size = (24 * SZ_1M);
+	dev_cfg->caldb_addr = dev_cfg->hremote_addr + dev_cfg->hremote_size;
+	dev_cfg->caldb_size = SZ_8M;
+	dev_cfg->host_ddr_status = dev_cfg->caldb_addr + dev_cfg->caldb_size;
+	dev_cfg->rddm_addr = dt_cfg->rmem_base_addr + dt_cfg->rmem_size - (6 * SZ_1M);
+	dev_cfg->rddm_size = (6 * SZ_1M);
+
+	return 0;
+}
+
+int cal_qcn9224(int debug)
+{
+	int ret, i;
+	struct cal_config *cfg;
+	struct cal_dt_config *dt_cfg;
+	unsigned long len = SZ_2M;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	if (!sfi)
+		return -EINVAL;
+
+	cfg = malloc(sizeof(*cfg));
+	if (!cfg) {
+		printf("failed to allocate memory for cal config\n");
+		return -ENOMEM;
+	}
+
+	memset(cfg, 0, sizeof(*cfg));
+
+	list_for_each_entry(dt_cfg, lhead, list) {
+		ret = populate_cfg(dt_cfg, cfg);
+		if (ret) {
+			printf("Failed to populate cal config\n");
+			goto out;
+		}
+	}
+
+	if (!cfg->ddr_base_addr || !cfg->caldata_addr) {
+		printf("Failed to get DDR base addr for cal\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	if (debug) {
+		printf("Dumping the cal config\n");
+		printf("cal_fw_header: 0x%lx\n", (uintptr_t)cfg->cal_fw_header);
+		printf("ddr_base_addr: 0x%x\n", cfg->ddr_base_addr);
+		printf("ddr_rmem_size: 0x%x\n", cfg->ddr_rmem_size);
+		printf("caldata_addr: 0x%x\n", cfg->caldata_addr);
+		for (i = 0; i < CONFIG_IPQ_MAX_PCIE; i++) {
+			if (!cfg->dev_cfg[i].dev)
+				continue;
+
+			printf("dev_name[%d]: %s\n", i, cfg->dev_cfg[i].dev->name);
+			printf("pci_slot_id[%d]: 0x%x\n", i, cfg->dev_cfg[i].pci_slot_id);
+			printf("board_id[%d]: 0x%x\n", i, cfg->dev_cfg[i].board_id);
+			printf("caldata_offset[%d]: 0x%x\n", i, cfg->dev_cfg[i].caldata_offset);
+			printf("caldata_size[%d]: 0x%x\n", i, cfg->dev_cfg[i].caldata_size);
+			printf("cal_fw_image_addr[%d]: 0x%x\n", i, cfg->dev_cfg[i].cal_fw_image_addr);
+			printf("hremote_addr[%d]: 0x%x\n", i, cfg->dev_cfg[i].hremote_addr);
+			printf("caldb_addr[%d]: 0x%x\n", i, cfg->dev_cfg[i].caldb_addr);
+			printf("host_ddr_status[%d]: 0x%x\n", i, cfg->dev_cfg[i].host_ddr_status);
+			printf("rddm_addr[%d]: 0x%x\n", i, cfg->dev_cfg[i].rddm_addr);
+		}
+	}
+
+	ret = get_partition_data("0:ART", 0, (uint8_t *)(uintptr_t)cfg->caldata_addr,
+				 SZ_1M, sfi->flash_type);
+	if (ret < 0) {
+		printf("Failed to read caldata from ART: %d\n", ret);
+		goto out;
+	}
+
+	switch (gd->board_type & FLASH_TYPE_MASK) {
+#ifdef CONFIG_IPQ_NAND
+	case SMEM_BOOT_NORPLUSNAND:
+	case SMEM_BOOT_QSPI_NAND_FLASH:
+		ret = ubi_volume_read("cal_fw", (uint8_t *)(uintptr_t)cfg->ddr_base_addr,
+				      (size_t)SZ_2M);
+		if (ret) {
+			ret = -ret;
+			printf("Failed to read data from cal_fw volume %d\n",
+			       ret);
+		}
+		break;
+#endif
+	default:
+#ifdef CONFIG_IPQ_MMC
+		ret = get_partition_data("0:CALFW", 0, (uint8_t *)(uintptr_t)cfg->ddr_base_addr,
+					 SZ_2M, SMEM_BOOT_MMC_FLASH);
+#endif
+	}
+	if (ret < 0) {
+		printf("Failed to read from CAL FW %d\n", ret);
+		goto out;
+	}
+
+	ret = gunzip((void *)cfg->cal_fw_header, (SZ_8M + SZ_4M),
+		     (uint8_t *)(uintptr_t)cfg->ddr_base_addr, &len);
+	if (ret < 0) {
+		printf("Failed to uncompress CAL FW %d\n", ret);
+		goto out;
+	}
+
+	if (cfg->cal_fw_header->magic != 0xCAFECACE) {
+		printf("Magic mismatch\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	for (i = 0; i < CONFIG_IPQ_MAX_PCIE; i++) {
+		if (!cfg->dev_cfg[i].dev)
+			continue;
+
+		ret = do_cal_qcn9224(cfg, i, debug);
+		if (ret) {
+			printf("failed to start cal on qcn9224[%d] %d\n",
+			       cfg->dev_cfg[i].pci_slot_id, ret);
+			goto out;
+		}
+	}
+
+out:
+	free(cfg);
+	return ret;
 }
 #endif

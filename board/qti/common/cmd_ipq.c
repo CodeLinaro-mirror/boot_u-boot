@@ -136,6 +136,8 @@ enum {
 	PCI_LIST_QCN9224_FUSE = 0,
 	PCI_FUSE_QCN9224,
 	PCI_DETECT_QCN9224,
+	PCI_CAL_QCN9224,
+	PCI_CHECK_CAL_QCN9224,
 	PCI_LIST
 };
 #endif /* CONFIG_IPQ_QCN9224_FUSING */
@@ -154,6 +156,7 @@ typedef struct load_seg_info {
 	uint32_t endAddr;         /**< Region end address (SoC view) */
 } load_seg_info_t;
 
+extern struct pci_device_id device_table[];
 /*
  * Interpret the ELF-64bit program header to retrieve
  * the offset and filesize of the LOAD segment,
@@ -767,11 +770,6 @@ U_BOOT_CMD(dump_fuse, 2, 0, do_dump_fuse,
 #endif
 
 #ifdef CONFIG_IPQ_QCN9224_FUSING
-static struct pci_device_id device_table [] = {
-	{QCN_VENDOR_ID, QCN9224_DEVICE_ID},
-	{}
-};
-
 static int pci_cmd(const char *cmd)
 {
 	if (strcmp(cmd, "list_qcn9224_fuse") == 0)
@@ -782,75 +780,6 @@ static int pci_cmd(const char *cmd)
 		return PCI_DETECT_QCN9224;
 	else
 		return PCI_LIST;
-}
-
-static void pci_select_window(uintptr_t base, uint32_t offset)
-{
-	uint32_t window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
-	uint32_t prev_window = 0, curr_window = 0, prev_cleared_window = 0;
-
-	prev_window = readl(base + QCN9224_PCIE_REMAP_BAR_CTRL_OFFSET);
-
-	/* Clear out last 6 bits of window register */
-	prev_cleared_window = prev_window & ~(0x3f);
-
-	/* Write the new last 6 bits of window register. Only window 1 values
-	 * are changed. Window 2 and 3 are unaffected.
-	 */
-	curr_window = prev_cleared_window | window;
-
-	writel(WINDOW_ENABLE_BIT | curr_window, base +
-			QCN9224_PCIE_REMAP_BAR_CTRL_OFFSET);
-}
-
-static void print_error_code(pci_addr_t addr, bool pbl_log)
-{
-	int i;
-	u32 val;
-	struct {
-		char *name;
-		u32 offset;
-	} error_reg[] = {
-		{ "ERROR_CODE", BHI_ERRCODE },
-		{ "ERROR_DBG1", BHI_ERRDBG1 },
-		{ "ERROR_DBG2", BHI_ERRDBG2 },
-		{ "ERROR_DBG3", BHI_ERRDBG3 },
-		{ NULL },
-	};
-
-	for (i = 0; error_reg[i].name; i++) {
-		val = readl(addr + error_reg[i].offset);
-		printf("Reg: %s value: 0x%x\n", error_reg[i].name, val);
-	}
-	if (pbl_log) {
-		pci_select_window(addr, QCN9224_TCSR_PBL_LOGGING_REG);
-		val = readl(addr + WINDOW_START +
-				(QCN9224_TCSR_PBL_LOGGING_REG &
-					WINDOW_RANGE_MASK));
-		printf("Reg: TCSR_PBL_LOGGING: 0x%x\n", val);
-	}
-}
-
-static void qcn92xx_global_soc_reset(uintptr_t bar0_base)
-{
-	u32 val, ret, count = 0;
-	uintptr_t reg;
-
-	do {
-		reg = bar0_base + PCIE_SOC_GLOBAL_RESET_ADDRESS;
-		writel(PCIE_SOC_GLOBAL_RESET_VALUE, reg);
-
-		reg = bar0_base + BHI_EXECENV;
-		ret = readl_poll_sleep_timeout(reg, val, val == 0, 1 * 1000,
-						20 * 1000);
-		if (ret == 0)
-			break;
-		else
-			++count;
-	} while (count < MAX_SOC_GLOBAL_RESET_WAIT_CNT);
-
-	if (val != 0)
-		printk("SoC global reset failed! Reset count : %d\n",count);
 }
 
 static int fuse_qcn9224(const struct pci_device_id *ids, int device_id)
