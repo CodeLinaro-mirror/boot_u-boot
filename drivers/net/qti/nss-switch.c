@@ -30,7 +30,8 @@ uchar ipq_def_enetaddr[6] = {0x00, 0x03, 0x7F, 0xBA, 0xDB, 0xAD};
 int mac_speed_config [] = {10, 100, 1000, 10000, 2500, 5000};
 
 #ifdef CONFIG_MDIO_QCOM_I2C
-extern struct mii_dev *qcom_mdio_i2c_alloc(ofnode node,	int phy_addr);
+extern struct mii_dev *qcom_mdio_i2c_alloc(struct udevice *i2c_bus,
+							int phy_addr);
 #endif /* CONFIG_MDIO_QCOM_I2C */
 extern int get_eth_mac_address(uchar *enetaddr, int no_of_macs);
 extern int ipq_aquantia_load_fw(struct phy_device *phydev);
@@ -2873,10 +2874,30 @@ static void ipq_eth_8x8x_pre_init(struct mii_dev *bus)
 }
 #endif
 
+#ifdef CONFIG_MDIO_QCOM_I2C
+#define SFP_EEPROM_I2C_ADDR			0x50
+
+static int ipq_eth_sfp_detect(struct udevice *i2c_bus, struct port_info *port)
+{
+	struct udevice *dev;
+	int ret = dm_i2c_probe(i2c_bus, SFP_EEPROM_I2C_ADDR, 0, &dev);
+	if (!ret) {
+		/*
+		 * SFP detected, update port info with respect to SFP
+		 */
+		port->phy_id = SFP10G_PHY_TYPE;
+		port->phyaddr = 0xFF;
+		port->rst_gpio.dev = NULL;
+	}
+
+	return ret;
+}
+#endif
+
 static int ipq_eth_probe(struct udevice *dev)
 {
 	struct ipq_eth_dev *priv = dev_get_priv(dev);
-	struct udevice *mdiodev;
+	struct udevice *busdev;
 	struct port_info *port;
 	struct clk_bulk clocks;
 	struct reset_ctl_bulk resets;
@@ -2945,18 +2966,32 @@ static int ipq_eth_probe(struct udevice *dev)
 
 #ifdef CONFIG_MDIO_QCOM_I2C
 		if (port->i2c_bus) {
+			ret = uclass_get_device_by_phandle_id(UCLASS_I2C,
+					port->i2c_bus, &busdev);
+			if (ret) {
+				printf("%s: failed to get i2c bus, err: %d\n",
+						__func__, ret);
+				continue;
+			}
+
 			port->bus = (struct mii_dev *)(uintptr_t)
-					qcom_mdio_i2c_alloc(port->pnode,
+					qcom_mdio_i2c_alloc(busdev,
 							port->phyaddr);
-		} else
+			if (!port->bus) {
+				if (ipq_eth_sfp_detect(busdev, port))
+					continue;
+			}
+		}
 #endif /* CONFIG_MDIO_QCOM_I2C */
+
+		if (!port->bus)
 		{
 			ret = uclass_get_device_by_ofnode(UCLASS_MDIO,
-					port->pnode, &mdiodev);
+					port->pnode, &busdev);
 			if (ret)
 				continue;
 
-			port->bus = miiphy_get_dev_by_name(mdiodev->name);
+			port->bus = miiphy_get_dev_by_name(busdev->name);
 		}
 
 		if (!port->bus)
@@ -3172,9 +3207,9 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 			port->xgmac = ofnode_read_bool(
 						phandle_args.node,
 						"xgmac");
-			port->i2c_bus = ofnode_read_bool(
+			port->i2c_bus = ofnode_read_u32_default(
 						phandle_args.node,
-						"i2c-bus");
+						"i2c-bus", 0);
 			port->interface = ofnode_read_phy_mode(
 						phandle_args.node);
 

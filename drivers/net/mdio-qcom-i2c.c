@@ -114,7 +114,7 @@ static int qcom_mdio_i2c_write_default(struct mii_dev *mii_bus, int phy_id,
 }
 
 
-struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr)
+struct mii_dev *qcom_mdio_i2c_alloc(struct udevice *i2c_bus, int phy_addr)
 {
 	int ret = 0;
 	struct mii_dev *bus;
@@ -125,16 +125,11 @@ struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr)
 		return NULL;
 	}
 
-	ret = uclass_get_device_by_ofnode(UCLASS_I2C, node, &priv->bus);
-	if (ret) {
-		printf("%s: failed to get i2c bus, err: %d\n", __func__, ret);
-		goto free_mem0;
-	}
-
+	priv->bus = i2c_bus;
 	ret = dm_i2c_probe(priv->bus, TO_QCOM_SFP_PHY_ADDR(phy_addr), 0,
 			&priv->dev);
 	if (ret) {
-		printf("%s: failed to probe i2c 0x%x device, err: %d\n",
+		debug("%s: failed to probe i2c device addr: 0x%x, err: %d\n",
 				__func__, TO_QCOM_SFP_PHY_ADDR(phy_addr), ret);
 		goto free_mem0;
 	}

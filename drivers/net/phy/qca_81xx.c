@@ -196,7 +196,7 @@ enum qca81xx_phy_ext_addr {
 
 struct qca_81xx_device {
 	struct udevice *i2c_bus;
-	int bus_avail;
+	int bus_phandle;
 };
 
 static int qca81xx_phy_debug_write(struct phy_device *phydev,
@@ -1138,10 +1138,10 @@ static int qca_81xx_config(struct phy_device *phydev)
 	struct qca_81xx_device *dev = phydev->priv;
 	int ret = 0;
 
-	dev->bus_avail = ofnode_read_bool(phydev->node, "i2c-bus");
-	if (dev->bus_avail) {
-		ret = uclass_get_device_by_ofnode(UCLASS_I2C,
-				ofnode_get_parent(phydev->node), &dev->i2c_bus);
+	dev->bus_phandle = ofnode_read_u32_default(phydev->node, "i2c-bus", 0);
+	if (dev->bus_phandle) {
+		ret = uclass_get_device_by_phandle_id(UCLASS_I2C,
+				dev->bus_phandle, &dev->i2c_bus);
 		if (ret) {
 			printf("%s: failed to get i2c bus, err: %d\n",
 					__func__, ret);
