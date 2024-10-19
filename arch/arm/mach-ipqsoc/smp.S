@@ -41,6 +41,9 @@ ENTRY(secondary_cpu_init)
 	bl cpu_init_cp15
 
 	mrc     p15, 0, r0, c0, c0, 5   @ Read MPIDR
+#if defined (CONFIG_BASE_CPU_64BIT_BOOTUP)
+	lsr     r0, r0, #8
+#endif
 	and     r1, r0, #0xf            @ Return CPU ID in cluster
 	sub	r0, r1, #1
 
