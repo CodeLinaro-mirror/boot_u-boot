@@ -1034,7 +1034,11 @@ static ulong mem_test_quick(vu_long *buf, ulong start_addr, ulong end_addr,
 		plen, pattern, "");
 
 	for (addr = buf, val = pattern; addr < end; addr++) {
-		schedule();
+#if defined (CONFIG_ARCH_32BIT_SUPPORT)
+		if (((addr - buf) % SZ_1M) == 0)
+#endif
+			schedule();
+
 		*addr = val;
 		val += incr;
 	}
@@ -1042,7 +1046,12 @@ static ulong mem_test_quick(vu_long *buf, ulong start_addr, ulong end_addr,
 	puts("Reading...");
 
 	for (addr = buf, val = pattern; addr < end; addr++) {
-		schedule();
+
+#if defined (CONFIG_ARCH_32BIT_SUPPORT)
+		if (((addr - buf) % SZ_1M) == 0)
+#endif
+			schedule();
+
 		readback = *addr;
 		if (readback != val) {
 			ulong offset = addr - buf;
