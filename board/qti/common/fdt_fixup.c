@@ -777,6 +777,23 @@ __weak void ipq_fdt_fixup_sku_based_usb_config(void *blob)
 	return;
 }
 
+__weak bool ipq_fdt_board_specific_skip(int type)
+{
+	bool isskip = false;
+
+	switch (type) {
+#ifdef CFG_NC_RESERVATION
+	case SECURE_SYS_UPGRADE:
+		isskip = true;
+		break;
+#endif
+	default:
+		break;
+	}
+
+	return isskip;
+}
+
 static void ipq_fdt_fixup_dload_disable(void *blob)
 {
 	int parentoff, nodeoff, ret, i;
@@ -794,6 +811,10 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 		if(!strstr(s, "qcom_scm.download_mode=0"))
 			return;
 	}
+
+	if ((gd->board_type & SECURE_BOARD) &&
+		(ipq_fdt_board_specific_skip(SECURE_SYS_UPGRADE)))
+			return;
 
 	/* Reserve only the TZ and SMEM memory region and free the rest */
 #ifdef LINUX_RSVD_MEM_DTS_NODE

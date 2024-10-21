@@ -119,3 +119,5 @@ extern uint32_t g_load_addr;
 #endif
 #define CONFIG_BOOTDELAY			2
 #endif
+
+#define CFG_NC_RESERVATION
