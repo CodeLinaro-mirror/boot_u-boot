@@ -331,6 +331,10 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_FUSE;
 		desc.cmd = QCOM_TZ_BLOW_FUSE_SECDAT_CMD;
 		break;
+	case SCM_FUSE_IPQ_UIE_KEY:
+		desc.svc = QCOM_SCM_SVC_FUSE;
+		desc.cmd = QCOM_AUTH_FUSE_UIE_KEY_CMD;
+		break;
 #endif
 	case SCM_CHECK_FEATURE_ID:
 		desc.svc = QCOM_SCM_SVC_INFO;

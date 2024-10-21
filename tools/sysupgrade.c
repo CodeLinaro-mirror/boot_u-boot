@@ -29,6 +29,8 @@
 #define TEMP_KERNEL_PATH	"/tmp/tmp_kernel.bin"
 #define TEMP_ROOTFS_PATH	"/tmp/rootfs_tmp.bin"
 #define TEMP_METADATA_PATH	"/tmp/metadata.bin"
+#define TEMP_BOOTCONF_PATH	"/tmp/bootconfig.bin"
+#define TEMP_BOOTMEM_PATH	"/tmp/bootconfig_members.txt"
 #define TEMP_SHA_KEY_PATH	"/tmp/sha_keyXXXXXX"
 #define ROOTFS_OFFSET		65536
 #define MAX_SBL_VERSION	11
@@ -53,6 +55,7 @@
 #define UBI_EC_HDR_MAGIC  0x55424923
 #define UBI_VID_HDR_MAGIC 0x55424921
 #define NO_OF_PROGRAM_HDRS   3
+#define DO_CRC_BE(x) crc = tab[ ((crc >> 24) ^ (x)) & 255] ^ (crc<<8)
 
 struct image_section sections[] = {
 	{
@@ -1856,6 +1859,76 @@ int sec_image_auth(void)
 	return 0;
 }
 
+/* print_boot_info() to print the values of bootconfig
+ * structure members and store the values in a text file
+ * for sysupgrade process
+*/
+int read_bootinfo(struct flash_dual_boot_info *info)
+{
+	printf("magic: %x\n", info->magic);
+	printf("image_set_status_A: %lu\n", info->image_set_status_A);
+	printf("image_set_status_B: %lu\n", info->image_set_status_B);
+	printf("owner: %lu\n", info->owner);
+	printf("boot_set: %lu\n", info->boot_set);
+	printf("reserved1: %lu\n", info->reserved1);
+	printf("crc: %x\n", info->crc);
+
+	int bfd = open(TEMP_BOOTMEM_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+	if (bfd == -1) {
+		perror("Failed to open bootconfig_members.txt");
+		return 0;
+	}
+
+	char buffer[800];
+	int length = snprintf(buffer, sizeof(buffer),
+				"magic:%x\nowner:%u\nImage-set-status-A:%u\nImage-set-status-B:%u\nBoot-set:%u\nCRC:%x\n",
+				info->magic, info->owner, info->image_set_status_A, info->image_set_status_B, info->boot_set, info->crc);
+
+	if (write(bfd, buffer, length) == -1) {
+		perror("Failed to write to bootconfig_members.txt");
+		close(bfd);
+		return 0;
+	}
+
+	close(bfd);
+	return 1;
+}
+
+/* update_boot_info() to update the values of image_set_status member
+ * based on the boot_set member value for sysupgrade process.
+*/
+int update_bootinfo(struct flash_dual_boot_info *info, uint32_t value)
+{
+	if ((info->boot_set == 0x0) && (info->image_set_status_A != 0x0)) {
+		info->image_set_status_A = value;
+	} else if ((info->boot_set == 0x0) && (info->image_set_status_A == 0x0)) {
+		info->image_set_status_B = value;
+		if ( value == 0x0 ) {
+			info->boot_set = 0x1;
+		}
+	} else if ((info->boot_set == 0x1) && (info->image_set_status_B != 0x0)) {
+		info->image_set_status_B = value;
+	} else if ((info->boot_set == 0x1) && (info->image_set_status_B == 0x0)) {
+		if ( value == 0x0 ) {
+                        info->boot_set = 0x0;
+                }
+		info->image_set_status_A = value;
+	}
+	return 1;
+}
+
+uint32_t crc32_be(uint8_t const *addr, size_t size)
+{
+	uint32_t i, crc = 0;
+	const uint32_t *tab = crc32_table;
+
+	for (i = 0; i < size; ++i) {
+		DO_CRC_BE(*addr++);
+	}
+
+	return crc;
+}
+
 int do_board_upgrade_check(char *img)
 {
 	if (is_tz_authentication_enabled()) {
@@ -1888,5 +1961,140 @@ int do_board_upgrade_check(char *img)
 		}
 	}
 
+	return 0;
+}
+
+/* invalidate_bootconfig() to parse the bootconfig binary extracted and stored
+ * in /tmp directory. This function help to parse the bootconfig structure
+ * print and update the member values
+*/
+int invalidate_bootconfig(int arg)
+{
+	struct flash_dual_boot_info info;
+	int fd = open(TEMP_BOOTCONF_PATH, O_RDWR);
+	if (fd == -1) {
+		perror("Failed to open file");
+		return 1;
+	}
+
+	if (read(fd, &info, sizeof(struct flash_dual_boot_info)) < 0) {
+		perror("Failed to read structure");
+		close(fd);
+		return 1;
+	}
+
+	read_bootinfo(&info);
+
+	//Integrity check for CRC
+	uint32_t crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	if (info.crc == crc_result) {
+		printf(" CRC matched proceeding to upgrade....\n");
+	} else {
+		printf(" CRC does not match, rebooting.....\n");
+		close(fd);
+		return 1;
+	}
+
+	if ( arg == 5 ) {
+		uint32_t value = 0x2;
+		update_bootinfo(&info,value);
+		info.owner = 0x2;
+	} else if ( arg == 4 ) {
+		read_bootinfo(&info);
+	} else {
+		uint32_t value = 0x0;
+		update_bootinfo(&info,value);
+	}
+
+	crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	info.crc = crc_result;
+	read_bootinfo(&info);
+
+	if (lseek(fd, 0, SEEK_SET) == -1) {
+		perror("Failed to seek");
+		close(fd);
+		return 1;
+	}
+
+	if (write(fd, &info, sizeof(struct flash_dual_boot_info)) < 0) {
+		perror("Failed to write bootconfig");
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
+	return 0;
+}
+
+int update_bootconfig(char *member,char *arg)
+{
+	struct flash_dual_boot_info info;
+	int fd = open(TEMP_BOOTCONF_PATH, O_RDWR);
+	if (fd == -1) {
+		perror("Failed to open file");
+		return 1;
+	}
+
+	if (read(fd, &info, sizeof(struct flash_dual_boot_info)) < 0) {
+		perror("Failed to read structure");
+		close(fd);
+		return 1;
+	}
+
+	read_bootinfo(&info);
+
+	//Integrity check for CRC
+	uint32_t crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	if (info.crc == crc_result) {
+		printf(" CRC matched\n");
+	} else {
+		printf(" CRC does not match\n");
+		close(fd);
+		return 1;
+	}
+
+	if (strcmp(member, "magic") == 0) {
+		sscanf(arg, "%x", &info.magic);
+        } else if (strcmp(member, "image_set_status_A") == 0) {
+		int value = atoi(arg);
+		info.image_set_status_A = value;
+	} else if (strcmp(member, "image_set_status_B") == 0) {
+		int value = atoi(arg);
+		info.image_set_status_B = value;
+	} else if (strcmp(member, "owner") == 0) {
+		int value = atoi(arg);
+		info.owner = value;
+	} else if (strcmp(member, "boot_set") == 0) {
+		int value = atoi(arg);
+		info.boot_set = value;
+	} else if (strcmp(member, "reserved1") == 0) {
+		int value = atoi(arg);
+		info.reserved1 = value;
+	} else if (strcmp(member, "crc") == 0) {
+		sscanf(arg, "%x", &info.crc);
+	} else {
+		printf("Member name not found\n");
+		close(fd);
+		return 1;
+	}
+
+	info.owner = 0x2;
+	crc_result = crc32_be(&info, sizeof(info) - sizeof(info.crc));
+	info.crc = crc_result;
+	read_bootinfo(&info);
+
+	if (lseek(fd, 0, SEEK_SET) == -1) {
+		perror("Failed to seek");
+		close(fd);
+		return 1;
+	}
+
+	if (write(fd, &info, sizeof(struct flash_dual_boot_info)) < 0) {
+		perror("Failed to write bootconfig");
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
 	return 0;
 }

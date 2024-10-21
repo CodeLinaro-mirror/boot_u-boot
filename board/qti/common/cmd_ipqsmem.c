@@ -148,8 +148,16 @@ static int do_smeminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 		printf("%3d: " smem_ptn_name_fmt " 0x%08x %#16llx %#16llx\n",
 		       i, p->name, p->attr, ((loff_t)p->start) * bsize, psize);
 #ifdef CONFIG_CMD_UBI
-		if (!strncmp(p->name, ROOT_FS_PART_NAME, SMEM_PTN_NAME_MAX) &&
-			ubi) {
+		if (!strncmp(p->name,
+#ifdef CONFIG_BOOTCONFIG_V2
+				ROOT_FS_PART_NAME,
+#elif CONFIG_BOOTCONFIG_V3
+				(gd->board_type & ACTIVE_BOOT_SET) ?
+				ROOT_FS_ATL_PART_NAME :
+				ROOT_FS_PART_NAME,
+#endif
+				SMEM_PTN_NAME_MAX) &&
+				ubi) {
 			print_ubi_vol_info(ubi);
 			print_ubi = true;
 		}

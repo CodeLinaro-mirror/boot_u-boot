@@ -71,6 +71,13 @@ typedef struct {
 #endif
 /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
+#ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
+
+#define TEMP_COMPRESS_BUF_NAME			"EBICS0.BIN.gz"
+#define TEMP_COMPRESS_BUF_SZ			SZ_16M
+
+#endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
+
 #ifdef CONFIG_IPQ_MINIDUMP
 
 #define	CPU_DUMP_NAME_PREFIX			"CPU_INFO"
@@ -80,15 +87,11 @@ typedef struct {
 #define	WLAN_MOD_DUMP_NAME_PREFIX		"WLAN_MOD"
 
 #define CFG_QTI_KERN_WDT_ADDR			*((unsigned int *)0x08600658)
-#define CFG_CPU_CONTEXT_DUMP_SIZE		4096
 
 #define QTI_WDT_SCM_TLV_TYPE_SIZE		1
 #define QTI_WDT_SCM_TLV_LEN_SIZE		2
 #define QTI_WDT_SCM_TLV_TYPE_LEN_SIZE		(QTI_WDT_SCM_TLV_TYPE_SIZE +\
 						QTI_WDT_SCM_TLV_LEN_SIZE)
-#define TME_CTXT_SIZE				(300 * 1024)
-#define TLV_BUF_OFFSET				(500 * 1024) - TME_CTXT_SIZE
-#define CFG_TLV_DUMP_SIZE			(12 * 1024)
 
 typedef struct {
 	uint8_t *msg_buf;
@@ -131,6 +134,11 @@ typedef struct {
 	char *tftp_serverip;
 	char *tftp_dumpdir;
 
+#ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
+	uint64_t comp_out_addr;
+	uint64_t comp_out_size;
+#endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
+
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
 	uint8_t usb_dev_idx;
 	uint8_t usb_part_idx;
@@ -162,6 +170,10 @@ typedef struct {
 #endif
 /* CONFIG_IPQ_CRASHDUMP_TO_MEMORY (or) CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	char emmc_part_dev[5];
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 } crashdump_interface_cfg_t;
 
 typedef struct {
@@ -174,6 +186,7 @@ typedef struct {
 	crashdump_infos_t *dump_infos;
 	uint8_t nos_dumps;
 	uint16_t actual_nos_dumps;
+	uint64_t ram_top;
 } crashdump_config_t;
 
 static LIST_HEAD(actual_dumps_list);
@@ -532,6 +545,11 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 		dump_config->dump_to = DUMP_TO_FLASH;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	if (env_get("dump_to_emmc"))
+		dump_config->dump_to = DUMP_TO_EMMC;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 	dump_config->force_collect_dump =
 		env_get("force_collect_dump") ? 1 : 0;
 
@@ -758,6 +776,21 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	case DUMP_TO_EMMC:
+		if (dump_config->dump_level != FULLDUMP) {
+			printf("Only Fulldump is supported in dump_to_emmc\n");
+			ret = CMD_RET_FAILURE;
+		}
+
+		if (!dump_config->is_compress_enabled) {
+			printf("Only Compressed full dump allowed "
+					"in dump_to_emmc\n");
+			ret = CMD_RET_FAILURE;
+		}
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 	default:
 		ret = CMD_RET_FAILURE;
 		break;
@@ -819,7 +852,6 @@ static int find_usb_dev_for_crashdump(uint8_t *dev_idx, uint8_t *part_idx)
 static int verify_crashdump_iface(crashdump_config_t * dump_config)
 {
 	int ret = CMD_RET_SUCCESS;
-	uint64_t etime;
 	char runcmd[50] = {0};
 	uint8_t ping_status = 0;
 
@@ -835,6 +867,12 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 		ret = find_usb_dev_for_crashdump(
 				&dump_config->iface_cfg.usb_dev_idx,
 				&dump_config->iface_cfg.usb_part_idx);
+		if (ret) {
+			printf("No USB dev partition available for "
+					"dump collection\n");
+			ret = CMD_RET_FAILURE;
+			break;
+		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
 
@@ -889,10 +927,10 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 
 	case DUMP_TO_TFTP:
 		printf("Trying to ping server.....\n");
+		uint8_t retry = 3;
 		snprintf(runcmd, sizeof(runcmd), "ping %s",
 				dump_config->iface_cfg.tftp_serverip);
-		etime = get_timer(0) + (10 * CONFIG_SYS_HZ);
-		while (get_timer(0) <= etime) {
+		while (retry--) {
 			if (run_command(runcmd, 0) == CMD_RET_SUCCESS) {
 				ping_status = 1;
 				break;
@@ -917,6 +955,38 @@ static int verify_crashdump_iface(crashdump_config_t * dump_config)
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	case DUMP_TO_EMMC:
+		char *tmp = env_get("dump_to_emmc");
+		struct disk_partition disk_info;
+		int part_idx = 0;
+		struct blk_desc *blk_dev = blk_get_devnum_by_uclass_id(
+							UCLASS_MMC, 0);
+		if (!blk_dev) {
+			printf("No EMMC Device \n");
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		if (!tmp) {
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		part_idx = part_get_info_by_name(blk_dev, tmp, &disk_info);
+		if (part_idx < 0) {
+			printf(" %s Partition not found, ret %d !!!\n",
+					tmp, ret);
+			ret = CMD_RET_FAILURE;
+			break;
+		}
+
+		snprintf(dump_config->iface_cfg.emmc_part_dev,
+				sizeof(dump_config->iface_cfg.emmc_part_dev),
+				"0:%x", part_idx);
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
 
 	default:
 		ret = CMD_RET_FAILURE;
@@ -1708,7 +1778,7 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 	crashdump_interface_cfg_t *iface_cfg = &dump_config->iface_cfg;
 
 	if (dump_entry->is_aligned_access) {
-		long unsigned int aligned_addr = (gd->ram_top -
+		long unsigned int aligned_addr = (dump_config->ram_top -
 				roundup(dump_entry->size, ARCH_DMA_MINALIGN));
 		memcpy((void*)aligned_addr,
 				(void*)(uintptr_t)dump_entry->start_addr,
@@ -1718,22 +1788,94 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 
 #ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
 	if (dump_entry->compression_support) {
-		long unsigned int compress_out_sz = ((dump_entry->size > SZ_1M)
-				? dump_entry->size : SZ_1M);
-		long unsigned int compress_out_addr = gd->ram_top -
-			compress_out_sz;
+		phys_addr_t compressed_out_sz;
+
+		if ((dump_entry->start_addr + dump_entry->size) ==
+				dump_config->ram_top)
+		{
+			iface_cfg->comp_out_addr = dump_entry->start_addr
+				- TEMP_COMPRESS_BUF_SZ;
+			iface_cfg->comp_out_size = dump_entry->size;
+
+			printf("Backing up temporary compress buffer\n");
+			switch (dump_config->dump_to) {
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
+			case DUMP_TO_USB:
+				snprintf(runcmd, sizeof(runcmd),
+					"fatwrite usb %x:%x 0x%llx %s 0x%x",
+					iface_cfg->usb_dev_idx,
+					iface_cfg->usb_part_idx,
+					iface_cfg->comp_out_addr,
+					TEMP_COMPRESS_BUF_NAME,
+					TEMP_COMPRESS_BUF_SZ);
+				break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
+
+			case DUMP_TO_TFTP:
+				snprintf(runcmd, sizeof(runcmd),
+					"tftpput 0x%llx 0x%x %s/%s",
+					iface_cfg->comp_out_addr,
+					TEMP_COMPRESS_BUF_SZ,
+					iface_cfg->tftp_dumpdir,
+					TEMP_COMPRESS_BUF_NAME);
+				break;
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+			case DUMP_TO_EMMC:
+				loff_t len;
+
+				if (fs_set_blk_dev("mmc",
+						iface_cfg->emmc_part_dev,
+						FS_TYPE_EXT))
+				{
+					printf("failed to set block device "
+							"to mmc\n");
+					return CMD_RET_FAILURE;
+				}
+
+				if (fs_write("/EBICS0.BIN.gz",
+						iface_cfg->comp_out_addr,
+						0, SZ_16M, &len) < 0)
+				{
+					printf("failed to write temp "
+							"compress buffer\n");
+					return CMD_RET_FAILURE;
+				}
+
+				printf("temp compress buffer written of size "
+						"%llu bytes\n", len);
+				break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
+			default:
+				break;
+			}
+
+			if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+				return CMD_RET_FAILURE;
+		}
+
+		if ((iface_cfg->comp_out_addr == 0) ||
+				(iface_cfg->comp_out_size == 0)) {
+			printf("No temporary compression out buffer \n");
+			return CMD_RET_FAILURE;
+		}
 
 		printf("Compressing %s... ", dump_entry->name);
 		if (!strncmp(dump_entry->name, "EBICS0.BIN",
 					strlen("EBICS0.BIN"))) {
-			memcpy((void*)compress_out_addr, (void*)
-					(uintptr_t)dump_entry->start_addr,
+			memcpy((void*)(uintptr_t)iface_cfg->comp_out_addr,
+				(void*)(uintptr_t)dump_entry->start_addr,
 					dump_entry->size);
-			dump_entry->start_addr = compress_out_addr;
+			dump_entry->start_addr = iface_cfg->comp_out_addr;
+			iface_cfg->comp_out_addr = dump_entry->start_addr
+				- TEMP_COMPRESS_BUF_SZ;
+			iface_cfg->comp_out_size = dump_entry->size;
 		}
 
-		if (gzip((void *)(uintptr_t) compress_out_addr,
-				&compress_out_sz,
+		compressed_out_sz = iface_cfg->comp_out_size;
+		if (gzip((void *)(uintptr_t) iface_cfg->comp_out_addr,
+				(void*)(uintptr_t) &compressed_out_sz,
 				(void*)(uintptr_t) dump_entry->start_addr,
 				dump_entry->size) != 0) {
 			printf("failed\n");
@@ -1741,8 +1883,8 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 		}
 		printf("done!!\n");
 
-		dump_entry->start_addr = compress_out_addr;
-		dump_entry->size = compress_out_sz;
+		dump_entry->start_addr = iface_cfg->comp_out_addr;
+		dump_entry->size = compressed_out_sz;
 		snprintf(dump_entry->name, DUMP_NAME_STR_MAX_LEN,
 				"%s.gz", dump_entry->name);
 	}
@@ -1841,12 +1983,111 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 		}
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+	case DUMP_TO_EMMC:
+		loff_t len;
+		int ret;
+		char abs_file_path[DUMP_NAME_STR_MAX_LEN+1];
+		snprintf(abs_file_path, DUMP_NAME_STR_MAX_LEN+1, "/%s",
+				dump_entry->name);
+
+		if (fs_set_blk_dev("mmc", iface_cfg->emmc_part_dev,
+					FS_TYPE_EXT)) {
+			printf("failed to set block device to mmc\n");
+			return CMD_RET_FAILURE;
+		}
+
+		printf("Writing %s into MMC \n", dump_entry->name);
+		ret = fs_write(abs_file_path, dump_entry->start_addr, 0,
+					dump_entry->size, &len);
+		if (ret < 0) {
+			printf("failed to write %s file, error : %d\n",
+					dump_entry->name, ret);
+			return CMD_RET_FAILURE;
+		}
+
+		printf("%s written of size %llu bytes\n",
+				dump_entry->name, len);
+		break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
 	}
 
 	if (runcmd[0] != 0) {
 		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
 			return CMD_RET_FAILURE;
 	}
+
+#ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
+	if (dump_entry->compression_support) {
+		if (iface_cfg->comp_out_addr == dump_entry->start_addr)
+		{
+			iface_cfg->comp_out_addr += TEMP_COMPRESS_BUF_SZ;
+
+			if (strncmp(dump_entry->name, "EBICS0.BIN",
+						strlen("EBICS0.BIN")))
+			{
+				printf("Load back temporary compress buffer\n");
+				switch (dump_config->dump_to) {
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_USB
+				case DUMP_TO_USB:
+					snprintf(runcmd, sizeof(runcmd),
+						"fatload usb %x:%x 0x%llx %s",
+						iface_cfg->usb_dev_idx,
+						iface_cfg->usb_part_idx,
+						dump_entry->start_addr,
+						TEMP_COMPRESS_BUF_NAME);
+					break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_USB */
+
+				case DUMP_TO_TFTP:
+					snprintf(runcmd, sizeof(runcmd),
+						"tftpboot 0x%llx %s/%s",
+						dump_entry->start_addr,
+						iface_cfg->tftp_dumpdir,
+						TEMP_COMPRESS_BUF_NAME);
+					break;
+
+#ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
+				case DUMP_TO_EMMC:
+					loff_t len;
+
+					if (fs_set_blk_dev("mmc",
+						iface_cfg->emmc_part_dev,
+						FS_TYPE_EXT))
+					{
+						printf("failed to set block "
+							"device to mmc\n");
+						return CMD_RET_FAILURE;
+					}
+
+
+					if (fs_read("/EBICS0.BIN.gz",
+						dump_entry->start_addr,
+						0, 0, &len) < 0)
+					{
+						printf("failed to load temp "
+							"compress buffer\n");
+						return CMD_RET_FAILURE;
+					}
+
+					printf("temp compress buffer loaded "
+							"of size %llu bytes\n",
+							len);
+					break;
+#endif /* CONFIG_IPQ_CRASHDUMP_TO_EMMC */
+
+				default:
+					break;
+				}
+
+				if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
+					return CMD_RET_FAILURE;
+			}
+		}
+	}
+#endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
 
 	return CMD_RET_SUCCESS;
 }
@@ -2032,6 +2273,8 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 	bool skip_crashdump = 1;
 
 	dump_config->debug = debug;
+	dump_config->ram_top = ((gd->ram_top & BIT(0)) ? (gd->ram_top + 1) :
+					gd->ram_top);
 	parse_crashdump_config(dump_config);
 	if (!dump_config->force_collect_dump) {
 		etime = get_timer(0) + (10 * CONFIG_SYS_HZ);
@@ -2108,9 +2351,16 @@ void reset_crashdump(int reset_version)
 			cookie |= CRASHDUMP_RESET;
 
 		cookie &= DLOAD_DISABLE;
+#ifdef CONFIG_FAILSAFE
+		cookie &= MARK_UBOOT_MILESTONE;
+#endif
 	}
 
-	if(cookie & CRASHDUMP_RESET)
+	if(cookie & CRASHDUMP_RESET
+#ifdef CONFIG_FAILSAFE
+		|| cookie & MARK_UBOOT_MILESTONE
+#endif
+		)
 	{
 		do {
 			ret = -ENOTSUPP;
@@ -2134,17 +2384,38 @@ void reset_crashdump(int reset_version)
 int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
 {
+#if defined(WDT)
+	struct udevice *dev;
+#endif
+
+#ifdef CONFIG_FAILSAFE
+	if((SMEM_BOOT_NO_FLASH != (gd->board_type & FLASH_TYPE_MASK)) &&
+			set_uboot_milestone()) {
+		printf("Faile to set uboot milestone\n");
+	}
+#endif
 	if (ipq_iscrashed()) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+		ipq_board_gpio_config(SDX_POWER_CYCLE);
+#endif
+
 		ulong debug = env_get_ulong("debug", 10, 0);
 		if ((debug != DBG_DISABLE) && (debug != DBG_CRASHDUMP))
 			debug = 0;
 
+#if defined(WDT)
+	if (uclass_find_device_by_seq(UCLASS_WDT, 0, &dev) == 0)
+		wdt_stop(dev);
+#endif
 		printf("Crashdump magic found, "
 				"initializing dump activity..\n");
 		ipq_dump_func(&dump_config, debug);
 	}
 
 	if (ipq_iscrashed_crashdump_disabled()) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+		ipq_board_gpio_config(SDX_POWER_CYCLE);
+#endif
 		printf("Crashdump disabled, resetting the board..\n");
 		run_command("reset", 0);
 	}

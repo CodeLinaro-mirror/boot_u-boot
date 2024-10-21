@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 
 	params.cmdname = *argv;
 
-	while ((opt = getopt(argc, argv, "c:hlo:T:p:V")) != -1) {
+	while ((opt = getopt(argc, argv, "b:c:hlo:T:p:V")) != -1) {
 		switch (opt) {
 		case 'l':
 			params.lflag = 1;
@@ -102,8 +102,19 @@ int main(int argc, char **argv)
 		case 'V':
 			printf("dumpimage version %s\n", PLAIN_VERSION);
 			exit(EXIT_SUCCESS);
+#ifdef CONFIG_SYSUPGRADE_HELPER
 		case 'c':
 			return do_board_upgrade_check(optarg);
+		case 'b':
+			if (argc > 4) {
+				fprintf(stderr, "Invalid arguments for -b option\n");
+				exit(EXIT_FAILURE);
+			} else if (optind < argc && argv[optind] != NULL) {
+				return update_bootconfig(argv[optind - 1], argv[optind]);
+			} else {
+				return invalidate_bootconfig(atoi(optarg));
+			}
+#endif
 		case 'h':
 		default:
 			usage();
@@ -219,6 +230,10 @@ static void usage(void)
 		params.cmdname);
 	fprintf(stderr,
 		"       %s -V ==> print version information and exit\n",
+		params.cmdname);
+	fprintf(stderr,
+		"       %s -b ==> To update bootconfig entries\n"
+		"          Usage: -b [member-name] [value]\n",
 		params.cmdname);
 	fprintf(stderr,
 		"       %s -c image\n"

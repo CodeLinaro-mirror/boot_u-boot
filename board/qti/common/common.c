@@ -65,6 +65,10 @@ int mmc_send_status(struct mmc *mmc, unsigned int *status);
 int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value);
 #endif
 
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+extern void ipq_board_power_cycle_sdx(void);
+#endif
+
 struct udevice *smem;
 struct spi_flash *flash = NULL;
 
@@ -152,6 +156,8 @@ long long ubi_get_volume_size(char *volume)
 			return vol->used_bytes;
 	}
 
+	watchdog_reset();
+
 	printf("Volume %s not found!\n", volume);
 	return -ENODEV;
 }
@@ -176,6 +182,8 @@ bool is_secure_boot_v1(void)
 		return false;
 	}
 
+	watchdog_reset();
+
 	do {
 		ret = -ENOTSUPP;
 		IPQ_SCM_SECURE_BOOT(param, (uintptr_t)buff, sizeof(uint8_t));
@@ -196,6 +204,8 @@ bool is_secure_boot_v1(void)
 
 	if(buff)
 		free(buff);
+
+	watchdog_reset();
 
 	return status;
 }
@@ -221,6 +231,8 @@ bool is_secure_boot_v2(void)
 		return false;
 
 	memset(fuse, 0, sizeof(struct fuse_payload));
+
+	watchdog_reset();
 
 	fuse[0].fuse_addr = QFPROM_CORR_TME_OEM_ATE_ROW0_LSB;
 
@@ -251,6 +263,9 @@ bool is_secure_boot_v2(void)
 
 	if(fuse)
 		free(fuse);
+
+	watchdog_reset();
+
 	return status;
 }
 
@@ -300,6 +315,8 @@ int mmc_send_wp_set_clr(struct mmc *mmc, unsigned int start,
 			return err;
 	}
 
+	watchdog_reset();
+
 	return 0;
 }
 
@@ -347,6 +364,8 @@ int mmc_write_protect(struct mmc *mmc, unsigned int start_blk,
 
 	err = mmc_send_wp_set_clr(mmc, start_blk, cnt_blk, set_clr);
 
+	watchdog_reset();
+
 	return err;
 }
 
@@ -384,6 +403,8 @@ static int do_mmc_protect (struct cmd_tbl *cmdtp, int flag,
 	if (!ret)
 		printf("Offset: 0x%x Count: %d blocks\nDone!\n", blk, cnt);
 
+	watchdog_reset();
+
 	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
 }
 
@@ -394,7 +415,7 @@ U_BOOT_CMD(
 );
 #endif
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
 static int qti_invoke_psci_fn_smc
 		(unsigned long function_id, unsigned long arg0,
 		 unsigned long arg1, unsigned long arg2)
@@ -404,28 +425,35 @@ static int qti_invoke_psci_fn_smc
 	return res.a0;
 }
 
-int is_secondary_core_off(unsigned int cpuid)
+int is_secondary_core_off(unsigned long cpuid)
 {
 	return qti_invoke_psci_fn_smc(PSCI_0_2_FN_AFFINITY_INFO, cpuid, 0, 0);
 }
 
-void bring_secondary_core_down(unsigned int state)
+void bring_secondary_core_down(unsigned long state)
 {
 	qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_OFF, state, 0, 0);
 }
 
-int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
-				unsigned int arg)
+int bring_secondary_core_up(unsigned long cpuid, unsigned long entry,
+				unsigned long arg)
 {
 	int ret;
-	ret = qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, cpuid, entry, arg);
+	unsigned long mpidr_cpuid = 0;
+#if defined (BASE_CPU_64BIT_BOOTUP)
+	mpidr_cpuid = cpuid << 8;
+#else
+	mpidr_cpuid = cpuid;
+#endif
+	ret = qti_invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, mpidr_cpuid, entry,
+					arg);
 	if (ret) {
-		printf("Enabling CPU%d via psci failed! (ret : %d)\n",
+		printf("Enabling CPU%ld via psci failed! (ret : %d)\n",
 								cpuid, ret);
 		return CMD_RET_FAILURE;
 	}
 
-	printf("Enabled CPU%d via psci successfully!\n", cpuid);
+	printf("Enabled CPU%ld via psci successfully!\n", cpuid);
 	return CMD_RET_SUCCESS;
 }
 #endif
@@ -446,6 +474,8 @@ struct spi_flash *ipq_spi_probe(void)
 				CONFIG_SF_DEFAULT_SPEED,
 				CONFIG_SF_DEFAULT_MODE);
 #endif
+	watchdog_reset();
+
 	return flash;
 }
 #endif
@@ -471,6 +501,8 @@ uint64_t smem_get_flash_size(uint8_t flash_type)
 		break;
 	};
 
+	watchdog_reset();
+
 	return flash_size;
 }
 
@@ -495,6 +527,8 @@ bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize)
 	}
 
 exit:
+	watchdog_reset();
+
 	return ret;
 }
 /*
@@ -541,10 +575,14 @@ int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size)
 		*size = psize;
 		break;
 		}
+
+		watchdog_reset();
 	}
 
 	if (i == ptable->len)
 		return -ENOENT;
+
+	watchdog_reset();
 
 	return 0;
 }
@@ -567,6 +605,8 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 	} else
 		return NULL;
 
+	watchdog_reset();
+
 	if(*pp_gpt_pte)
 #ifdef UPDATE_GPT_RUNTIME
 		free(*pp_gpt_pte);
@@ -587,6 +627,8 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 		else
 			*pp_gpt_pte = NULL;
 	}
+
+	watchdog_reset();
 
 	if(ret || !(*pp_gpt_pte))
 		return NULL;
@@ -618,6 +660,8 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 		return -ENODEV;
 	}
 
+	watchdog_reset();
+
 #ifdef CONFIG_EFI_PARTITION
 	if((dev->part_type == PART_TYPE_UNKNOWN) && (id == UCLASS_MMC))
 		dev->part_type = PART_TYPE_EFI;
@@ -630,6 +674,9 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 		if (env_get("verbose"))
 			printf(" %s Partition not found, ret %d !!!\n",
 				blkpart->name, ret);
+
+		watchdog_reset();
+
 		return -ENODEV;
 	}
 
@@ -647,6 +694,9 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 #else
 	blkpart->isnand = 0;
 #endif
+
+	watchdog_reset();
+
 	return 0;
 }
 #endif
@@ -685,6 +735,8 @@ void update_nand_training_partition(ipq_smem_flash_info_t *sfi)
 			part->size = part_size;
 		}
 	}
+
+	watchdog_reset();
 }
 
 
@@ -702,6 +754,8 @@ int ipq_get_training_part_info(uint32_t *offset, uint32_t *size)
 		*offset = part->offset;
 		*size = part->size;
 	}
+
+	watchdog_reset();
 
 	return 0;
 }
@@ -753,17 +807,24 @@ void get_kernel_fs_part_details(int flash_type)
 	blkpart_info_t  bpart_info;
 #endif
 	ipq_smem_flash_info_t *smem = get_ipq_smem_flash_info();
+	int active_part = (gd->board_type & ACTIVE_BOOT_SET) ? 1: 0;
 
 	struct { char *name; ipq_part_entry_t *part; } entries[] = {
-		{ "0:HLOS", &smem->hlos },
-		{ "rootfs", &smem->rootfs },
+		{ active_part == 1 ? "0:HLOS_1" : "0:HLOS", &smem->hlos },
+		{ active_part == 1 ? "rootfs_1" : "rootfs", &smem->rootfs },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
 		part = entries[i].part;
 #if defined(CONFIG_NOR_BLK)
 		if (flash_type == SMEM_BOOT_NORGPT_FLASH) {
-			if (!strncmp(entries[i].name, "0:HLOS", 6))
+#if CONFIG_BOOTCONFIG_V3
+		if (!strncmp(entries[i].name,
+			active_part ? "0:HLOS_1" : "0:HLOS",
+			active_part ? 8 :6))
+#else
+		if (!strncmp(entries[i].name, "0:HLOS", 6)
+#endif
 				continue;
 
 			BLK_PART_GET_INFO_S(bpart_info, entries[i].name,
@@ -796,6 +857,8 @@ void get_kernel_fs_part_details(int flash_type)
 				part->size = ((loff_t)size) * bsize;
 			}
 		}
+
+		watchdog_reset();
 	}
 
 	return;
@@ -852,6 +915,8 @@ int smem_getpart(char *part_name, uint32_t *start, uint32_t *size)
 		*size = p->size;
 	}
 
+	watchdog_reset();
+
 	return 0;
 }
 
@@ -906,6 +971,8 @@ int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size)
 		}
 	}
 
+	watchdog_reset();
+
 	return -ENOENT;
 }
 
@@ -918,6 +985,8 @@ int init_ubi_part(void)
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	struct ubi_device *ubi = ubi_get_device(0);
 	char env_strings[64];
+
+	watchdog_reset();
 
 	if(ubi == NULL) {
 		offset = sfi->rootfs.offset;
@@ -974,7 +1043,8 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 	int i, rdatacnt = 0, buf_cur_pos = 0;
 #endif
 #endif
-	 memset(&part, 0, sizeof(ipq_part_entry_t));
+
+	memset(&part, 0, sizeof(ipq_part_entry_t));
 
 	if ((sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) &&
 		((fl_type == SMEM_BOOT_QSPI_NAND_FLASH) ||
@@ -984,6 +1054,8 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 	} else {
 		flash_type = fl_type;
 	}
+
+	watchdog_reset();
 
 	switch(flash_type) {
 	case SMEM_BOOT_NAND_FLASH:
@@ -1103,6 +1175,9 @@ int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 		ret = -ENXIO;
 		break;
 	}
+
+	watchdog_reset();
+
 #ifdef CONFIG_IPQ_SPI_NOR
 	if ((flash_type == SMEM_BOOT_SPI_FLASH) ||
 		(flash_type == SMEM_BOOT_NORGPT_FLASH)) {
@@ -1136,5 +1211,297 @@ exit:
 		mmc_blk = NULL;
 	}
 #endif
+
+	watchdog_reset();
+
 	return ret;
 }
+
+int get_rootfs_active_partition(ipq_smem_flash_info_t *sfi)
+{
+	ipq_smem_bootconfig_info_t *binfo = NULL;
+	int ret = 0;
+
+	if (sfi != NULL)
+		binfo = sfi->ipq_smem_bootconfig_info;
+
+	if (binfo == NULL)
+		return 0;
+
+#ifdef CONFIG_BOOTCONFIG_V2
+	for (int i = 0; i < binfo->numaltpart; i++) {
+		if (strncmp("rootfs", binfo->per_part_entry[i].name,
+			CONFIG_RAM_PART_NAME_LENGTH) == 0) {
+
+			ret = binfo->per_part_entry[i].primaryboot;
+		}
+	}
+#elif CONFIG_BOOTCONFIG_V3
+	uint32_t *image_set_status_A = &(binfo->image_set_status_A);
+	uint32_t *image_set_status_B = &(binfo->image_set_status_B);
+	uint32_t *boot_set = &(binfo->boot_set);
+
+	if (BOOT_SET_A == *boot_set) {
+		if((DONT_USE_SET == *image_set_status_A) ||
+				((SET_PARTIAL_USABLE == *image_set_status_A) &&
+				 (SET_USABLE == *image_set_status_B))) {
+			printf("Booting [SET B]\n");
+			ret = BOOT_SET_B;
+		} else if((SET_USABLE == *image_set_status_A) ||
+				((SET_PARTIAL_USABLE == *image_set_status_A) &&
+				 (SET_USABLE != *image_set_status_B))) {
+			ret = BOOT_SET_A;
+			printf("Booting [SET A]\n");
+		} else {
+			ret = *boot_set;
+			printf("Booting [SET %s]\n", ret ? "B" : "A");
+		}
+	} else if (BOOT_SET_B == *boot_set) {
+		if((DONT_USE_SET == *image_set_status_B) ||
+				((SET_PARTIAL_USABLE == *image_set_status_B) &&
+				 (SET_USABLE == *image_set_status_A))) {
+			ret = BOOT_SET_A;
+			printf("Booting [SET A]\n");
+		} else if((SET_USABLE == *image_set_status_B) ||
+				((SET_PARTIAL_USABLE == *image_set_status_B) &&
+				 (SET_USABLE != *image_set_status_A))) {
+			ret = BOOT_SET_B;
+			printf("Booting [SET B]\n");
+		} else {
+			ret = *boot_set;
+			printf("Booting [SET %s]\n", ret ? "B" : "A");
+		}
+	}
+
+	if (*image_set_status_A && *image_set_status_B) {
+		if (sfi->edl_mode & EDL_RECOVERY_MODE)
+			set_edl_mode();
+		return ret;
+	}
+
+	if((BOOT_SET_A == ret) && (SET_USABLE != *image_set_status_A)) {
+		if (sfi->edl_mode & EDL_RECOVERY_MODE)
+			set_edl_mode();
+	}
+
+	if((BOOT_SET_B == ret) && (SET_USABLE != *image_set_status_B)) {
+		if (sfi->edl_mode & EDL_RECOVERY_MODE)
+			set_edl_mode();
+	}
+
+
+#endif
+
+	return ret;
+}
+
+uint32_t cal_bootconf_crc(ipq_smem_bootconfig_info_t *binfo)
+{
+	uint32_t size = 0, crc = 0;
+
+#ifdef CONFIG_BOOTCONFIG_V3
+	size = sizeof(ipq_smem_bootconfig_info_t) - sizeof(binfo->crc);
+#else
+	size = sizeof(ipq_smem_bootconfig_info_t) - sizeof(binfo->magic_end);
+#endif
+
+#ifdef CONFIG_CRC32_BE
+	crc = crc32_be((const unsigned char *)(uintptr_t)binfo, size);
+#endif
+	if (env_get("verbose"))
+		printf("Calculated Bootconfig CRC = 0x%x\n", crc);
+
+	return crc;
+}
+
+uint8_t is_valid_bootconfig(ipq_smem_bootconfig_info_t *binfo)
+{
+#ifdef CONFIG_BOOTCONFIG_V2
+	if (IS_ERR_OR_NULL(binfo) ||
+		((binfo->magic_start != _SMEM_DUAL_BOOTINFO_MAGIC_START) &&
+		(binfo->magic_start !=
+			_SMEM_DUAL_BOOTINFO_MAGIC_START_TRY_MODE)) ||
+		(binfo->magic_end != _SMEM_DUAL_BOOTINFO_MAGIC_END)) {
+
+		return 0;
+	}
+#elif CONFIG_BOOTCONFIG_V3
+	if (IS_ERR_OR_NULL(binfo) || (!binfo->crc) ||
+		(cal_bootconf_crc(binfo) != binfo->crc)) {
+
+		return 0;
+	}
+#endif
+	return 1;
+}
+
+#ifdef CONFIG_CRC32_BE
+#define DO_CRC_BE(x) crc = tab[ ((crc >> 24) ^ (x)) & 255] ^ (crc<<8)
+
+static const u32 crc32table_be[] = {
+	(0x00000000L), (0x04c11db7L), (0x09823b6eL), (0x0d4326d9L),
+	(0x130476dcL), (0x17c56b6bL), (0x1a864db2L), (0x1e475005L),
+	(0x2608edb8L), (0x22c9f00fL), (0x2f8ad6d6L), (0x2b4bcb61L),
+	(0x350c9b64L), (0x31cd86d3L), (0x3c8ea00aL), (0x384fbdbdL),
+	(0x4c11db70L), (0x48d0c6c7L), (0x4593e01eL), (0x4152fda9L),
+	(0x5f15adacL), (0x5bd4b01bL), (0x569796c2L), (0x52568b75L),
+	(0x6a1936c8L), (0x6ed82b7fL), (0x639b0da6L), (0x675a1011L),
+	(0x791d4014L), (0x7ddc5da3L), (0x709f7b7aL), (0x745e66cdL),
+	(0x9823b6e0L), (0x9ce2ab57L), (0x91a18d8eL), (0x95609039L),
+	(0x8b27c03cL), (0x8fe6dd8bL), (0x82a5fb52L), (0x8664e6e5L),
+	(0xbe2b5b58L), (0xbaea46efL), (0xb7a96036L), (0xb3687d81L),
+	(0xad2f2d84L), (0xa9ee3033L), (0xa4ad16eaL), (0xa06c0b5dL),
+	(0xd4326d90L), (0xd0f37027L), (0xddb056feL), (0xd9714b49L),
+	(0xc7361b4cL), (0xc3f706fbL), (0xceb42022L), (0xca753d95L),
+	(0xf23a8028L), (0xf6fb9d9fL), (0xfbb8bb46L), (0xff79a6f1L),
+	(0xe13ef6f4L), (0xe5ffeb43L), (0xe8bccd9aL), (0xec7dd02dL),
+	(0x34867077L), (0x30476dc0L), (0x3d044b19L), (0x39c556aeL),
+	(0x278206abL), (0x23431b1cL), (0x2e003dc5L), (0x2ac12072L),
+	(0x128e9dcfL), (0x164f8078L), (0x1b0ca6a1L), (0x1fcdbb16L),
+	(0x018aeb13L), (0x054bf6a4L), (0x0808d07dL), (0x0cc9cdcaL),
+	(0x7897ab07L), (0x7c56b6b0L), (0x71159069L), (0x75d48ddeL),
+	(0x6b93dddbL), (0x6f52c06cL), (0x6211e6b5L), (0x66d0fb02L),
+	(0x5e9f46bfL), (0x5a5e5b08L), (0x571d7dd1L), (0x53dc6066L),
+	(0x4d9b3063L), (0x495a2dd4L), (0x44190b0dL), (0x40d816baL),
+	(0xaca5c697L), (0xa864db20L), (0xa527fdf9L), (0xa1e6e04eL),
+	(0xbfa1b04bL), (0xbb60adfcL), (0xb6238b25L), (0xb2e29692L),
+	(0x8aad2b2fL), (0x8e6c3698L), (0x832f1041L), (0x87ee0df6L),
+	(0x99a95df3L), (0x9d684044L), (0x902b669dL), (0x94ea7b2aL),
+	(0xe0b41de7L), (0xe4750050L), (0xe9362689L), (0xedf73b3eL),
+	(0xf3b06b3bL), (0xf771768cL), (0xfa325055L), (0xfef34de2L),
+	(0xc6bcf05fL), (0xc27dede8L), (0xcf3ecb31L), (0xcbffd686L),
+	(0xd5b88683L), (0xd1799b34L), (0xdc3abdedL), (0xd8fba05aL),
+	(0x690ce0eeL), (0x6dcdfd59L), (0x608edb80L), (0x644fc637L),
+	(0x7a089632L), (0x7ec98b85L), (0x738aad5cL), (0x774bb0ebL),
+	(0x4f040d56L), (0x4bc510e1L), (0x46863638L), (0x42472b8fL),
+	(0x5c007b8aL), (0x58c1663dL), (0x558240e4L), (0x51435d53L),
+	(0x251d3b9eL), (0x21dc2629L), (0x2c9f00f0L), (0x285e1d47L),
+	(0x36194d42L), (0x32d850f5L), (0x3f9b762cL), (0x3b5a6b9bL),
+	(0x0315d626L), (0x07d4cb91L), (0x0a97ed48L), (0x0e56f0ffL),
+	(0x1011a0faL), (0x14d0bd4dL), (0x19939b94L), (0x1d528623L),
+	(0xf12f560eL), (0xf5ee4bb9L), (0xf8ad6d60L), (0xfc6c70d7L),
+	(0xe22b20d2L), (0xe6ea3d65L), (0xeba91bbcL), (0xef68060bL),
+	(0xd727bbb6L), (0xd3e6a601L), (0xdea580d8L), (0xda649d6fL),
+	(0xc423cd6aL), (0xc0e2d0ddL), (0xcda1f604L), (0xc960ebb3L),
+	(0xbd3e8d7eL), (0xb9ff90c9L), (0xb4bcb610L), (0xb07daba7L),
+	(0xae3afba2L), (0xaafbe615L), (0xa7b8c0ccL), (0xa379dd7bL),
+	(0x9b3660c6L), (0x9ff77d71L), (0x92b45ba8L), (0x9675461fL),
+	(0x8832161aL), (0x8cf30badL), (0x81b02d74L), (0x857130c3L),
+	(0x5d8a9099L), (0x594b8d2eL), (0x5408abf7L), (0x50c9b640L),
+	(0x4e8ee645L), (0x4a4ffbf2L), (0x470cdd2bL), (0x43cdc09cL),
+	(0x7b827d21L), (0x7f436096L), (0x7200464fL), (0x76c15bf8L),
+	(0x68860bfdL), (0x6c47164aL), (0x61043093L), (0x65c52d24L),
+	(0x119b4be9L), (0x155a565eL), (0x18197087L), (0x1cd86d30L),
+	(0x029f3d35L), (0x065e2082L), (0x0b1d065bL), (0x0fdc1becL),
+	(0x3793a651L), (0x3352bbe6L), (0x3e119d3fL), (0x3ad08088L),
+	(0x2497d08dL), (0x2056cd3aL), (0x2d15ebe3L), (0x29d4f654L),
+	(0xc5a92679L), (0xc1683bceL), (0xcc2b1d17L), (0xc8ea00a0L),
+	(0xd6ad50a5L), (0xd26c4d12L), (0xdf2f6bcbL), (0xdbee767cL),
+	(0xe3a1cbc1L), (0xe760d676L), (0xea23f0afL), (0xeee2ed18L),
+	(0xf0a5bd1dL), (0xf464a0aaL), (0xf9278673L), (0xfde69bc4L),
+	(0x89b8fd09L), (0x8d79e0beL), (0x803ac667L), (0x84fbdbd0L),
+	(0x9abc8bd5L), (0x9e7d9662L), (0x933eb0bbL), (0x97ffad0cL),
+	(0xafb010b1L), (0xab710d06L), (0xa6322bdfL), (0xa2f33668L),
+	(0xbcb4666dL), (0xb8757bdaL), (0xb5365d03L), (0xb1f740b4L)
+};
+
+uint32_t crc32_be(uint8_t const *addr, phys_size_t size) {
+
+	uint32_t i, crc = 0;
+	const uint32_t *tab = crc32table_be;
+
+	for (i = 0; i < size; ++i) {
+		DO_CRC_BE(*addr++);
+	}
+
+	return crc;
+}
+#endif
+
+#ifdef CONFIG_FAILSAFE
+int set_uboot_milestone(void) {
+
+	int ret = -1;
+	scm_param param;
+	unsigned int cookie = ipq_read_tcsr_boot_misc();
+
+	cookie &= MARK_UBOOT_MILESTONE;
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG,
+					cookie);
+		ret = ipq_scm_call(&param);
+
+		if (ret) {
+			printf("Error in TCSR_BOOT_MISC_REG write\n");
+			return ret;
+		}
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+	}
+
+	return ret;
+}
+
+void set_edl_mode(void) {
+
+	int ret = -1;
+	scm_param param;
+	unsigned int cookie = ipq_read_tcsr_boot_misc();
+
+	cookie = ENABLE_EDL_MODE;
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG,
+					cookie);
+		ret = ipq_scm_call(&param);
+
+		if (ret) {
+			printf("Error in TCSR_BOOT_MISC_REG write\n");
+			return;
+		}
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+	}
+
+	if(!ret) {
+		printf("Entering EDL Mode\n");
+		run_command("reset", 0);
+	}
+}
+#endif
+
+#ifdef CONFIG_GPIO_CONFIG
+/*
+ * NOP driver: only for GPIO configuration
+ */
+static const struct udevice_id gpio_ids[] = {
+	{ .compatible = "gpio, config", },
+	{ }
+};
+
+U_BOOT_DRIVER(gpio) = {
+	.name		= "gpio",
+	.id		= UCLASS_NOP,
+	.of_match	= gpio_ids,
+};
+
+void ipq_board_gpio_config(int type)
+{
+	switch(type) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+	case SDX_POWER_CYCLE:
+		ipq_board_power_cycle_sdx();
+		break;
+#endif
+	default:
+		break;
+	}
+}
+#endif

@@ -21,6 +21,8 @@
 
 #include <asm/io.h>
 #include <linux/delay.h>
+#include <asm-generic/gpio.h>
+#include <dm.h>
 
 #define CMN_BLK_ADDR			0x0009B780
 #define FREQUENCY_MASK			0xfffffdf0
@@ -450,7 +452,7 @@ bool is_atf_enbled(void)
 				param.get_ret = true;
 
 				ret = ipq_scm_call(&param);
-				if(ret == 0 && (param.res.result[0] & 0x08))
+				if(ret == 0 && (param.res.result[0] & 0x80))
 					atf_status = ATF_STATE_ENABLED;
 			} while (0);
 
@@ -472,3 +474,39 @@ bool is_atf_enbled(void)
 
 	return atf_status == ATF_STATE_ENABLED;
 }
+
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+void ipq_board_power_cycle_sdx(void)
+{
+	/*
+	 * sdx reset during crashdump path
+	 */
+	struct udevice *dev;
+	struct gpio_desc pwr_gpio;
+	struct gpio_desc rst_gpio;
+	struct gpio_desc e911_gpio;
+
+	uclass_get_device_by_driver(UCLASS_NOP, DM_DRIVER_GET(gpio), &dev);
+
+	if (dev == NULL)
+		return;
+
+	gpio_request_by_name_nodev(dev_ofnode(dev), "power_gpio", 0,
+					&pwr_gpio, GPIOD_IS_OUT);
+
+	gpio_request_by_name_nodev(dev_ofnode(dev), "reset_gpio", 0,
+					&rst_gpio, GPIOD_IS_OUT);
+
+	gpio_request_by_name_nodev(dev_ofnode(dev), "e911_gpio", 0,
+					&e911_gpio, GPIOD_IS_IN);
+
+	if (!dm_gpio_get_value(&e911_gpio))
+		return;
+
+	dm_gpio_set_value(&pwr_gpio, 1);
+	dm_gpio_set_value(&rst_gpio, 1);
+	mdelay(100);
+	dm_gpio_set_value(&pwr_gpio, 0);
+	dm_gpio_set_value(&rst_gpio, 0);
+}
+#endif

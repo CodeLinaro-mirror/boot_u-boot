@@ -60,9 +60,13 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5332_RDP483, "ipq5332-rdp483"},
 	{ MACH_TYPE_IPQ5332_RDP484, "ipq5332-rdp484"},
 	{ MACH_TYPE_IPQ5332_RDP486, "ipq5332-rdp442"},
+	{ MACH_TYPE_IPQ5332_RDP477_256M, "ipq5332-rdp477-256m"},
+	{ MACH_TYPE_IPQ5332_RDP478_256M, "ipq5332-rdp478-256m"},
 	{ MACH_TYPE_IPQ5332_DB_MI01_1, "ipq5332-db-mi01.1"},
 	{ MACH_TYPE_IPQ5332_DB_MI02_1, "ipq5332-db-mi02.1"},
 	{ MACH_TYPE_IPQ5332_DB_MI03_1, "ipq5332-db-mi03.1"},
+	{ MACH_TYPE_IPQ5332_TB_MI03_1, "ipq5332-tb-mi03.1"},
+	{ MACH_TYPE_IPQ5332_TB_MI05_1, "ipq5332-tb-mi05.1"},
 };
 
 int machid_dts_nos = ARRAY_SIZE(machid_dts);
@@ -192,7 +196,7 @@ void lowlevel_init(void)
 	return;
 }
 
-int board_get_smem_target_info(void)
+int board_get_smem_target_info(ipq_smem_target_info_t *smem_tinfo_ptr)
 {
 	uint32_t tcsr_wonce0_val;
 	uint32_t tcsr_wonce1_val;
@@ -274,8 +278,7 @@ int board_get_smem_target_info(void)
 	tcsr_wonce1_val = readl(TCSR_TZ_WONCE1);
 #endif
 
-	ipq_smem_target_info_t *ipq_smem_target_info_ptr, *smem_tinfo_ptr =
-		get_ipq_smem_target_info();
+	ipq_smem_target_info_t *ipq_smem_target_info_ptr;
 
 	ipq_smem_target_info_addr = tcsr_wonce0_val |
 		(((uint64_t)(tcsr_wonce1_val)) << 32);
@@ -362,12 +365,11 @@ int ipq_read_tcsr_boot_misc(void)
 void ipq_fdt_fixup_smem(void *blob)
 {
 	uint32_t reg[4];
-	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+	ipq_smem_target_info_t ipq_smem_target_info;
+	ipq_smem_target_info_t *smem_tinfo_ptr = &ipq_smem_target_info;
 
-	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
-		if (board_get_smem_target_info())
-			return;
-	}
+	if (board_get_smem_target_info(&ipq_smem_target_info))
+		return;
 
 	reg[0] = 0;
 	reg[1] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
@@ -381,12 +383,11 @@ void ipq_fdt_fixup_smem(void *blob)
 int ipq_uboot_fdt_fixup_smem(void *blob)
 {
 	uint32_t reg[2];
-	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+	ipq_smem_target_info_t ipq_smem_target_info;
+	ipq_smem_target_info_t *smem_tinfo_ptr = &ipq_smem_target_info;
 
-	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
-		if (board_get_smem_target_info())
-			return -EFAULT;
-	}
+	if (board_get_smem_target_info(&ipq_smem_target_info))
+		return -EFAULT;
 
 	reg[0] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
 	reg[1] = cpu_to_fdt32(smem_tinfo_ptr->smem_size);
@@ -760,7 +761,7 @@ bool is_atf_enbled(void)
 				param.get_ret = true;
 
 				ret = ipq_scm_call(&param);
-				if(ret == 0 && (param.res.result[0] & 0x08))
+				if((ret == 0) && (param.res.result[0] & 0x80))
 					atf_status = ATF_STATE_ENABLED;
 			} while (0);
 

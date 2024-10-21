@@ -29,6 +29,13 @@
 #define ipq_scm_call(...)		-ENODATA
 #endif
 
+#if defined(CONFIG_WDT) && defined(CONFIG_WDT_QTI)
+#include <watchdog.h>
+#define watchdog_reset()	schedule()
+#else
+#define watchdog_reset()
+#endif
+
 #ifndef IPQ_NAND_FLASH_VALID_BIT
 #define IPQ_NAND_FLASH_VALID_BIT	3
 #endif
@@ -893,7 +900,9 @@ int smem_ram_ptable_init_v2(
  * BIT(9)	- ATF_SUPPORT
  * BIT(10)	- Kernel Authentication Status
  * BIT(11)	- Rootfs Authentication Status
- * BIT(12 - 31)	- Reserved
+ * BIT(12)	- Active boot set identifier
+ * BIT(13)	- Invalid boot set identifier
+ * BIT(14 - 31)	- Reserved
  */
 
 
@@ -901,6 +910,8 @@ int smem_ram_ptable_init_v2(
 #define ATF_ENABLED			BIT(9)
 #define KERNEL_AUTH_SUCCESS		BIT(10)
 #define ROOTFS_AUTH_SUCCESS		BIT(11)
+#define ACTIVE_BOOT_SET			BIT(12)
+#define INVALID_BOOT			BIT(13)
 #define FLASH_TYPE_MASK			0xFF
 
 enum {
@@ -987,6 +998,7 @@ struct per_part_info
 	uint32_t primaryboot;
 };
 
+#ifdef CONFIG_BOOTCONFIG_V2
 typedef struct
 {
 #define _SMEM_DUAL_BOOTINFO_MAGIC_START				0xA3A2A1A0
@@ -1005,6 +1017,20 @@ typedef struct
 	uint32_t magic_end;
 
 } ipq_smem_bootconfig_info_t;
+#elif CONFIG_BOOTCONFIG_V3
+
+typedef struct __attribute__((packed))
+{
+#define  _SMEM_DUAL_BOOTINFO_MAGIC_START		0x72637279
+	uint32_t magic_start;   /* Magic number for identification when reading from flash */
+	uint32_t image_set_status_A; /* Represents the health status of the Bank A*/
+	uint32_t image_set_status_B; /* Represents the health status of the Bank B*/
+	uint32_t owner;  /* Indicates which component updated the health status of a Bank */
+	uint32_t boot_set;    /* Indicates the current active Bank*/
+	uint32_t reserved;
+	uint32_t crc;  /* CRC field for fields above */
+} ipq_smem_bootconfig_info_t;
+#endif
 
 #if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
 typedef struct {
@@ -1021,6 +1047,9 @@ typedef struct {
 	uint32_t		flash_density;
 	uint32_t		flash_secondary_type;
 	uint32_t		primary_mibib;
+#ifdef CONFIG_BOOTCONFIG_V3
+	uint32_t		edl_mode;
+#endif
 	ipq_part_entry_t	hlos;
 	ipq_part_entry_t	rootfs;
 	ipq_part_entry_t	dtb;
@@ -1124,11 +1153,16 @@ enum {
 	DUMP_TO_MEM,
 	DUMP_TO_NVMEM,
 	DUMP_TO_FLASH,
+	DUMP_TO_EMMC,
 };
 
 enum {
 	RESET_V1 = 1,
 	RESET_V2,
+};
+
+enum {
+	SDX_POWER_CYCLE	= 0,		/* Power cycle the SDX in crash path */
 };
 
 typedef struct {
@@ -1245,12 +1279,17 @@ typedef struct {
 
 #define NO_MASK						(0xFFFFFFFF)
 
+#ifdef CONFIG_SYS_MAXARGS
+#define MAX_BOOT_ARGS_SIZE	CONFIG_SYS_MAXARGS
+#elif
+#define MAX_BOOT_ARGS_SIZE	64
+#endif
+
 /*
  * Function declaration
  */
 unsigned int get_which_flash_param(char *part_name);
 int get_current_board_flash_config(int flash_type);
-ipq_smem_target_info_t * get_ipq_smem_target_info(void);
 ipq_smem_flash_info_t * get_ipq_smem_flash_info(void);
 socinfo_t * get_socinfo(void);
 uint32_t get_part_block_size(struct smem_ptn *p, ipq_smem_flash_info_t *sfi);
@@ -1258,7 +1297,7 @@ void *smem_get_item(unsigned int item);
 struct smem_ptable * get_ipq_part_table_info(void);
 int getpart_offset_size(char *part_name, uint32_t *offset, uint32_t *size);
 int smem_getpart_from_offset(uint32_t offset, uint32_t *start, uint32_t *size);
-unsigned int get_rootfs_active_partition(void);
+int get_rootfs_active_partition(ipq_smem_flash_info_t *sfi);
 int mibib_ptable_init(unsigned int* addr);
 void get_kernel_fs_part_details(int flash_type);
 void parse_fdt_fixup(char* buf, void *blob);
@@ -1287,10 +1326,10 @@ int ipq_get_training_part_info(uint32_t *offset, uint32_t *size);
 #endif
 int get_partition_data(char *part_name, uint32_t offset, uint8_t* buf,
 			size_t size, uint32_t fl_type);
-int bring_secondary_core_up(unsigned int cpuid, unsigned int entry,
-				unsigned int arg);
-void bring_secondary_core_down(unsigned int state);
-int is_secondary_core_off(unsigned int cpuid);
+int bring_secondary_core_up(unsigned long cpuid, unsigned long entry,
+				unsigned long arg);
+void bring_secondary_core_down(unsigned long state);
+int is_secondary_core_off(unsigned long cpuid);
 uint64_t smem_get_flash_size(uint8_t flash_type);
 bool is_smem_part_exceed_flash_size(struct smem_ptn *p, uint64_t psize);
 struct spi_flash *ipq_spi_probe(void);
@@ -1303,5 +1342,18 @@ int execute_dprv2(struct cmd_tbl *cmdtp, int flag, int argc,
 #elif CONFIG_DPR_VER_3_0
 int execute_dprv3(struct cmd_tbl *cmdtp, int flag, int argc,
 							char *const argv[]);
+#endif
+uint32_t cal_bootconf_crc(ipq_smem_bootconfig_info_t *binfo);
+uint32_t crc32_be(uint8_t const *addr, phys_size_t size);
+uint8_t is_valid_bootconfig(ipq_smem_bootconfig_info_t *binfo);
+int read_bootconfig(void);
+int ipq_read_tcsr_boot_misc(void);
+#ifdef CONFIG_FAILSAFE
+int set_uboot_milestone(void);
+void set_edl_mode(void);
+#endif
+
+#ifdef CONFIG_GPIO_CONFIG
+void ipq_board_gpio_config(int type);
 #endif
 #endif

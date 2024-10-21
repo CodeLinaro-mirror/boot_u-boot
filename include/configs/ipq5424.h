@@ -96,6 +96,7 @@ extern uint32_t g_env_offset;
 #define IPQ5424_DDR_LOWER_SIZE			(CONFIG_TEXT_BASE - \
 							CFG_SYS_SDRAM_BASE)
 #define ROOT_FS_PART_NAME			"rootfs"
+#define ROOT_FS_ATL_PART_NAME			"rootfs_1"
 
 #define CONFIG_ROOTFS_LOAD_ADDR			CFG_SYS_SDRAM_BASE + (32 << 20)
 
@@ -134,9 +135,7 @@ extern uint32_t g_env_offset;
 
 #endif /* ifnot defined CONFIG_ETH_LOW_MEM */
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
-#define CFG_NR_CPUS				4
-#endif
+#define CFG_NR_CPUS	4
 
 #ifdef CONFIG_GPT_UPDATE_PARAMS
 #define DEFAULT_MMC_FLASH_SIZE 0xE90000

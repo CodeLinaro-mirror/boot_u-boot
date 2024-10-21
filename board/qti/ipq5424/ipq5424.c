@@ -54,10 +54,14 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_RDP464, "ipq5424-rdp464"},
 	{ MACH_TYPE_IPQ5424_RDP464_C2, "ipq5424-rdp464-c2"},
 	{ MACH_TYPE_IPQ5424_RDP466, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP466_C2, "ipq5424-rdp466-c2"},
 	{ MACH_TYPE_IPQ5424_RDP485, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP485_C2, "ipq5424-rdp485-c2"},
 	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
 	{ MACH_TYPE_IPQ5424_RDP466_RFFE, "ipq5424-rdp466"},
+	{ MACH_TYPE_IPQ5424_RDP466_RFFE_C2, "ipq5424-rdp466-c2"},
 	{ MACH_TYPE_IPQ5424_RDP485_RFFE, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP485_RFFE_C2, "ipq5424-rdp485-c2"},
 	{ MACH_TYPE_IPQ5424_DB_MR01_1, "ipq5424-db-mr01.1"},
 };
 
@@ -107,6 +111,56 @@ static crashdump_infos_t dumpinfo_n[] = {
 		.split_bin_sz = 0,
 		.is_aligned_access = false,
 		.compression_support = false
+	},
+	{
+		.name = "CPU_INFO.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = true
+	},
+	{
+		.name = "UNAME.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = true
+	},
+	{
+		.name = "DMESG.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false
+	},
+	{
+		.name = "PT.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false
+	},
+	{
+		.name = "WLAN_MOD.BIN",
+		.start_addr = 0x0,
+		.size = 0xBAD0FF5E,
+		.dump_level = MINIDUMP,
+		.split_bin_sz = 0,
+		.is_aligned_access = false,
+		.compression_support = false,
+		.dumptoflash_support = false
 	},
 };
 
@@ -163,13 +217,12 @@ void ipq_config_cmn_clock(void)
 }
 #endif /* CFG_EMULATION */
 
-int board_get_smem_target_info(void)
+int board_get_smem_target_info(ipq_smem_target_info_t *smem_tinfo_ptr)
 {
 	uint32_t tcsr_wonce0_val = readl(TCSR_TZ_WONCE0);
 	uint32_t tcsr_wonce1_val = readl(TCSR_TZ_WONCE1);
 	uint64_t ipq_smem_target_info_addr;
-	ipq_smem_target_info_t *ipq_smem_target_info_ptr, *smem_tinfo_ptr =
-		get_ipq_smem_target_info();
+	ipq_smem_target_info_t *ipq_smem_target_info_ptr;
 
 	ipq_smem_target_info_addr = tcsr_wonce0_val |
 		(((uint64_t)(tcsr_wonce1_val)) << 32);
@@ -192,12 +245,11 @@ int board_get_smem_target_info(void)
 void ipq_fdt_fixup_smem(void *blob)
 {
 	uint32_t reg[4];
-	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+	ipq_smem_target_info_t ipq_smem_target_info;
+	ipq_smem_target_info_t *smem_tinfo_ptr = &ipq_smem_target_info;
 
-	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
-		if (board_get_smem_target_info())
-			return;
-	}
+	if (board_get_smem_target_info(&ipq_smem_target_info))
+		return;
 
 	reg[0] = 0;
 	reg[1] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
@@ -211,12 +263,11 @@ void ipq_fdt_fixup_smem(void *blob)
 int ipq_uboot_fdt_fixup_smem(void *blob)
 {
 	uint32_t reg[2];
-	ipq_smem_target_info_t *smem_tinfo_ptr = get_ipq_smem_target_info();
+	ipq_smem_target_info_t ipq_smem_target_info;
+	ipq_smem_target_info_t *smem_tinfo_ptr = &ipq_smem_target_info;
 
-	if (smem_tinfo_ptr->identifier != IPQ_SMEM_TARGET_INFO_IDENTIFIER) {
-		if (board_get_smem_target_info())
-			return -EFAULT;
-	}
+	if (board_get_smem_target_info(&ipq_smem_target_info))
+		return -EFAULT;
 
 	reg[0] = cpu_to_fdt32((uint32_t)smem_tinfo_ptr->smem_base_addr);
 	reg[1] = cpu_to_fdt32(smem_tinfo_ptr->smem_size);
@@ -393,6 +444,12 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 		case MACH_TYPE_IPQ5424_RDP485_RFFE:
 			config_list[config_nos++] = "config-rdp485-rffe";
 			break;
+		case MACH_TYPE_IPQ5424_RDP466_RFFE_C2:
+			config_list[config_nos++] = "config-rdp466-rffe-c2";
+			break;
+		case MACH_TYPE_IPQ5424_RDP485_RFFE_C2:
+			config_list[config_nos++] = "config-rdp485-rffe-c2";
+			break;
 	}
 
 	if (config_nos) {
@@ -461,3 +518,35 @@ void board_early_clock_enable(void) {
 		GCC_BASE + GCC_IM_SLEEP_CBCR);
 }
 #endif
+
+int read_bootconfig(void)
+{
+	int ret = 0;
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	sfi->ipq_smem_bootconfig_info =
+		(ipq_smem_bootconfig_info_t *)malloc(
+				sizeof(ipq_smem_bootconfig_info_t));
+
+	if(sfi->ipq_smem_bootconfig_info == NULL) {
+		printf("No Enough Memory\n");
+		return 1;
+	}
+
+	ret = get_partition_data("0:BOOTCONFIG", 0,
+			( uint8_t*)sfi->ipq_smem_bootconfig_info,
+			sizeof(ipq_smem_bootconfig_info_t), sfi->flash_type);
+
+	if (ret < 0)
+		return !!ret;
+
+	if(!is_valid_bootconfig(sfi->ipq_smem_bootconfig_info)) {
+		printf("Invalid Bootconfig\n");
+		sfi->ipq_smem_bootconfig_info = NULL;
+		ret = 0;
+	} else {
+		ret = 0;
+	}
+
+	return ret;
+}

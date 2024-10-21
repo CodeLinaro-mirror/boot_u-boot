@@ -44,20 +44,28 @@
 #define ELF_HDR_PLUS_PHDR_SIZE	sizeof(Elf32_Ehdr) + \
 		(NO_OF_PROGRAM_HDRS * sizeof(Elf32_Phdr))
 
-#ifdef CONFIG_SYS_MAXARGS
-#define MAX_BOOT_ARGS_SIZE	CONFIG_SYS_MAXARGS
-#elif
-#define MAX_BOOT_ARGS_SIZE	64
-#endif
-
 #define FIT_BOOTARGS_PROP	"append-bootargs"
 
 #define PRIMARY_PARTITION	1
 #define SECONDARY_PARTITION	2
 
-#ifndef IPQ_NAND_BOOTARGS
-#define IPQ_NAND_BOOTARGS	"ubi.mtd=rootfs root=mtd:ubi_rootfs "	\
+#ifndef IPQ_NAND_BOOTARGS_PRI
+#define IPQ_NAND_BOOTARGS_PRI	"ubi.mtd=rootfs root=mtd:ubi_rootfs "	\
 				"rootfstype=squashfs"
+#endif
+
+#ifndef IPQ_NAND_BOOTARGS_ALT
+#define IPQ_NAND_BOOTARGS_ALT	"ubi.mtd=rootfs_1 root=mtd:ubi_rootfs "	\
+				"rootfstype=squashfs"
+#endif
+#define _ACTIVE_BOOT_FIND	(gd->board_type & ACTIVE_BOOT_SET)? 1:0
+#define GET_ACTIVE_PORT ((gd->board_type & INVALID_BOOT)?	\
+			-1 : _ACTIVE_BOOT_FIND)
+
+#ifdef CONFIG_FAILSAFE
+#define __BUG()				return CMD_RET_FAILURE
+#else
+#define __BUG()				BUG()
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -136,29 +144,11 @@ static struct mmc *__init_mmc_dev(int dev, bool force_init,
 	struct blk_desc *bd = mmc_get_blk_desc(mmc);
 	blkcache_invalidate(bd->uclass_id, bd->devnum);
 #endif
+	watchdog_reset();
 
 	return mmc;
 }
 #endif
-
-unsigned int get_rootfs_active_partition(void)
-{
-	int i;
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-
-	if (!sfi->ipq_smem_bootconfig_info)
-		return 0;
-
-	for (i = 0; i < sfi->ipq_smem_bootconfig_info->numaltpart; i++) {
-		if (strncmp("rootfs",
-			sfi->ipq_smem_bootconfig_info->per_part_entry[i].name,
-			     CONFIG_RAM_PART_NAME_LENGTH) == 0)
-			return sfi->ipq_smem_bootconfig_info->		\
-						per_part_entry[i].primaryboot;
-	}
-
-	return 0; /* alt partition not available */
-}
 
 #ifdef CONFIG_MMC
 int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
@@ -319,13 +309,13 @@ int set_bootargs(void)
 {
 	char *cmd_line, *strings = env_get("bootargs");
 	int ret = CMD_RET_SUCCESS;
+	int active_part = GET_ACTIVE_PORT;
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 #endif
 #ifdef CONFIG_MMC
 	bool gpt_flag = true;
 	char runcmd[MAX_BOOT_ARGS_SIZE];
-	int active_part = get_rootfs_active_partition();
 	uint8_t	flash_type = gd->board_type & FLASH_TYPE_MASK;
 
 	if(flash_type  == SMEM_BOOT_MMC_FLASH)
@@ -333,15 +323,24 @@ int set_bootargs(void)
 	else if( flash_type ==  SMEM_BOOT_NORPLUSEMMC)
 		gpt_flag = false;
 
-	if (active_part)
+	if (active_part == 1)
 		ret  = set_mmc_bootargs(runcmd, "rootfs_1",
 				MAX_BOOT_ARGS_SIZE, gpt_flag);
-	else
+	else if (!active_part)
 		ret  = set_mmc_bootargs(runcmd, "rootfs",
 				MAX_BOOT_ARGS_SIZE, gpt_flag );
+	else
+		return -EBADFD;
+
 #elif CONFIG_IPQ_NAND
 	if (env_get("fsbootargs") == NULL)
-		ret = env_set("fsbootargs", IPQ_NAND_BOOTARGS);
+#ifdef CONFIG_BOOTCONFIG_V3
+		ret = env_set("fsbootargs", active_part == 1 ?
+			IPQ_NAND_BOOTARGS_ALT : IPQ_NAND_BOOTARGS_PRI);
+#else
+		ret = env_set("fsbootargs", active_part ?
+			IPQ_NAND_BOOTARGS_PRI : IPQ_NAND_BOOTARGS_PRI);
+#endif
 #endif
 	if (ret)
 		return ret;
@@ -426,8 +425,7 @@ static int boot_mmc(void)
 	struct mmc *mmc;
 	uint32_t blk, cnt, n;
 	void *addr;
-	int active_part = get_rootfs_active_partition();
-
+	int active_part = GET_ACTIVE_PORT;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	blkpart_info_t  bpart_info;
 
@@ -446,11 +444,12 @@ static int boot_mmc(void)
 	if (!mmc)
 		return CMD_RET_FAILURE;
 
-	if ((sfi->ipq_smem_bootconfig_info != NULL) && (active_part)) {
+	if ((sfi->ipq_smem_bootconfig_info != NULL) && (1 == active_part)) {
 		bpart_info.name = "0:HLOS_1";
-	} else {
+	} else if (0 == active_part) {
 		bpart_info.name = "0:HLOS";
-	}
+	} else
+		return -EBADFD;
 
 	if(boot_info.debug)
 		printf("[debug]Reading %s\n", bpart_info.name);
@@ -545,7 +544,7 @@ static int boot_nand(void)
 	boot_info.size = ubi_get_volume_size("kernel");
 
 	if(boot_info.size < 0)
-		BUG();
+		__BUG();
 
 	ret = ubi_volume_read("kernel", (char *)boot_info.load_address, 0);
 	if(ret)
@@ -723,7 +722,7 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 	uint32_t blk, cnt, n;
 	void *addr;
 	struct disk_partition disk_info;
-	unsigned int active_part = get_rootfs_active_partition();
+	int active_part = GET_ACTIVE_PORT;
 	blkpart_info_t  bpart_info;
 
 	BLK_PART_GET_INFO_S(bpart_info, NULL, &disk_info, SMEM_BOOT_MMC_FLASH);
@@ -757,11 +756,12 @@ static int copy_rootfs(uint32_t request, uint32_t size)
 			return CMD_RET_FAILURE;
 
 		if (sfi->ipq_smem_bootconfig_info != NULL) {
-			if (active_part) {
+			if (1 == active_part) {
 				bpart_info.name = "rootfs_1";
-			} else {
+			} else if (0 == active_part ){
 				bpart_info.name = "rootfs";
-						}
+			} else
+				return -EBADFD;
 		} else {
 			bpart_info.name = "rootfs";
 		}
@@ -874,20 +874,21 @@ static int authenticate_rootfs(uintptr_t kernel_addr,
 
 static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 {
-	int ret = -1, len;
+	int ret = -1;
 	uint32_t request;
 	image_info img_info;
 	auth_cmd_buf rootfs_img_info;
 	scm_param param;
+#ifdef CONFIG_SHA384
 	struct image_region root_data = {0, 0};
+	int len = 0;
 	char hash_buff[SHA384_SUM_LEN] = {0};
-
+#endif
 	if (parse_elf_image_phdr(&img_info, rootfs_hdr))
 		return CMD_RET_FAILURE;
 
 	request = img_info.img_load_addr - img_info.img_offset;
 	rootfs_img_info.addr = request;
-	rootfs_img_info.type = ROOTFS_SEC_AUTH_SW_ID;
 
 	memcpy((void *) (uintptr_t)request, (void *) (uintptr_t)rootfs_hdr,
 			img_info.img_offset);
@@ -896,6 +897,7 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 
 	/* copy rootfs from the boot device */
 	copy_rootfs(request, img_info.img_size);
+#ifdef CONFIG_SHA384
 	root_data.data  = (void *)(uintptr_t)img_info.img_load_addr;
 	root_data.size  = img_info.img_size;
 
@@ -906,10 +908,13 @@ static int authenticate_rootfs_elf(uint32_t rootfs_hdr)
 		printf("hash_calculate failed, ret %d", ret);
 		return CMD_RET_FAILURE;
 	}
+#endif
 
 #if IS_ENABLED(CONFIG_SCM_V1)
+	rootfs_img_info.type = SEC_AUTH_SW_ID;
 	rootfs_img_info.size = img_info.img_offset + img_info.img_size;
 #elif IS_ENABLED(CONFIG_SCM_V2)
+	rootfs_img_info.type = ROOTFS_SEC_AUTH_SW_ID;
 	rootfs_img_info.size = img_info.img_offset - 1;
 #endif
 
@@ -980,8 +985,8 @@ int image_authentication(void)
 	scm_param param;
 	kernel_img_info_t kernel_img_info = {0, 0, 0};
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
-	int active_part = get_rootfs_active_partition();
-	active_part = active_part ? SECONDARY_PARTITION : PRIMARY_PARTITION;
+	int active_part = (gd->board_type & ACTIVE_BOOT_SET)?
+				SECONDARY_PARTITION : PRIMARY_PARTITION;
 #endif
 	int secure_boot = (gd->board_type & SECURE_BOARD) &&
 				!(gd->board_type & ATF_ENABLED);
@@ -1051,7 +1056,7 @@ clear_mem:
 
 	if (ret) {
 		printf("Kernel image authentication failed \n");
-		BUG();
+		__BUG();
 	}
 
 	gd->board_type |= KERNEL_AUTH_SUCCESS;
@@ -1064,7 +1069,7 @@ clear_mem:
 		if (authenticate_rootfs_elf(img_info.img_load_addr +
 			img_info.img_size) != CMD_RET_SUCCESS) {
 			printf("Rootfs elf image authentication failed\n");
-			BUG();
+			__BUG();
 		}
 #else
 		/* Rootfs's header and certificate at end of kernel image,
@@ -1073,7 +1078,7 @@ clear_mem:
 		if (authenticate_rootfs(boot_info.load_address, kernel_img_info)
 			!= CMD_RET_SUCCESS) {
 			printf("Rootfs image authentication failed\n");
-			BUG();
+			__BUG();
 		}
 
 #endif
@@ -1164,6 +1169,25 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	int ret, state;
 	const state_fuc_t *state_sequence_ptr = state_sequence;
+#ifdef CONFIG_FAILSAFE
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+	ipq_smem_bootconfig_info_t *binfo;
+	int active_part = GET_ACTIVE_PORT;
+
+	if (active_part < 0) {
+		printf("INVALID BOOTCONFIG DATA\n");
+		goto reset_board;
+	}
+
+	binfo = sfi->ipq_smem_bootconfig_info;
+
+	if((binfo != NULL) &&
+		(binfo->image_set_status_B && binfo->image_set_status_A)) {
+		printf("Invalid Kernel image on SET A & B\n");
+		return CMD_RET_FAILURE;
+	}
+
+#endif
 
 	if (argc == 2 && strncmp(argv[1], "debug", 5) == 0)
 		boot_info.debug = 1;
@@ -1178,10 +1202,60 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 					*state_sequence_ptr;
 					++state_sequence_ptr, state++)
 	{
+		watchdog_reset();
+
 		ret = (*state_sequence_ptr)();
-		if(ret)
-		{
+		if(ret) {
 			printf("Failed at state %d\n", state);
+#ifdef CONFIG_BOOTCONFIG_V3
+			char runcmd[MAX_BOOT_ARGS_SIZE];
+			ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+			ipq_smem_bootconfig_info_t *binfo;
+			int active_part = GET_ACTIVE_PORT;
+
+			if (active_part < 0) {
+				printf("INVALID BOOTCONFIG DATA\n");
+				goto reset_board;
+			}
+
+			printf("Invalid Kernel image on %s\n", active_part ?
+							"SET B" : "SET A");
+
+			binfo = sfi->ipq_smem_bootconfig_info;
+			if (binfo == NULL)
+				return CMD_RET_FAILURE;
+
+			if (active_part)
+				binfo->image_set_status_B = SET_PARTIAL_USABLE;
+			else
+				binfo->image_set_status_A = SET_PARTIAL_USABLE;
+
+			if (binfo->image_set_status_A  &&
+					binfo->image_set_status_B) {
+				printf("Invalid Kernel image on SET A & B\n");
+			}
+
+			binfo->owner = BC_UBOOT_OWNER;
+
+			binfo->crc = crc32_be((uint8_t const *)binfo,
+					sizeof(ipq_smem_bootconfig_info_t) -
+					sizeof(binfo->crc));
+
+			memcpy((void*)(uintptr_t)boot_info.load_address,
+					binfo,
+					sizeof(ipq_smem_bootconfig_info_t));
+
+			snprintf(runcmd, sizeof(runcmd),
+				"flash 0:BOOTCONFIG 0x%lx 0x%x\n",
+				boot_info.load_address,
+				(uint32_t)(uintptr_t)sizeof(ipq_smem_bootconfig_info_t));
+
+			ret = run_command(runcmd, 0);
+			if(ret)
+				printf("Failed to update 0:BOOTCONFIG\n");
+reset_board:
+			run_command("reset", 0);
+#endif
 			return CMD_RET_FAILURE;
 		}
 	}

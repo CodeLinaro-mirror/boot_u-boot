@@ -3,108 +3,81 @@
 * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
 */
 
-#include "ipq5424-default.dts"
+#include "ipq5332-default.dts"
 
 / {
-	config_name = "config-rdp485";
+	config_name = "config@mi01.3-c4", "config@rdp477-256m", "config-rdp477-256m";
 
-	soc: soc@0 {
+	soc: soc {
 		tlmm: pinctrl@1000000 {
 			mdio_pinmux: mdio {
 				mdc {
-					pins = "GPIO_22";
-					function = "mdc";
+					pins = "GPIO_27";
+					function = "mdc_1";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-disable;
 				};
 
 				mdio {
-					pins = "GPIO_23";
-					function = "mdio";
+					pins = "GPIO_28";
+					function = "mdio_1";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
 			};
 
 			phy_rst_pinmux: phy_rst {
-				qti_laguna1_rst {
-					pins = "GPIO_28";
-					drive-strength = <DRIVE_STRENGTH_8MA>;
-					bias-pull-up;
-				};
-
 				qti_8x8x_rst {
-					pins = "GPIO_18";
+					pins = "GPIO_51";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
 			};
 
-			i2c0_pinmux: i2c0 {
-				i2c0_scl {
-					pins = "GPIO_14";
-					function = "i2c0_scl";
+			blsp1_i2c_pinmux: blsp1_i2c_pins {
+				blsp1_scl {
+					pins = "GPIO_29";
+					function = "blsp1_i2c_scl0";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
 
-				i2c0_sda {
-					pins = "GPIO_15";
-					function = "i2c0_sda";
+				blsp1_sda {
+					pins = "GPIO_30";
+					function = "blsp1_i2c_sda0";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
-					bias-disable;
+					bias-pull-up;
+				};
+			};
+
+			pcie0_x1_pinmux: pci_pins {
+				pci_rst {
+					pins = "GPIO_38";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
 				};
 			};
 		};
 
-		qupv3: geniqup@1ac0000 {
-			se2_i2c0: i2c@1a88000 {
-				pinctrl-0 = <&i2c0_pinmux>;
-				pinctrl-names = "default";
-				status = "okay";
+		blsp1_i2c: i2c@78B6000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&blsp1_i2c_pinmux>;
+			status = "okay";
+		};
+
+		hs_m31phy_0: hs_m31phy@7b000 {
+			status = "okay";
+		};
+
+		usb0: usb@8af8800 {
+			qti,select-utmi-as-pipe-clk;
+			status = "okay";
+
+			dwc3@8a00000 {
+				phys = <&hs_m31phy_0>;
+				phy-names = "usb2-phy";
+				maximum-speed = "high-speed";
 			};
-		};
-
-		qmp_ssphy_0: ssphy@7D000 {
-			status = "okay";
-		};
-
-		qusb2_phy_0: qusb2@7B000 {
-			status = "okay";
-		};
-
-		usb3_0: usb@8af8800 {
-			status = "okay";
-		};
-
-		qusb2_phy_1: qusb2@71000 {
-			status = "okay";
-		};
-
-		usb2_0: usb@1ef8800 {
-			status = "okay";
-		};
-
-		pcie2_phy: phy@f4000 {
-			status = "okay";
-		};
-
-		pcie2: pcie@50000000 {
-			pinctrl-names = "default";
-			pinctrl-0 = <&pcie2_pinmux>;
-			perst_gpio = <&tlmm 31 GPIO_ACTIVE_HIGH>;
-			status = "okay";
-		};
-
-		pcie3_phy: phy@fc000 {
-			status = "okay";
-		};
-
-		pcie3: pcie@40000000 {
-			pinctrl-names = "default";
-			pinctrl-0 = <&pcie3_pinmux>;
-			perst_gpio = <&tlmm 34 GPIO_ACTIVE_HIGH>;
-			status = "okay";
 		};
 
 		mdio: mdio@90000 {
@@ -112,23 +85,13 @@
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 
-			phy1: phy@12 {
-				phy-reset-gpio = <&tlmm 28 0>;
-				reg = <12>;
-				phy_id = <QCA81xx_PHY_TYPE>;
-				id = <2>;
-				uniphy_id = <1>;
-				uniphy_type = <0>;
-				xgmac;
-			};
-
-			phy2: ethernet-switch@1 {
-				phy-reset-gpio = <&tlmm 18 0>;
+			phy0: ethernet-switch@1 {
+				phy-reset-gpio = <&tlmm 51 0>;
 				dev-mode = <0x1>;
 				reg = <1>;
 				phy_id = <QCA8x8x_SWITCH_TYPE>;
-				id = <3>;
-				uniphy_id = <2>;
+				id = <1>;
+				uniphy_id = <0>;
 				uniphy_type = <0>;
 				max_speed = <2500>;
 				force-speed;
@@ -168,13 +131,31 @@
 					};
 				};
 			};
+
+			phy1: phy@ff {
+				reg = <0xFF>;
+				phy_id = <SFP10G_PHY_TYPE>;
+				id = <2>;
+				uniphy_id = <1>;
+				uniphy_type = <0>;
+				max_speed = <10000>;
+				xgmac;
+			};
 		};
 
 		ethernet: nss-switch {
 			pinctrl-names = "default";
 			pinctrl-0 = <&phy_rst_pinmux>;
+			phy-handle0 = <&phy0>;
 			phy-handle1 = <&phy1>;
-			phy-handle2 = <&phy2>;
+			status = "okay";
+		};
+
+		pcie0_x1: pci@20000000 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie0_x1_pinmux>;
+			num-lanes = <1>;
+			perst_gpio = <&tlmm 38 0>;
 			status = "okay";
 		};
 	};

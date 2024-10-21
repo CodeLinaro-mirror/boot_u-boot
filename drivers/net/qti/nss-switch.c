@@ -2965,6 +2965,9 @@ static int ipq_eth_probe(struct udevice *dev)
 							port->phyaddr,
 							PHY_FIXED_ID,
 							true);
+				if (IS_ERR_OR_NULL(port->phydev))
+					continue;
+
 				port->phydev->dev = dev;
 				port->phydev->interface = port->interface;
 		} else {
@@ -3008,6 +3011,18 @@ static int ipq_eth_probe(struct udevice *dev)
 			mdelay(100);
 		}
 #endif
+
+#ifdef CONFIG_PHY_QCA_81XX
+		if (port->phy_id == QCA81xx_PHY_TYPE) {
+			port->uniphy_mode = port->cur_uniphy_mode =
+						PORT_WRAPPER_USXGMII;
+			port->gmac_type = port->cur_gmac_type = XGMAC;
+
+			ppe_uniphy_mode_set(port);
+			ppe_port_mux_set(priv->ppe.base, port);
+		}
+#endif
+
 		ret = phy_config(port->phydev);
 		if (ret < 0)
 			continue;

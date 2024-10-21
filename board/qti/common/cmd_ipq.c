@@ -35,7 +35,7 @@
 
 #include "ipq_board.h"
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
 #include <cli.h>
 #include <console.h>
 
@@ -44,6 +44,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SECONDARY_CORE_STACKSZ	(8 * 1024)
 #define CPU_POWER_DOWN		(1 << 16)
 
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT)
 struct cpu_entry_arg {
 	void *stack_ptr;
 	volatile void *gd_ptr;
@@ -53,13 +54,24 @@ struct cpu_entry_arg {
 	int cmd_result;
 	void *stack_top_ptr;
 };
+#elif defined (CONFIG_IPQ_SMP64_CMD_SUPPORT)
+struct cpu_entry_arg {
+	void *stack_ptr;
+	volatile void *gd_ptr;
+	void *arg_ptr;
+	int64_t  cpu_up;
+	int64_t cmd_complete;
+	int64_t cmd_result;
+	void *stack_top_ptr;
+};
+#endif
 
 extern void secondary_cpu_init(void);
 extern void *global_core_array;
 
 struct cpu_entry_arg core[CFG_NR_CPUS - 1];
 
-#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT */
+#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT || CONFIG_IPQ_SMP64_CMD_SUPPORT */
 
 #define PRINT_BUF_LEN		0x400
 #define MDT_SIZE		0x1B88
@@ -129,6 +141,8 @@ enum {
 #define FUSEPROV_SUCCESS		0x0
 #define FUSEPROV_INVALID_HASH		0x09
 #define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
+#define SEC_IMG_AUTH_FAILURE		0x101
+
 #define MAX_FUSE_ADDR_SIZE		0x8
 
 typedef struct load_seg_info {
@@ -332,8 +346,8 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
-		active_part = get_rootfs_active_partition();
-		active_part = active_part ? ALT_PARTITION : PRI_PARTITION;
+		active_part = gd->board_type & ACTIVE_BOOT_SET?
+					ALT_PARTITION : PRI_PARTITION;
 		do {
 			scm_ret = -ENOTSUPP;
 			IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
@@ -456,6 +470,8 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		goto exit;
 	}
 
+	watchdog_reset();
+
 	fuse_bin_addr = simple_strtoul(argv[1], NULL, 16);
 #ifdef CONFIG_FUSEIPQ_V2
 	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
@@ -493,6 +509,11 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 					meta_data_size, 0x2B,
 					(uintptr_t)load_seg_buff,
 					load_seg_cnt);
+#ifdef CONFIG_FUSEIPQ_V1
+	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
+	if (IS_ELF(*(Elf32_Ehdr *)load_addr))
+		param.type = SCM_FUSE_IPQ_UIE_KEY;
+#endif
 		param.get_ret = true;
 		ret = ipq_scm_call(&param);
 
@@ -501,16 +522,27 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		if (ret)
 			printf("%s: Error in QFPROM write (%d)\n",
 				__func__, ret);
-
-		if (fuse_status == FUSEPROV_SECDAT_LOCK_BLOWN)
-			printf("Fuse already blown\n");
-		else if (fuse_status == FUSEPROV_INVALID_HASH)
-			printf("Invalid sec.dat\n");
-		else if (fuse_status == FUSEPROV_SUCCESS)
-			printf("Fuse Blow Success\n");
-		else
-			printf("Fuse blow failed with err code : 0x%x\n",
-				fuse_status);
+		else {
+			switch (fuse_status) {
+			case FUSEPROV_SUCCESS:
+				printf("Fuse Blow Success\n");
+				break;
+			case FUSEPROV_SECDAT_LOCK_BLOWN:
+				printf("Fuse already blown\n");
+				break;
+			case FUSEPROV_INVALID_HASH:
+				printf("Invalid sec.dat\n");
+				break;
+#ifdef CONFIG_FUSEIPQ_V1
+			case SEC_IMG_AUTH_FAILURE:
+				printf("Image authentication failure\n");
+				break;
+#endif
+			default:
+				printf("Fuse blow failed with err code :"
+					" 0x%x\n", fuse_status);
+			}
+		}
 	} while (0);
 
 	if (ret == -ENOTSUPP) {
@@ -551,6 +583,8 @@ static int do_list_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	memset(fuse, 0, size);
+
+	watchdog_reset();
 
 	for (index = 0; index < fuse_read_cnt ; index++) {
 		if (index < TME_OEM_ATE_FUSE_CNT) {
@@ -767,6 +801,8 @@ static int fuse_qcn9224(const struct pci_device_id *ids, int device_id)
 	 */
 	flush_dcache_all();
 
+	watchdog_reset();
+
 	writel(0, bar0_base + BHI_STATUS);
 	writel(upper_32_bits(load_addr), bar0_base + BHI_IMGADDR_HIGH);
 	writel(lower_32_bits(load_addr), bar0_base + BHI_IMGADDR_LOW);
@@ -977,6 +1013,8 @@ static void list_pci_device(struct udevice *bus)
 				dev_seq(bus),
 				bar0_base & 0xFF000000,
 				PCI_VENDEV(vendor,device));
+
+		watchdog_reset();
 	}
 }
 
@@ -1185,6 +1223,8 @@ do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			goto fail;
 		}
 
+		watchdog_reset();
+
 		img_addr = simple_strtoul(argv[2], NULL, 16);
 		img_size = simple_strtoul(argv[3], NULL, 16);
 
@@ -1206,6 +1246,8 @@ do_tzt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			printf("Unsupported SCM call\n");
 			goto fail;
 		}
+
+		watchdog_reset();
 
 		tzt_loaded = 1;
 		return 0;
@@ -1347,7 +1389,7 @@ U_BOOT_CMD(
 	"uart write - write strings to second UART\n"
 );
 
-#ifdef CONFIG_IPQ_SMP_CMD_SUPPORT
+#if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
 asmlinkage void secondary_core_entry(char *argv, int *cmd_complete,
 					int *cmd_result)
 {
@@ -1431,7 +1473,8 @@ int do_runmulticore(struct cmd_tbl *cmdtp,
 		printf("Scheduling Core %d\n", i);
 		delay = 0;
 		console_silent_enable();
-		ret = bring_secondary_core_up(i, (uint32_t)secondary_cpu_init,
+		ret = bring_secondary_core_up(i,
+				(unsigned long)secondary_cpu_init,
 				(uintptr_t)&core[i - 1]);
 		if (ret) {
 			panic("Some problem to getting core %d up\n", i);
@@ -1507,7 +1550,7 @@ exit:
 U_BOOT_CMD(runmulticore, 4, 0, do_runmulticore,
 	   "Enable and schedule secondary cores",
 	   "runmulticore <\"command to core1\"> [core2 core3 ...]");
-#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT */
+#endif /* CONFIG_IPQ_SMP_CMD_SUPPORT || CONFIG_IPQ_SMP64_CMD_SUPPORT */
 
 #ifdef CONFIG_CMD_AES_256
 enum tz_crypto_service_aes_type_t {
@@ -1649,6 +1692,8 @@ static int do_derive_aes_256_key(struct cmd_tbl *cmdtp, int flag,
 		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
 	}
 
+	watchdog_reset();
+
 	do {
 		ret = -ENOTSUPP;
 		IPQ_SCM_GENERATE_AES_256_KEY(param, (uintptr_t)req_ptr,
@@ -1744,6 +1789,8 @@ static int do_derive_aes_256_max_ctxt_key(struct cmd_tbl *cmdtp, int flag,
 	while (i < context_len) {
 		req_ptr->hw_key_bindings.context[j++] = context_buf[i++];
 	}
+
+	watchdog_reset();
 
 	do {
 		ret = -ENOTSUPP;
@@ -1872,6 +1919,8 @@ do_aes_256(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	req_ptr->iv_len = iv_len;
 	req_ptr->resp_buf = (uint64_t)dst_addr;
 	req_ptr->resp_len = resp_len;
+
+	watchdog_reset();
 
 	do {
 		ret = -ENOTSUPP;
@@ -2023,6 +2072,7 @@ static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
 		ubi_exit();
 	}
 #endif
+	watchdog_reset();
 
 	ret = device_remove(mtd->dev, DM_REMOVE_NORMAL);
 	if (ret)
@@ -2142,3 +2192,19 @@ U_BOOT_CMD(switch_to_user, 1, 0, do_switch_to_user,
 	   "switch to the user partition layout\n",
 	   "- switch to the user partition layout\n");
 #endif
+
+static int do_canary(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	char buffer[10] = {0};
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	strlcpy(buffer, argv[1], strlen(argv[1]));
+
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(canary, 2, 0, do_canary, "Test stack protection\n",
+		"- canary <strings>\n");

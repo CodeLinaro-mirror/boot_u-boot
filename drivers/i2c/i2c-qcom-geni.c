@@ -222,7 +222,7 @@ static void geni_i2c_err_misc(struct geni_i2c_dev *gi2c)
 static int geni_i2c_irq(struct geni_i2c_dev *gi2c)
 {
 	phys_addr_t base = gi2c->base;
-	unsigned long time_left = 0x10;
+	unsigned long time_left = 1000;
 	int j, p;
 	u32 m_stat;
 	u32 rx_st;
@@ -325,7 +325,7 @@ static int geni_i2c_tx_one_msg(struct geni_i2c_dev *gi2c, struct i2c_msg *msg,
 
 	writel(len, gi2c->base + SE_I2C_TX_TRANS_LEN);
 	writel(0, gi2c->base + SE_I2C_RX_TRANS_LEN);
-	
+
 	geni_se_setup_m_cmd(gi2c->base, I2C_WRITE, m_param);
 
 	gi2c->tx_wm = len;
@@ -390,7 +390,7 @@ static int geni_i2c_probe_chip(struct udevice *dev, uint chip_addr,
 	struct i2c_msg msgs;
 	struct geni_i2c_dev *gi2c = dev_get_priv(dev);
 	unsigned long time_left = 0x10;
-	uint32_t m_param = 0; 
+	uint32_t m_param = 0;
 	qcom_geni_i2c_conf(gi2c);
 	msgs.addr = chip_addr;
 	msgs.flags = 0;

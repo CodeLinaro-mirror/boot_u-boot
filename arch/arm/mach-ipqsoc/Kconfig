@@ -30,6 +30,13 @@ config SMEM_VERSION_C
 config SMEM_BASE_ADDR
 	hex "Define memory for shared memory"
 
+config SYSUPGRADE_HELPER
+	bool "Enable sysupgrade tool for user space"
+	default n
+	help
+	  This is not specific to u-boot subsystem
+	  u-boot code is leveraged for user space application
+
 config NUM_ALT_PARTITION
 	int
 	default 16
@@ -142,6 +149,23 @@ config IPQ_TINY
 	imply ETH_LOW_MEM
 	default n
 
+config FAILSAFE
+	bool "Enable failsafe support"
+	default n
+
+config BOOTCONFIG_V2
+	bool "Version 2 bootconfig structure"
+	default n
+
+config BOOTCONFIG_V3
+	bool "Version 3 bootconfig structure"
+	imply FAILSAFE
+	default n
+
+config CRC32_BE
+	bool "crc32 big endian support"
+	default n
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
@@ -157,6 +181,7 @@ config IPQ_DEFAULTS
 	imply IPQ_CRASHDUMP_TO_MEMORY
 	imply IPQ_CRASHDUMP_TO_NVMEMORY
 	imply IPQ_CRASHDUMP_TO_FLASH
+	imply IPQ_CRASHDUMP_TO_EMMC
 	select IPQ_FLUTILS
 	select IPQ_FDT_FIXUP
 	select CMD_XIMG
@@ -170,9 +195,12 @@ config IPQ_DEFAULTS
 	imply VERSION_ROLLBACK_PARTITION_INFO
 	select LZMA
 	imply IPQ_SMP_CMD_SUPPORT
+	imply IPQ_SMP64_CMD_SUPPORT
 	imply CMD_AES_256
 	imply FUSE_IPQ
 	imply LIST_FUSE
+	imply WDT
+	imply WDT_QTI
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -283,6 +311,15 @@ config IPQ_SMP_CMD_SUPPORT
 	depends on ARCH_32BIT_SUPPORT
 	default n
 
+config BASE_CPU_64BIT_BOOTUP
+	bool "Base CPU 64-bit boot up"
+	default n
+
+config IPQ_SMP64_CMD_SUPPORT
+	bool "IPQ SMP64 command support"
+	depends on ARCH_64BIT_SUPPORT
+	default n
+
 config CMD_AES_256
 	bool "AES 256 command support"
 	default n
@@ -295,6 +332,15 @@ config AES_256_DERIVE_KEY
 config GPT_UPDATE_PARAMS
 	bool "Update GPT parameters"
 	depends on IPQ_MMC || NOR_BLK
+	default n
+
+config GPIO_CONFIG
+	bool "NOP driver for pincntrl configuration"
+	default n
+
+config SDX_ATTACH_SUPPORT
+	bool "enable SDX support"
+	imply GPIO_CONFIG
 	default n
 
 choice
@@ -324,6 +370,7 @@ config TARGET_IPQ5332
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V1
+	select BOOTCONFIG_V2
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -359,6 +406,8 @@ config TARGET_IPQ9574
 	select SECURE_AUTH_V1 if IPQ_SECURE && SCM_V1
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	imply LIST_FUSE_V1 if IPQ_SECURE && SCM_V1
+	select BOOTCONFIG_V2
+	imply SDX_ATTACH_SUPPORT
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
@@ -377,6 +426,7 @@ config TARGET_IPQ5424
 	select IPQ_NET
 	select QTI_NSS_SWITCH
 	imply PHY_QTI_8X8X
+	imply PHY_QCA_81XX
 	imply PHY_AQUANTIA
 	imply IPQ_USB
 	imply IPQ_PCIE
@@ -390,6 +440,7 @@ config TARGET_IPQ5424
 	imply IPQ_ELF_AUTH
 	imply DPR_VER_3_0
 	select SCM_V2
+	select BASE_CPU_64BIT_BOOTUP
 	select HASH
 	select SHA384
 	select SECURE_AUTH_V2 if IPQ_SECURE && SCM_V2
@@ -398,6 +449,8 @@ config TARGET_IPQ5424
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V2
 	imply BOARD_EARLY_INIT_R
         imply IPQ_QCN9224_FUSING
+	select BOOTCONFIG_V3
+        imply CRC32_BE
 	help
 	  Support for IPQ5424 SoC.
 

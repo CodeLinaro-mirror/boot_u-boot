@@ -34,6 +34,13 @@ config IPQ_CRASHDUMP_TO_FLASH
 	depends on IPQ_CRASHDUMP && IPQ_MINIDUMP
 	default n
 
+config IPQ_CRASHDUMP_TO_EMMC
+	bool "IPQ Collect Crashdump over EMMC"
+	depends on IPQ_CRASHDUMP && IPQ_COMPRESSED_CRASHDUMP && IPQ_MMC
+	imply CMD_EXT4
+	imply CMD_EXT4_WRITE
+	default n
+
 config IPQ_FLUTILS
 	bool "IPQ Flash Utility support"
 	default n
