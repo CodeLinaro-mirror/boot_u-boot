@@ -137,6 +137,10 @@
 			};
 		};
 
+		watchdog: non-sec@b017000 {
+			status = "okay";
+		};
+
 		nand: nand-controller@79B0000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&qspi_pinmux>;

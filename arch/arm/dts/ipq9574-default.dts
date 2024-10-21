@@ -162,5 +162,9 @@
 			pinctrl-0 = <&sdhci_pinmux>;
 			status = "okay";
 		};
+
+		watchdog: non-sec@b017000 {
+			status = "okay";
+		};
 	};
 };

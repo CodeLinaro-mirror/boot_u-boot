@@ -1163,7 +1163,7 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	int ret, state;
 	const state_fuc_t *state_sequence_ptr = state_sequence;
-#ifdef CONFIG_FAILSAFE
+#ifdef CONFIG_BOOTCONFIG_V3
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	ipq_smem_bootconfig_info_t *binfo;
 	int active_part = GET_ACTIVE_PORT;
@@ -1201,6 +1201,10 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = (*state_sequence_ptr)();
 		if(ret) {
 			printf("Failed at state %d\n", state);
+#if CONFIG_BOOTCONFIG_V2 && CONFIG_WDT
+			if (ipq_wdt_expire())
+				run_command("reset", 0);
+#endif
 #ifdef CONFIG_BOOTCONFIG_V3
 			char runcmd[MAX_BOOT_ARGS_SIZE];
 			ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();

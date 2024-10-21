@@ -64,6 +64,9 @@ typedef enum {
 #define DLOAD_ENABLE				BIT(4)
 #define DLOAD_DISABLE				(~BIT(4))
 #define CRASHDUMP_RESET				BIT(11)
+#define MARK_UBOOT_MILESTONE			BIT(8)
+#define BOOTCONFIG_HEALTH_MASK			BIT(13)
+#define BOOTCONFIG1_HEALTH_MASK			BIT(14)
 
 /* Crashdump minimal configs */
 #define CFG_CPU_CONTEXT_DUMP_SIZE		0x1000

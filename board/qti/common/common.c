@@ -27,6 +27,11 @@
 #include <ubi_uboot.h>
 #endif
 #include <linux/psci.h>
+#ifdef CONFIG_WDT
+#include <dm/device-internal.h>
+#include <wdt.h>
+#include <asm/io.h>
+#endif
 
 #include "ipq_board.h"
 
@@ -1268,18 +1273,18 @@ int get_rootfs_active_partition(ipq_smem_flash_info_t *sfi)
 	else {
 		if (*image_set_status_A && *image_set_status_B) {
 			if (sfi->edl_mode & EDL_RECOVERY_MODE)
-				set_edl_mode();
+				write_tcsr_boot_misc_reg(ENABLE_EDL_MODE , 1);
 			return ret;
 		}
 
 		if((BOOT_SET_A == ret) && (SET_USABLE != *image_set_status_A)) {
 			if (sfi->edl_mode & EDL_RECOVERY_MODE)
-				set_edl_mode();
+				write_tcsr_boot_misc_reg(ENABLE_EDL_MODE , 1);
 		}
 
 		if((BOOT_SET_B == ret) && (SET_USABLE != *image_set_status_B)) {
 			if (sfi->edl_mode & EDL_RECOVERY_MODE)
-				set_edl_mode();
+				write_tcsr_boot_misc_reg(ENABLE_EDL_MODE , 1);
 		}
 	}
 
@@ -1412,64 +1417,36 @@ uint32_t crc32_be(uint8_t const *addr, phys_size_t size) {
 }
 #endif
 
-#ifdef CONFIG_FAILSAFE
-int set_uboot_milestone(void) {
+int write_tcsr_boot_misc_reg(uint32_t mask, uint32_t value) {
 
 	int ret = -1;
 	scm_param param;
 	unsigned int cookie = ipq_read_tcsr_boot_misc();
 
-	cookie &= MARK_UBOOT_MILESTONE;
+	cookie = (cookie & ~mask) | (value & mask);
 
-	do {
-		ret = -ENOTSUPP;
-		IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG,
-					cookie);
-		ret = ipq_scm_call(&param);
+	if (g_recovery_path) {
+		writel(cookie, TCSR_BOOT_MISC_REG);
+	} else {
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG,
+						cookie);
+			ret = ipq_scm_call(&param);
 
-		if (ret) {
-			printf("Error in TCSR_BOOT_MISC_REG write\n");
-			return ret;
+			if (ret) {
+				printf("Error in TCSR_BOOT_MISC_REG write\n");
+				return ret;
+			}
+		} while (0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 		}
-	} while (0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
 	}
 
 	return ret;
 }
-
-void set_edl_mode(void) {
-
-	int ret = -1;
-	scm_param param;
-	unsigned int cookie = ipq_read_tcsr_boot_misc();
-
-	cookie = ENABLE_EDL_MODE;
-
-	do {
-		ret = -ENOTSUPP;
-		IPQ_SCM_IO_WRITE(param, (uintptr_t)TCSR_BOOT_MISC_REG,
-					cookie);
-		ret = ipq_scm_call(&param);
-
-		if (ret) {
-			printf("Error in TCSR_BOOT_MISC_REG write\n");
-			return;
-		}
-	} while (0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
-	}
-
-	if(!ret) {
-		printf("Entering EDL Mode\n");
-		run_command("reset", 0);
-	}
-}
-#endif
 
 #ifdef CONFIG_GPIO_CONFIG
 /*
@@ -1497,5 +1474,21 @@ void ipq_board_gpio_config(int type)
 	default:
 		break;
 	}
+}
+#endif
+
+#ifdef CONFIG_WDT
+int ipq_wdt_expire(void) {
+	int ret = 0;
+	static struct udevice *wdt_dev;
+
+	ret = uclass_get_device_by_seq(UCLASS_WDT, 0, &wdt_dev);
+	if (ret) {
+		printf("WDT disabled\n");
+		return -ENODEV;
+	}
+
+	wdt_expire_now(wdt_dev, 0);
+	return 0;
 }
 #endif

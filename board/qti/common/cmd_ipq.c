@@ -2230,3 +2230,21 @@ static int do_canary(struct cmd_tbl *cmdtp, int flag, int argc,
 
 U_BOOT_CMD(canary, 2, 0, do_canary, "Test stack protection\n",
 		"- canary <strings>\n");
+
+static int do_clear_tcsr(struct cmd_tbl *cmdtp, int flag, int argc,
+				char *const argv[])
+{
+	uint32_t val = 0;
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	val = simple_strtoull(argv[1], NULL, 16);
+
+	write_tcsr_boot_misc_reg(val, 0);
+
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(clear_tcsr, 2, 0, do_clear_tcsr, "Clear specific bit in TCSR\n",
+		"- clear_tcsr <val>\n");

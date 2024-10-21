@@ -47,6 +47,13 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 
+		sleep_clk: clock-ref {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32000>;
+			clock-output-names = "sleep_clk";
+		};
+
 		tlmm: pinctrl@1000000 {
 			compatible = "qti,ipqsoc-pinctrl";
 			reg = <0x1000000 0x300000>;
@@ -542,6 +549,14 @@
 
 			status = "disabled";
 			device_type = "pci";
+		};
+
+		watchdog: non-sec@b017000 {
+			compatible = "qti,wdt";
+			reg =  <0xb017000 0x24>;
+			clocks = <&sleep_clk>;
+			timeout-sec = <30>;
+			status = "disabled";
 		};
 	};
 };

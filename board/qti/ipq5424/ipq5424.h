@@ -72,7 +72,7 @@ typedef enum {
 #define DLOAD_DISABLED				0x40
 #define DLOAD_ENABLE				BIT(4)
 #define DLOAD_DISABLE				(~BIT(4))
-#define MARK_UBOOT_MILESTONE			(~BIT(8))
+#define MARK_UBOOT_MILESTONE			BIT(8)
 #define CRASHDUMP_RESET				BIT(11)
 #define ENABLE_EDL_MODE				BIT(0)
 

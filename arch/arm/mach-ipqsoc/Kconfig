@@ -155,6 +155,7 @@ config FAILSAFE
 
 config BOOTCONFIG_V2
 	bool "Version 2 bootconfig structure"
+	imply FAILSAFE
 	default n
 
 config BOOTCONFIG_V3

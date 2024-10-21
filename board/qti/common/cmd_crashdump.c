@@ -2354,16 +2354,17 @@ void reset_crashdump(int reset_version)
 	case RESET_V2:
 		if (cookie & DLOAD_ENABLE)
 			cookie |= CRASHDUMP_RESET;
+#ifdef CONFIG_FAILSAFE
+		else if (!ipq_iscrashed_crashdump_disabled())
+			cookie &= ~MARK_UBOOT_MILESTONE;
+#endif
 
 		cookie &= DLOAD_DISABLE;
-#ifdef CONFIG_FAILSAFE
-		cookie &= MARK_UBOOT_MILESTONE;
-#endif
 	}
 
 	if(cookie & CRASHDUMP_RESET
 #ifdef CONFIG_FAILSAFE
-		|| cookie & MARK_UBOOT_MILESTONE
+		|| !(cookie & MARK_UBOOT_MILESTONE)
 #endif
 		)
 	{
@@ -2393,9 +2394,9 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct udevice *dev;
 #endif
 
-#ifdef CONFIG_FAILSAFE
+#ifdef CONFIG_BOOTCONFIG_V3
 	if((SMEM_BOOT_NO_FLASH != (gd->board_type & FLASH_TYPE_MASK)) &&
-			set_uboot_milestone()) {
+			write_tcsr_boot_misc_reg(MARK_UBOOT_MILESTONE, 0)) {
 		printf("Faile to set uboot milestone\n");
 	}
 #endif

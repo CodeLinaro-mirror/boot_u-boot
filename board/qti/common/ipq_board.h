@@ -1354,14 +1354,14 @@ uint32_t crc32_be(uint8_t const *addr, phys_size_t size);
 uint8_t is_valid_bootconfig(ipq_smem_bootconfig_info_t *binfo);
 int read_bootconfig(void);
 int ipq_read_tcsr_boot_misc(void);
-#ifdef CONFIG_FAILSAFE
-int set_uboot_milestone(void);
-void set_edl_mode(void);
-#endif
+int write_tcsr_boot_misc_reg(uint32_t mask, uint32_t value);
 
 #ifdef CONFIG_GPIO_CONFIG
 void ipq_board_gpio_config(int type);
 #endif
 uint32_t image_auth_check(void);
 int check_rootfs_authentication(void);
+#ifdef CONFIG_WDT
+int ipq_wdt_expire(void);
+#endif
 #endif

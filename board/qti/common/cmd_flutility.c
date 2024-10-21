@@ -1024,6 +1024,12 @@ char * const argv[])
 		}
 	}
 
+#ifdef CONFIG_BOOTCONFIG_V2
+	if(!strncmp(part_name, "0:BOOTCONFIG", sizeof(char) * 12 ))
+		write_tcsr_boot_misc_reg(BOOTCONFIG_HEALTH_MASK |
+					BOOTCONFIG1_HEALTH_MASK, 0);
+#endif
+
 	if(5 == argc) {
 
 		snprintf(runcmd , sizeof(runcmd),
