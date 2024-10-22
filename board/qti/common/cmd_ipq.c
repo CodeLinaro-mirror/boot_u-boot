@@ -33,6 +33,11 @@
 #include <mmc.h>
 #endif
 
+#ifdef CONFIG_WDT
+#include <dm/uclass-internal.h>
+#include <wdt.h>
+#endif
+
 #include "ipq_board.h"
 
 #if defined (CONFIG_IPQ_SMP_CMD_SUPPORT) || (CONFIG_IPQ_SMP64_CMD_SUPPORT)
@@ -1393,8 +1398,6 @@ U_BOOT_CMD(
 asmlinkage void secondary_core_entry(char *argv, int *cmd_complete,
 					int *cmd_result)
 {
-	dcache_enable();
-
 	*cmd_result = cli_simple_run_command(argv, 0);
 	*cmd_complete = 1;
 
@@ -1417,11 +1420,20 @@ int do_runmulticore(struct cmd_tbl *cmdtp,
 	int ret = CMD_RET_SUCCESS;
 	int i, j, delay = 0, core_status = 0, core_on_status = 0;
 	uint8_t *ptr = NULL;
+#if defined(CONFIG_WDT)
+	struct udevice *dev;
+	u32 timeout = 0;
+#endif
 
 	if ((argc <= 1) || (argc > 4)) {
 		ret = CMD_RET_USAGE;
 		goto exit;
 	}
+
+#if defined(CONFIG_WDT)
+	if (uclass_find_device_by_seq(UCLASS_WDT, 0, &dev) == 0)
+		wdt_stop(dev);
+#endif
 
 	for (i = 1; i < argc; i++) {
 		if (!strncmp("runmulticore", argv[i],
@@ -1466,7 +1478,6 @@ int do_runmulticore(struct cmd_tbl *cmdtp,
 		core[i - 1].arg_ptr = argv[i];
 	}
 
-	dcache_enable();
 
 	/* Bringing up the secondary cores */
 	for (i = 1; i < argc; i++) {
@@ -1544,6 +1555,14 @@ int do_runmulticore(struct cmd_tbl *cmdtp,
 exit:
 	invalidate_dcache_all();
 	dcache_enable();
+#if defined(CONFIG_WDT)
+	if (uclass_find_device_by_seq(UCLASS_WDT, 0, &dev) == 0) {
+		timeout = dev_read_u32_default(dev, "timeout-sec", timeout);
+		ret = wdt_start(dev, timeout * 1000, 0);
+		if (ret != 0)
+			printf("WDT:   Failed to start %s\n", dev->name);
+	}
+#endif
 	return ret;
 }
 
