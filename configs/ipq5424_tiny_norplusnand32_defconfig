@@ -129,3 +129,4 @@ CONFIG_IPQ_TINY=y
 # CONFIG_SHA256 is not set
 # CONFIG_GZIP is not set
 # CONFIG_REGEX is not set
+# CONFIG_CMD_WDT is not set

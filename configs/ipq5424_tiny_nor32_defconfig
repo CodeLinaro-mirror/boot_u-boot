@@ -142,3 +142,4 @@ CONFIG_IPQ_TINY=y
 # CONFIG_CMD_LOADS is not set
 # CONFIG_CMD_ITEST is not set
 # CONFIG_CMD_MEMORY is not set
+# CONFIG_CMD_WDT is not set

@@ -451,6 +451,7 @@ config TARGET_IPQ5424
         imply IPQ_QCN9224_FUSING
 	select BOOTCONFIG_V3
         imply CRC32_BE
+	imply CMD_WDT
 	help
 	  Support for IPQ5424 SoC.
 
