@@ -27,14 +27,14 @@
 			};
 
 			phy_rst_pinmux: phy_rst {
-				qti_sfp0_rst {
+				qti_i2c_phy0_rst {
 					pins = "GPIO_36";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 					output-enable;
 				};
 
-				qti_sfp1_rst {
+				qti_i2c_phy1_rst {
 					pins = "GPIO_37";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
@@ -105,6 +105,7 @@
 			};
 
 			se3_i2c1: i2c@1a8c000 {
+				clock-frequency = <400000>;
 				pinctrl-0 = <&i2c1_pinmux>;
 				pinctrl-names = "default";
 				status = "okay";
@@ -112,6 +113,7 @@
 
 			se5: se5@1a94000 {
 				compatible = "qcom,msm-geni-i2c";
+				clock-frequency = <400000>;
 				pinctrl-0 = <&i2c2_pinmux>;
 				pinctrl-names = "default";
 				status = "okay";
@@ -187,24 +189,28 @@
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 
-			phy0: sfp0@ff {
-				reg = <0xFF>;
-				phy_id = <SFP10G_PHY_TYPE>;
+			phy0: i2c_phy0@1d {
+				phy-reset-gpio = <&tlmm 36 0>;
+				reg = <0x1d>;
+				phy_id = <QCA81xx_PHY_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
 				max_speed = <10000>;
 				xgmac;
+				i2c-bus = <&se5>;
 			};
 
-			phy1: sfp1@ff {
-				reg = <0xFF>;
-				phy_id = <SFP10G_PHY_TYPE>;
+			phy1: i2c_phy1@1d {
+				phy-reset-gpio = <&tlmm 37 0>;
+				reg = <0x1d>;
+				phy_id = <QCA81xx_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
 				max_speed = <10000>;
 				xgmac;
+				i2c-bus = <&se3_i2c1>;
 			};
 
 			phy2: ethernet-switch@1 {

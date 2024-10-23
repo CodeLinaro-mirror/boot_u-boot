@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <asm-generic/gpio.h>
 #include <clk.h>
+#include <i2c.h>
 #include <common.h>
 #include <cpu_func.h>
 #include <dm.h>
@@ -1051,7 +1052,7 @@ struct port_info {
 	bool isforce_speed;
 	bool xgmac;
 	bool isconfigured;
-	bool i2c_bus;
+	int i2c_bus;
 }__attribute__ ((aligned(8)));
 
 struct ppe_info {
