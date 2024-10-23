@@ -238,6 +238,10 @@ static int calc_div_for_nss_port_clk(struct clk *clk, ulong rate,
 		switch (rate) {
 		case CLK_2_5_MHZ:
 			break;
+		case CLK_12_5_MHZ:
+			*div = 9;
+			*cdiv = 4;
+			break;
 		case CLK_25_MHZ:
 			break;
 		case CLK_78_125_MHZ:
