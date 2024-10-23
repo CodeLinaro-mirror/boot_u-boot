@@ -70,7 +70,7 @@ static unsigned int ipq5424_get_function_mux(unsigned int selector)
 }
 
 struct msm_pinctrl_data pinctrl_data = {
-	.pin_count = 52,
+	.pin_count = 49,
 	.functions_count = ARRAY_SIZE(msm_pinctrl_functions),
 	.get_function_name = ipq5424_get_function_name,
 	.get_function_mux = ipq5424_get_function_mux,
