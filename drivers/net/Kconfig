@@ -914,6 +914,13 @@ config MDIO_IPQ_BITBANGMII
 	  This driver supports the MDIO interface found in Qualcomm
 	  IPQ series Soc-s.
 
+config MDIO_QCOM_I2C
+	bool "Qualcomm MDIO - I2C interface support"
+	depends on DM_MDIO
+	help
+	  This driver supports the MDIO - I2C interface software driver for
+	  Qualcomm IPQ series Soc-s.
+
 config MVMDIO
 	bool "Marvell MDIO interface support"
 	depends on DM_MDIO

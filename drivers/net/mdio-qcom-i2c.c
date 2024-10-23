@@ -5,6 +5,7 @@
 
 #include <asm/io.h>
 #include <common.h>
+#include <memalign.h>
 #include <dm.h>
 #include <dm/device_compat.h>
 #include <clk.h>
@@ -29,17 +30,16 @@ static int qcom_mdio_i2c_read_default(struct mii_dev *mii_bus, int phy_id,
 	struct dm_i2c_ops *ops = i2c_get_ops(priv->bus);
 	struct i2c_msg msgs[2];
 	u8 tx[4], data[2], addr, *p;
-	int bus_addr, ret;
+	int ret;
 
 	if (devad == MDIO_DEVAD_NONE)
 	{
-		bus_addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		addr = reg;
-		msgs[0].addr = bus_addr;
+		msgs[0].addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		msgs[0].flags = 0;
 		msgs[0].len = 1;
 		msgs[0].buf = &addr;
-		msgs[1].addr = bus_addr;
+		msgs[1].addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		msgs[1].flags = I2C_M_RD;
 		msgs[1].len = sizeof(data);
 		msgs[1].buf = data;
@@ -49,12 +49,11 @@ static int qcom_mdio_i2c_read_default(struct mii_dev *mii_bus, int phy_id,
 		*p++ = reg >> 8;
 		*p++ = reg;
 
-		bus_addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
-		msgs[0].addr = bus_addr;
+		msgs[0].addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		msgs[0].flags = 0;
 		msgs[0].len = sizeof(tx);
 		msgs[0].buf = tx;
-		msgs[1].addr = bus_addr;
+		msgs[1].addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		msgs[1].flags = I2C_M_RD;
 		msgs[1].len = sizeof(data);
 		msgs[1].buf = data;
@@ -64,10 +63,7 @@ static int qcom_mdio_i2c_read_default(struct mii_dev *mii_bus, int phy_id,
 	if (ret)
 		return ret;
 
-	if (env_get("mdio_dbg"))
-		printf("%s: phy_id: 0x%x devad: 0x%x reg: 0x%x data: 0x%x \n", __func__, phy_id, devad, reg, (data[0] << 8 | data[1]));
-
-	return data[0] << 8 | data[1];
+	return (data[0] << 8 | data[1]);
 }
 
 static int qcom_mdio_i2c_write_default(struct mii_dev *mii_bus, int phy_id,
@@ -77,10 +73,8 @@ static int qcom_mdio_i2c_write_default(struct mii_dev *mii_bus, int phy_id,
 	struct dm_i2c_ops *ops = i2c_get_ops(priv->bus);
 	struct i2c_msg msgs[2];
 	u8 data[3], tx[4], tx1[3], *p;
-	int bus_addr, ret, msg_len = 0;
+	int ret, msg_len = 0;
 
-	if (env_get("mdio_dbg"))
-		printf("%s: phy_id: 0x%x devad: 0x%x reg: 0x%x data: 0x%x \n", __func__, phy_id, devad, reg, val);
 	if (devad == MDIO_DEVAD_NONE)
 	{
 		p = data;
@@ -104,12 +98,11 @@ static int qcom_mdio_i2c_write_default(struct mii_dev *mii_bus, int phy_id,
 		*p++ = val >> 8;
 		*p++ = val;
 
-		bus_addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
-		msgs[0].addr = bus_addr;
+		msgs[0].addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		msgs[0].flags = 0;
 		msgs[0].len = sizeof(tx);
 		msgs[0].buf = tx;
-		msgs[1].addr = bus_addr;
+		msgs[1].addr = TO_QCOM_SFP_PHY_ADDR(phy_id);
 		msgs[1].flags = 0;
 		msgs[1].len = sizeof(tx1);
 		msgs[1].buf = tx1;
@@ -121,12 +114,12 @@ static int qcom_mdio_i2c_write_default(struct mii_dev *mii_bus, int phy_id,
 }
 
 
-struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr, int protocol)
+struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr)
 {
 	int ret = 0;
 	struct mii_dev *bus;
 	struct qcom_mdio_i2c_info *priv =
-		malloc(sizeof(struct qcom_mdio_i2c_info));
+		malloc_cache_aligned(sizeof(struct qcom_mdio_i2c_info));
 	if (!priv) {
 		printf("%s: failed to alloc priv dev \n", __func__);
 		return NULL;
@@ -138,7 +131,6 @@ struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr, int protocol)
 		goto free_mem0;
 	}
 
-	printf("bus_name: %d \n", priv->bus->seq_);
 	ret = dm_i2c_probe(priv->bus, TO_QCOM_SFP_PHY_ADDR(phy_addr), 0,
 			&priv->dev);
 	if (ret) {
@@ -153,13 +145,8 @@ struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr, int protocol)
 		goto free_mem1;
 	}
 
-	switch(protocol) {
-	default:
-		bus->read = qcom_mdio_i2c_read_default;
-		bus->write = qcom_mdio_i2c_write_default;
-		break;
-	}
-
+	bus->read = qcom_mdio_i2c_read_default;
+	bus->write = qcom_mdio_i2c_write_default;
 	snprintf(bus->name, sizeof(bus->name), "qcom-mdio-i2c%d-%s",
 			priv->bus->seq_, priv->dev->name);
 	bus->priv = priv;
@@ -171,7 +158,6 @@ struct mii_dev *qcom_mdio_i2c_alloc(ofnode node, int phy_addr, int protocol)
 		goto free_mem1;
 	}
 
-	printf("%s \n", bus->name);
 	return bus;
 
 free_mem1:
@@ -180,6 +166,5 @@ free_mem1:
 free_mem0:
 	free(priv);
 	priv = NULL;
-
-	return bus;
+	return NULL;
 }

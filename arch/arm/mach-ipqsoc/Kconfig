@@ -271,6 +271,7 @@ config IPQ_NET
 	select ETH
 	select DM_MDIO
 	select MDIO_IPQ4019
+	imply MDIO_QCOM_I2C if IPQ_I2C
 	select PHYLIB
 	select PHY_QTI
 	select CMD_NET

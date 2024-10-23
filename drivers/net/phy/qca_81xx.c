@@ -196,7 +196,7 @@ enum qca81xx_phy_ext_addr {
 
 struct qca_81xx_device {
 	struct udevice *i2c_bus;
-	int bus_num;
+	int bus_avail;
 };
 
 static int qca81xx_phy_debug_write(struct phy_device *phydev,
@@ -458,7 +458,7 @@ static int qca81xx_pcs_sysclk_reset(struct phy_device *phydev)
 	ret = qca81xx_pcs_sysclk_reset_update(phydev, true);
 	if(ret < 0)
 		return ret;
-	mdelay(10);
+	mdelay(1);
 
 	return qca81xx_pcs_sysclk_reset_update(phydev, false);
 }
@@ -625,9 +625,9 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 			break;
 		}
 
-		mdelay(10);
+		udelay(5);
 		count++;
-	} while (count < 1000);
+	} while (count < 50);
 
 	if(ret < 0) {
 		printf("autoneg complete timeout!\n");
@@ -662,7 +662,7 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 	ret = qca81xx_phy_clk_en_set(phydev, port_clk_en);
 	if(ret < 0)
 		return ret;
-	mdelay(100);
+	mdelay(1);
 
 	debug("UNIPHY GMII/XGMII interface and "
 			"ETHPHY GMII interface reset and release\n");
@@ -776,7 +776,7 @@ static int qca81xx_phy_gcc_pre_init(struct phy_device *phydev)
 		return ret;
 	/*enable efuse loading into analog circuit*/
 	ret = qca81xx_soc_modify(phydev, EPHY_CFG, EPHY_LDO_CTRL, 0);
-	mdelay(10);
+	mdelay(1);
 
 	return ret;
 }
@@ -784,16 +784,6 @@ static int qca81xx_phy_gcc_pre_init(struct phy_device *phydev)
 static int qca81xx_phy_gcc_post_init(struct phy_device *phydev)
 {
 	int ret;
-
-	/* ahb clock use srds_txclk and switch to 312.5M/3 */
-	ret = qca81xx_soc_modify(phydev, GCC_AHB_CFG_RCGR,
-			GCC_E2S_SRC_MASK | SRC_DIV_MASK,
-			(GCC_E2S_SRC3_SRDS_TXCLK << 8) | 0x5);
-	if (ret < 0)
-		return ret;
-
-	ret = qca81xx_soc_modify(phydev, GCC_AHB_CMD_RCGR,
-			CLK_CMD_UPDATE, CLK_CMD_UPDATE);
 
 	/* security control clock switch as 25M */
 	ret = qca81xx_soc_modify(phydev, GCC_SEC_CTRL_CFG_RCGR,
@@ -900,9 +890,9 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 			break;
 		}
 
-		mdelay(1);
+		udelay(5);
 		count++;
-	} while (count < 1000);
+	} while (count < 50);
 
 	if(ret < 0)
 		printf("uniphy callibration timed out!\n");
@@ -959,9 +949,9 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 			break;
 		}
 
-		mdelay(1);
+		udelay(5);
 		count++;
-	} while (count < 1000);
+	} while (count < 50);
 
 	if(ret < 0)
 		printf("10G base_r link up timed out \n");
@@ -999,9 +989,9 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 			break;
 		}
 
-		mdelay(1);
+		udelay(5);
 		count++;
-	} while (count < 1000);
+	} while (count < 50);
 
 	if(ret < 0)
 		printf("xpcs software reset timeout\n");
@@ -1148,10 +1138,10 @@ static int qca_81xx_config(struct phy_device *phydev)
 	struct qca_81xx_device *dev = phydev->priv;
 	int ret = 0;
 
-	dev->bus_num = ofnode_read_u32_default(phydev->node, "i2c-bus", -1);
-	if (dev->bus_num != -1) {
-		ret = uclass_get_device_by_ofnode(UCLASS_I2C, phydev->node,
-				&dev->i2c_bus);
+	dev->bus_avail = ofnode_read_bool(phydev->node, "i2c-bus");
+	if (dev->bus_avail) {
+		ret = uclass_get_device_by_ofnode(UCLASS_I2C,
+				ofnode_get_parent(phydev->node), &dev->i2c_bus);
 		if (ret) {
 			printf("%s: failed to get i2c bus, err: %d\n",
 					__func__, ret);
