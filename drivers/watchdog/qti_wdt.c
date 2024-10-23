@@ -58,6 +58,19 @@ static int qti_wdt_stop(struct udevice *dev)
 
 static int qti_wdt_expire_now(struct udevice *dev, ulong flags)
 {
+	/*
+	 * setup 125ms for immediate trigger wdt
+	 */
+	struct qti_wdt_priv *priv = dev_get_priv(dev);
+	ulong bark_timeout_s = ((125 - 1)  * priv->rate) / 1000;
+	ulong bite_timeout_s = (125 * priv->rate) / 1000;
+
+	writel(0, priv->base + WDT_EN);
+	writel(BIT(0), priv->base + WDT_RST);
+	writel(bark_timeout_s, priv->base + WDT_BARK_TIME);
+	writel(bite_timeout_s, priv->base +WDT_BITE_TIME);
+	writel(BIT(0), priv->base + WDT_EN);
+
 	return 0;
 }
 
