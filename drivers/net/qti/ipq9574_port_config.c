@@ -157,6 +157,32 @@ static struct ipq_eth_port_config ipq9574_port_config[] = {
 			PORT_WRAPPER_USXGMII
 		},
 	},{
+		QCA81xx_PHY_TYPE,
+		{
+			-1,
+			CLK_12_5_MHZ,
+			CLK_125_MHZ,
+			CLK_312_5_MHZ,
+			CLK_78_125_MHZ,
+			CLK_156_25_MHZ,
+		},
+		{
+			-1,
+			XGMAC,
+			XGMAC,
+			XGMAC,
+			XGMAC,
+			XGMAC
+		},
+		{
+			-1,
+			PORT_WRAPPER_USXGMII,
+			PORT_WRAPPER_USXGMII,
+			PORT_WRAPPER_USXGMII,
+			PORT_WRAPPER_USXGMII,
+			PORT_WRAPPER_USXGMII
+		},
+	},{
 		UNUSED_PHY_TYPE,
 	},
 };

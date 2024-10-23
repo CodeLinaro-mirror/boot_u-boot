@@ -357,6 +357,7 @@ config TARGET_IPQ5332
 	select QTI_NSS_SWITCH
 	imply PHY_QTI_8X8X
 	imply PHY_QTI_8081
+	imply PHY_QCA_81XX
 	imply PHY_AQUANTIA
 	imply IPQ_PCIE
 	select PHY if IPQ_USB
@@ -392,6 +393,7 @@ config TARGET_IPQ9574
 	imply PHY_QTI_8075
 	imply PHY_QTI_8X8X
 	imply PHY_QTI_8081
+	imply PHY_QCA_81XX
 	imply PHY_AQUANTIA
 	imply IPQ_PCIE
 	select PHY if IPQ_PCIE || IPQ_USB

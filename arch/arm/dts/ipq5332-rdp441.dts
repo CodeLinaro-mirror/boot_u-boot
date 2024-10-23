@@ -34,7 +34,7 @@
 					bias-pull-up;
 				};
 
-				qti_sfp_tx_los {
+				qti_i2c_phy1_los {
 					pins = "GPIO_24";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
@@ -148,14 +148,16 @@
 				};
 			};
 
-			phy1: phy@ff {
-				reg = <0xFF>;
-				phy_id = <SFP10G_PHY_TYPE>;
+			phy1: i2c_phy1@1d {
+				phy-reset-gpio = <&tlmm 24 0>;
+				reg = <0x1d>;
+				phy_id = <QCA81xx_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
 				max_speed = <10000>;
 				xgmac;
+				i2c-bus = <&blsp1_i2c>;
 			};
 		};
 
