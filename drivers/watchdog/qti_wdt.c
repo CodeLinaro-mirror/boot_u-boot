@@ -35,12 +35,13 @@ static int qti_wdt_reset(struct udevice *dev)
 static int qti_wdt_start(struct udevice *dev, u64 timeout_ms, ulong flags)
 {
 	struct qti_wdt_priv *priv = dev_get_priv(dev);
-	ulong timeout_s = (timeout_ms * priv->rate) / 1000;
+	ulong bark_timeout_s = ((timeout_ms - 1)  * priv->rate) / 1000;
+	ulong bite_timeout_s = (timeout_ms * priv->rate) / 1000;
 
 	writel(0, priv->base + WDT_EN);
         writel(BIT(0), priv->base + WDT_RST);
-        writel(timeout_s - 1, priv->base + WDT_BARK_TIME);
-        writel(timeout_s, priv->base +WDT_BITE_TIME);
+        writel(bark_timeout_s, priv->base + WDT_BARK_TIME);
+        writel(bite_timeout_s, priv->base +WDT_BITE_TIME);
         writel(BIT(0), priv->base + WDT_EN);
 
 	return 0;
