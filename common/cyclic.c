@@ -101,6 +101,17 @@ void cyclic_run(void)
 
 void schedule(void)
 {
+	static uint32_t iter;
+	/*
+	 * schedule() function takes ~1 milli seconds so to improve the
+	 * boot-time, the schedule() function is restricted to execute
+	 * for every 2000 iterations once.
+	*/
+	if (++iter != 2000)
+		return;
+	else
+		iter = 0;
+
 	/* The HW watchdog is not integrated into the cyclic IF (yet) */
 	if (IS_ENABLED(CONFIG_HW_WATCHDOG))
 		hw_watchdog_reset();
