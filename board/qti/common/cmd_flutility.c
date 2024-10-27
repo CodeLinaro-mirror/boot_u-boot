@@ -998,6 +998,9 @@ char * const argv[])
 			return CMD_RET_USAGE;
 	}
 
+	if (strstr(part_name, "_1") && !env_get("flash_alt_partition"))
+		return CMD_RET_SUCCESS;
+
 	snprintf(fname_stripped , sizeof(fname_stripped),
 		"%.*s:",(int) (strlen(file_name) - SHA1_SIG_LEN), file_name);
 
