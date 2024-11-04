@@ -673,15 +673,19 @@ class Pack(object):
                     for cmd in pre_cmd_list:
                         script.append(cmd)
 
-                    script.imxtract_n_flash(section_name, pname)
-
                     for cmd in post_cmd_list:
                         script.append(cmd)
+
+                    for img_info in images:
+                         if fname == img_info.filename:
+                             section_name = img_info.name
 
                     image_info = ImageInfo(section_name, fname, "firmware")
                     if fname.lower() != "none":
                         if image_info not in images:
                             images.append(image_info)
+
+                    script.imxtract_n_flash(section_name, pname)
 
                     print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, section_name, pname)
 
