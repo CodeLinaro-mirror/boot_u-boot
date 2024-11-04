@@ -540,7 +540,7 @@ static int qca81xx_phy_sysclk_reset(struct phy_device *phydev)
 
 static int qca81xx_phy_speed_clk_set(struct phy_device *phydev)
 {
-	int ret, div0, div1;
+	int ret, div0 = 0, div1 = 0;
 
 	switch(phydev->speed) {
 		case SPEED_100:
