@@ -1054,6 +1054,7 @@ typedef struct {
 	uint32_t		primary_mibib;
 #ifdef CONFIG_BOOTCONFIG_V3
 	uint32_t		edl_mode;
+	uint32_t		try_mode_inprogress;
 #endif
 	ipq_part_entry_t	hlos;
 	ipq_part_entry_t	rootfs;

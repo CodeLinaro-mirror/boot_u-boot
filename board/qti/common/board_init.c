@@ -365,6 +365,7 @@ int board_init(void)
 	uint32_t *flash_block_size;
 	uint32_t *flash_density;
 #ifdef CONFIG_BOOTCONFIG_V3
+	uint32_t *try_mode_inprogress;
 	uint32_t *edl_mode;
 #endif
 	gd->bd->bi_boot_params = BOOT_PARAMS_ADDR;
@@ -413,6 +414,12 @@ int board_init(void)
 	}
 
 #ifdef CONFIG_BOOTCONFIG_V3
+	try_mode_inprogress = smem_get_item(SMEM_TRY_MODE_INPROGRESS);
+	if (IS_ERR_OR_NULL(try_mode_inprogress)) {
+		debug("Failed to get SMEM item: SMEM_TRY_MODE_INPROGRESS\n");
+		try_mode_inprogress = NULL;
+	}
+
 	edl_mode = smem_get_item(SMEM_EDL_MODE);
 	if (IS_ERR_OR_NULL(edl_mode)) {
 		debug("Failed to get SMEM item: SMEM_EDL_MODE\n");
@@ -427,6 +434,7 @@ int board_init(void)
 	sfi->primary_mibib = (!primary_mibib ? 0 : *primary_mibib);
 	sfi->ipq_smem_bootconfig_info = ipq_smem_bootconfig_info;
 #ifdef CONFIG_BOOTCONFIG_V3
+	sfi->try_mode_inprogress = (!try_mode_inprogress ? 0 : *try_mode_inprogress);
 	sfi->edl_mode = (!edl_mode ? 0 : *edl_mode);
 #endif
 #if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)

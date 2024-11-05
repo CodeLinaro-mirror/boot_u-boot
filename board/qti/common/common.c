@@ -1241,51 +1241,49 @@ int get_rootfs_active_partition(ipq_smem_flash_info_t *sfi)
 		if((DONT_USE_SET == *image_set_status_A) ||
 				((SET_PARTIAL_USABLE == *image_set_status_A) &&
 				 (SET_USABLE == *image_set_status_B))) {
-			printf("Booting [SET B]\n");
 			ret = BOOT_SET_B;
 		} else if((SET_USABLE == *image_set_status_A) ||
 				((SET_PARTIAL_USABLE == *image_set_status_A) &&
 				 (SET_USABLE != *image_set_status_B))) {
 			ret = BOOT_SET_A;
-			printf("Booting [SET A]\n");
 		} else {
 			ret = *boot_set;
-			printf("Booting [SET %s]\n", ret ? "B" : "A");
 		}
 	} else if (BOOT_SET_B == *boot_set) {
 		if((DONT_USE_SET == *image_set_status_B) ||
 				((SET_PARTIAL_USABLE == *image_set_status_B) &&
 				 (SET_USABLE == *image_set_status_A))) {
 			ret = BOOT_SET_A;
-			printf("Booting [SET A]\n");
 		} else if((SET_USABLE == *image_set_status_B) ||
 				((SET_PARTIAL_USABLE == *image_set_status_B) &&
 				 (SET_USABLE != *image_set_status_A))) {
 			ret = BOOT_SET_B;
-			printf("Booting [SET B]\n");
 		} else {
 			ret = *boot_set;
-			printf("Booting [SET %s]\n", ret ? "B" : "A");
 		}
 	}
 
-	if (*image_set_status_A && *image_set_status_B) {
-		if (sfi->edl_mode & EDL_RECOVERY_MODE)
-			set_edl_mode();
-		return ret;
+	if (sfi->try_mode_inprogress)
+		ret = !ret;
+	else {
+		if (*image_set_status_A && *image_set_status_B) {
+			if (sfi->edl_mode & EDL_RECOVERY_MODE)
+				set_edl_mode();
+			return ret;
+		}
+
+		if((BOOT_SET_A == ret) && (SET_USABLE != *image_set_status_A)) {
+			if (sfi->edl_mode & EDL_RECOVERY_MODE)
+				set_edl_mode();
+		}
+
+		if((BOOT_SET_B == ret) && (SET_USABLE != *image_set_status_B)) {
+			if (sfi->edl_mode & EDL_RECOVERY_MODE)
+				set_edl_mode();
+		}
 	}
 
-	if((BOOT_SET_A == ret) && (SET_USABLE != *image_set_status_A)) {
-		if (sfi->edl_mode & EDL_RECOVERY_MODE)
-			set_edl_mode();
-	}
-
-	if((BOOT_SET_B == ret) && (SET_USABLE != *image_set_status_B)) {
-		if (sfi->edl_mode & EDL_RECOVERY_MODE)
-			set_edl_mode();
-	}
-
-
+	printf("Booting [SET %s]\n", ret ? "B" : "A");
 #endif
 
 	return ret;
