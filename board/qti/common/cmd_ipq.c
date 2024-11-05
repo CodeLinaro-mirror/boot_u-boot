@@ -1558,9 +1558,12 @@ exit:
 #if defined(CONFIG_WDT)
 	if (uclass_find_device_by_seq(UCLASS_WDT, 0, &dev) == 0) {
 		timeout = dev_read_u32_default(dev, "timeout-sec", timeout);
-		ret = wdt_start(dev, timeout * 1000, 0);
-		if (ret != 0)
-			printf("WDT:   Failed to start %s\n", dev->name);
+		if (timeout) {
+			ret = wdt_start(dev, timeout * 1000, 0);
+			if (ret != 0)
+				printf("WDT: Failed to start %s\n",
+					dev->name);
+		}
 	}
 #endif
 	return ret;
