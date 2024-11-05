@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2017 Google, Inc
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define LOG_CATEGORY UCLASS_WDT
@@ -161,6 +163,15 @@ int wdt_stop(struct udevice *dev)
 		struct wdt_priv *priv = dev_get_uclass_priv(dev);
 
 		priv->running = false;
+		/*
+		 * Remove from cyclic node since start function
+		 * register new cyclic node.
+		 * which avoid spending time in cyclic run for disabled wdt.
+		 * And also avoid multiple creation of cyclic node for same
+		 * driver.
+		 */
+		cyclic_unregister(priv->cyclic);
+		priv->cyclic = NULL;
 	}
 
 	return ret;
