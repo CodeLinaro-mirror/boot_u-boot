@@ -655,6 +655,9 @@ class Pack(object):
                             section_conf = "ubi"
                         elif section_conf == "wifi_fw" or section_conf == "wififw":
                             section_conf = fname[:-13]
+                    else:
+                        if section_conf == "rootfs" and self.flash_type in ["nand", "nand-4k", "norplusnand", "norplusnand-4k", "norplusnand-gpt", "norplusnand-4k-gpt"]:
+                            section_conf = "ubi"
 
                     section_name = section_conf + "-" + sha1(fname)
 
