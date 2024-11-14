@@ -1383,6 +1383,9 @@ class Pack(object):
                 script.script.append('echo \'machid : unknown, aborting upgrade\'\n')
                 script.script.append('exit 1\n')
                 script.script.append('fi\n')
+        #clear bootconfig health
+        script.script.append('clear_tcsr 0x6000\n')
+
         first = False
         section = None
         part_index = 0
