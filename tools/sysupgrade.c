@@ -22,6 +22,8 @@
 #define RPM_VERSION_FILE       "rpm_version"
 #define DEVCFG_VERSION_FILE	"devcfg_version"
 #define APDP_VERSION_FILE	"apdp_version"
+#define XBL_VERSION_FILE	"xbl_sc_version"
+#define XBLCONFIG_VERSION_FILE	"xbl_cfg_version"
 #define VERSION_FILE_BASENAME  "/sys/devices/system/qfprom/qfprom0/"
 #define AUTHENTICATE_FILE	"/sys/devices/system/qfprom/qfprom0/authenticate"
 #define SEC_AUTHENTICATE_FILE  "/sys/sec_upgrade/sec_auth"
@@ -60,7 +62,11 @@
 struct image_section sections[] = {
 	{
 		.section_type		= UBOOT_TYPE,
+#ifdef IPQ54XX
+		.type                   = "appsbl",
+#else
 		.type			= "u-boot",
+#endif
 		.max_version		= MAX_APPSBL_VERSION,
 		.file			= TMP_FILE_DIR,
 		.version_file		= APPSBL_VERSION_FILE,
@@ -92,7 +98,7 @@ struct image_section sections[] = {
 		.version_file		= HLOS_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
 #ifdef IPQ54XX
-		.img_code               = "0x71"
+		.img_code               = "0x67"
 #else
 		.img_code		= "0x17"
 #endif
@@ -114,13 +120,37 @@ struct image_section sections[] = {
 	},
 	{
 		.section_type		= TZ_TYPE,
+#ifdef IPQ54XX
+		.type                   = "qsee",
+#else
 		.type			= "tz",
+#endif
 		.max_version		= MAX_TZ_VERSION,
 		.file			= TMP_FILE_DIR,
 		.version_file		= TZ_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
 		.img_code		= "0x7"
 	},
+#ifdef IPQ54XX
+	{
+		.section_type           = SBL_TYPE,
+		.type                   = "xbl",
+		.max_version            = MAX_SBL_VERSION,
+		.file                   = TMP_FILE_DIR,
+		.version_file           = XBL_VERSION_FILE,
+		.is_present             = NOT_PRESENT,
+		.img_code               = "0x36"
+	},
+	{
+		.section_type           = SBL_TYPE,
+		.type                   = "xblconfig",
+		.max_version            = MAX_SBL_VERSION,
+		.file                   = TMP_FILE_DIR,
+		.version_file           = XBLCONFIG_VERSION_FILE,
+		.is_present             = NOT_PRESENT,
+		.img_code               = "0x25"
+	},
+#endif
 	{
 		.section_type		= SBL_TYPE,
 		.type			= "sbl1",
