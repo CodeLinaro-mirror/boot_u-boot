@@ -11,6 +11,8 @@
  * Copyright (C) 2013 Samsung Electronics Co.Ltd
  * Authors: Vivek Gautam <gautam.vivek@samsung.com>
  *	    Vikas Sajjan <vikas.sajjan@samsung.com>
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /**
@@ -561,9 +563,12 @@ static int xhci_set_configuration(struct usb_device *udev)
 		ep_ctx[ep_index] = xhci_get_ep_ctx(ctrl, in_ctx, ep_index);
 
 		/* Allocate the ep rings */
-		virt_dev->eps[ep_index].ring = xhci_ring_alloc(ctrl, 1, true);
-		if (!virt_dev->eps[ep_index].ring)
-			return -ENOMEM;
+		if (!virt_dev->eps[ep_index].ring) {
+			virt_dev->eps[ep_index].ring = xhci_ring_alloc(ctrl,
+					1, true);
+			if (!virt_dev->eps[ep_index].ring)
+				return -ENOMEM;
+		}
 
 		/*NOTE: ep_desc[0] actually represents EP1 and so on */
 		dir = (((endpt_desc->bEndpointAddress) & (0x80)) >> 7);
