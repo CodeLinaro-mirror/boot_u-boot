@@ -4,6 +4,8 @@
  *
  *  Copyright (c) 2021 Linaro Limited
  *			Author: AKASHI Takahiro
+ *
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define LOG_CATEGORY UCLASS_PARTITION
@@ -45,6 +47,7 @@ int part_create_block_devices(struct udevice *blk_dev)
 		if (ret)
 			return ret;
 
+		device_set_name_alloced(dev);
 		part_data = dev_get_uclass_plat(dev);
 		part_data->partnum = part;
 		part_data->gpt_part_info = info;
