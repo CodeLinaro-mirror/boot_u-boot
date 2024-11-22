@@ -57,6 +57,8 @@ static int menukey;
 #define AUTOBOOT_MENUKEY 0
 #endif
 
+extern int initr_net(void);
+
 /**
  * passwd_abort_crypt() - check for a crypt-style hashed key sequence to abort booting
  *
@@ -406,6 +408,11 @@ static int abortboot_single_key(int bootdelay)
 
 	putc('\n');
 
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+	if (abort) {
+		initr_net();
+	}
+#endif
 	return abort;
 }
 

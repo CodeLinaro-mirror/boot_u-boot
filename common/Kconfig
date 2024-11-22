@@ -768,6 +768,16 @@ config RESET_PHY_R
 	  Implement reset_phy() in board code if required to reset the ethernet
 	  PHY.
 
+config ETH_SKIP_INIT_R
+	bool "Skip Ethernet init during R init"
+	depends on ETH
+	default n
+	help
+	  With this option, U-Boot will not be called eth_initialize
+	  after relocation. This is needed, for instance, in the case of
+	  ethernet it is not required in the default boot flow.
+	  Disabled by default.
+
 endmenu
 
 endmenu		# Init options

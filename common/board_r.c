@@ -499,7 +499,7 @@ static int initr_scsi(void)
 #endif
 
 #ifdef CONFIG_CMD_NET
-static int initr_net(void)
+__weak int initr_net(void)
 {
 	puts("Net:   ");
 	eth_initialize();
@@ -769,7 +769,7 @@ static init_fnc_t init_sequence_r[] = {
 #ifdef CONFIG_PCI_ENDPOINT
 	pci_ep_init,
 #endif
-#ifdef CONFIG_CMD_NET
+#if defined(CONFIG_CMD_NET) && !defined(CONFIG_ETH_SKIP_INIT_R)
 	INIT_FUNC_WATCHDOG_RESET
 	initr_net,
 #endif

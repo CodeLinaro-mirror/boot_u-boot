@@ -108,6 +108,8 @@ static boot_info_t boot_info;
 extern int ubi_volume_read(char *volume, char *buf, size_t size);
 #endif
 
+extern int initr_net(void);
+
 #ifdef CONFIG_IPQ_ELF_AUTH
 void update_load_addr(image_info *img_info)
 {
@@ -1257,6 +1259,13 @@ reset_board:
 			return CMD_RET_FAILURE;
 		}
 	}
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+	/*
+	 * Reaching here since booting is failed
+	 * so enabling eth support.
+	 */
+	initr_net();
+#endif
 
 	return CMD_RET_SUCCESS;
 }
