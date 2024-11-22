@@ -637,25 +637,62 @@ gpt_entry* get_gpt_entry(struct blk_desc *dev_desc)
 		return *pp_gpt_pte;
 }
 
+static struct blk_desc *ipq_get_blk_dev(uint32_t flash_type, int devnum)
+{
+	enum uclass_id id;
+
+	switch(flash_type) {
+	case SMEM_BOOT_MMC_FLASH:
+		id = UCLASS_MMC;
+		break;
+	case SMEM_BOOT_NORGPT_FLASH:
+		id = UCLASS_SPI;
+		break;
+	default:
+		printf("unsupported flash type \n");
+		id = 0xFF;
+	}
+
+	return (id == 0xFF)? NULL : blk_get_devnum_by_uclass_id(id, devnum);
+}
+
+int ipq_gpt_getpart_from_offset(uint32_t offset, uint32_t *pstart,
+					uint32_t *psize, uint32_t flash_type)
+{
+	struct blk_desc *dev = ipq_get_blk_dev(flash_type, 0);
+	struct disk_partition info;
+	uint32_t start = 0, size = 0;
+	int p;
+
+	if (dev == NULL)
+		return -ENODEV;
+
+	for (p = 1; p <= CONFIG_EFI_PARTITION_ENTRIES_NUMBERS; ++p) {
+		if (part_get_info(dev, p, &info) != 0)
+			break;
+
+		start = (uint32_t)info.start * info.blksz;
+		size = (uint32_t)info.size * info.blksz;
+
+		if ((offset >= start) && (offset < (start + size))) {
+			*pstart = start;
+			*psize = size;
+			return 0;
+		}
+	}
+
+	return -ENODEV;
+}
+
 int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 {
 	struct blk_desc *dev;
 	int ret;
-	enum uclass_id id;
 #if defined(CONFIG_NOR_BLK) && defined(CONFIG_IPQ_NAND)
 	gpt_entry *gpt_pte, *p;
 #endif
 
-	if (blkpart->flash_type == SMEM_BOOT_MMC_FLASH)
-		id = UCLASS_MMC;
-	else if(blkpart->flash_type == SMEM_BOOT_NORGPT_FLASH)
-		id = UCLASS_SPI;
-	else {
-		printf("unsupported flash type \n");
-		return -ENODEV;
-	}
-
-	dev = blk_get_devnum_by_uclass_id(id, blkpart->devnum);
+	dev = ipq_get_blk_dev(blkpart->flash_type, blkpart->devnum);
 	if (!dev) {
 		printf("No such device \n");
 		return -ENODEV;
@@ -664,7 +701,8 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 	watchdog_reset();
 
 #ifdef CONFIG_EFI_PARTITION
-	if((dev->part_type == PART_TYPE_UNKNOWN) && (id == UCLASS_MMC))
+	if((dev->part_type == PART_TYPE_UNKNOWN) &&
+		(blkpart->flash_type == SMEM_BOOT_MMC_FLASH))
 		dev->part_type = PART_TYPE_EFI;
 #endif
 
@@ -682,7 +720,7 @@ int ipq_part_get_info_by_name(blkpart_info_t *blkpart)
 	}
 
 #if defined(CONFIG_NOR_BLK) && defined(CONFIG_IPQ_NAND)
-	if (id == UCLASS_SPI) {
+	if (blkpart->flash_type == SMEM_BOOT_NORGPT_FLASH) {
 		gpt_pte = get_gpt_entry(dev);
 		if(!gpt_pte) {
 			printf("Failed to get gpt table entry\n");

@@ -1364,4 +1364,6 @@ int check_rootfs_authentication(void);
 #ifdef CONFIG_WDT
 int ipq_wdt_expire(void);
 #endif
+int ipq_gpt_getpart_from_offset(uint32_t offset, uint32_t *pstart,
+					uint32_t *psize, uint32_t flash_type);
 #endif
