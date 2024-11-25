@@ -202,6 +202,7 @@ config IPQ_DEFAULTS
 	imply LIST_FUSE
 	imply WDT
 	imply WDT_QTI
+	imply CMD_WDT
 
 config IPQ_I2C
 	bool "Enable I2C support in IPQ SOC"
@@ -455,7 +456,6 @@ config TARGET_IPQ5424
         imply IPQ_QCN9224_FUSING
 	select BOOTCONFIG_V3
         imply CRC32_BE
-	imply CMD_WDT
 	help
 	  Support for IPQ5424 SoC.
 
