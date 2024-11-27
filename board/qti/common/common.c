@@ -808,11 +808,18 @@ void get_kernel_fs_part_details(int flash_type)
 	blkpart_info_t  bpart_info;
 #endif
 	ipq_smem_flash_info_t *smem = get_ipq_smem_flash_info();
+#ifdef CONFIG_BOOTCONFIG_V3
 	int active_part = (gd->board_type & ACTIVE_BOOT_SET) ? 1: 0;
+#endif
 
 	struct { char *name; ipq_part_entry_t *part; } entries[] = {
+#ifdef CONFIG_BOOTCONFIG_V3
 		{ active_part == 1 ? "0:HLOS_1" : "0:HLOS", &smem->hlos },
 		{ active_part == 1 ? "rootfs_1" : "rootfs", &smem->rootfs },
+#else
+		{ "0:HLOS", &smem->hlos },
+		{ "rootfs", &smem->rootfs },
+#endif
 	};
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
