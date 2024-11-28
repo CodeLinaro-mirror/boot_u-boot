@@ -3,6 +3,7 @@
  * core.c - DesignWare USB3 DRD Controller Core file
  *
  * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -195,6 +196,11 @@ static void dwc3_free_one_event_buffer(struct dwc3 *dwc,
 		struct dwc3_event_buffer *evt)
 {
 	dma_free_coherent(evt->buf);
+
+	if (evt) {
+		free(evt);
+		evt = NULL;
+	}
 }
 
 /**
@@ -240,6 +246,11 @@ static void dwc3_free_event_buffers(struct dwc3 *dwc)
 		evt = dwc->ev_buffs[i];
 		if (evt)
 			dwc3_free_one_event_buffer(dwc, evt);
+	}
+
+	if (dwc->ev_buffs) {
+		free(dwc->ev_buffs);
+		dwc->ev_buffs = NULL;
 	}
 }
 
@@ -1036,6 +1047,10 @@ int dwc3_shutdown_phy(struct udevice *dev, struct phy_bulk *phys)
 
 	ret = generic_phy_power_off_bulk(phys);
 	ret |= generic_phy_exit_bulk(phys);
+	if (phys->phys) {
+		free(phys->phys);
+		phys->phys = NULL;
+	}
 	return ret;
 }
 #endif
