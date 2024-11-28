@@ -625,9 +625,9 @@ static int qca_81xx_phy_speed_fixup(struct phy_device *phydev)
 			break;
 		}
 
-		udelay(5);
+		mdelay(1);
 		count++;
-	} while (count < 50);
+	} while (count < 100);
 
 	if(ret < 0) {
 		printf("autoneg complete timeout!\n");
@@ -890,9 +890,9 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 			break;
 		}
 
-		udelay(5);
+		mdelay(1);
 		count++;
-	} while (count < 50);
+	} while (count < 100);
 
 	if(ret < 0)
 		printf("uniphy callibration timed out!\n");
@@ -949,9 +949,9 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 			break;
 		}
 
-		udelay(5);
+		mdelay(1);
 		count++;
-	} while (count < 50);
+	} while (count < 500);
 
 	if(ret < 0)
 		printf("10G base_r link up timed out \n");
@@ -989,9 +989,9 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 			break;
 		}
 
-		udelay(5);
+		mdelay(1);
 		count++;
-	} while (count < 50);
+	} while (count < 100);
 
 	if(ret < 0)
 		printf("xpcs software reset timeout\n");
