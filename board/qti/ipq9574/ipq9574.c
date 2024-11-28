@@ -483,7 +483,7 @@ void ipq_board_power_cycle_sdx(void)
 	/*
 	 * sdx reset during crashdump path
 	 */
-	struct udevice *dev;
+	struct udevice *dev = NULL;
 	struct gpio_desc pwr_gpio;
 	struct gpio_desc rst_gpio;
 	struct gpio_desc e911_gpio;
