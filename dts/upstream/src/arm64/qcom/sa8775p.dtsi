@@ -487,6 +487,12 @@
 		};
 	};
 
+        smem {
+                compatible = "qcom,smem";
+                memory-region = <&smem_mem>;
+                hwlocks = <&tcsr_mutex 3>;
+        };
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -539,10 +545,8 @@
 		};
 
 		smem_mem: smem@90900000 {
-			compatible = "qcom,smem";
 			reg = <0x0 0x90900000 0x0 0x200000>;
 			no-map;
-			hwlocks = <&tcsr_mutex 3>;
 		};
 
 		tz_sail_mailbox_mem: tz-sail-mailbox@90c00000 {
