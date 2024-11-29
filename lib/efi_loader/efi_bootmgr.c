@@ -23,6 +23,8 @@
 #include <linux/kernel.h>
 #include <linux/sizes.h>
 
+void efi_load_qcom_fdt(efi_handle_t handle, void **_fdt, efi_uintn_t *_fdt_size);
+
 static const struct efi_boot_services *bs;
 static const struct efi_runtime_services *rs;
 
@@ -1309,6 +1311,10 @@ efi_status_t efi_bootmgr_run(void *fdt)
 			fdt = fdt_lo;
 		if (!fdt) {
 			efi_load_distro_fdt(handle, &fdt_distro, &fdt_size);
+			fdt = fdt_distro;
+		}
+		if (!fdt) {
+			efi_load_qcom_fdt(handle, &fdt_distro, &fdt_size);
 			fdt = fdt_distro;
 		}
 	}
