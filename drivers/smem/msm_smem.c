@@ -88,7 +88,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SMEM_GLOBAL_HOST	0xfffe
 
 /* Max number of processors/hosts in a system */
-#define SMEM_HOST_COUNT		10
+#define SMEM_HOST_COUNT		50
 
 /**
  * struct smem_proc_comm - proc_comm communication struct (legacy)
@@ -823,8 +823,8 @@ static int qcom_smem_map_memory(struct qcom_smem *smem, struct udevice *dev,
 {
 	struct fdt_resource r;
 	int ret;
-	int node = dev_of_offset(dev);
-
+	//int node = dev_of_offset(dev);
+	int node = fdt_node_offset_by_compatible(gd->fdt_blob, 0, "qcom,smem");
 	ret = fdtdec_lookup_phandle(gd->fdt_blob, node, name);
 	if (ret < 0) {
 		dev_err(dev, "No %s specified\n", name);
@@ -852,10 +852,14 @@ static int qcom_smem_probe(struct udevice *dev)
 	int num_regions;
 	u32 version;
 	int ret;
-	int node = dev_of_offset(dev);
+	//int node = dev_of_offset(dev);
+	int node = fdt_node_offset_by_compatible(gd->fdt_blob, 0, "qcom,smem");
+
+	if (__smem)
+		return 0;
 
 	num_regions = 1;
-	if (fdtdec_lookup_phandle(gd->fdt_blob, node, "qcomrpm-msg-ram") >= 0)
+	if (fdtdec_lookup_phandle(gd->fdt_blob, node, "qcom,rpm-msg-ram") >= 0)
 		num_regions++;
 
 	array_size = num_regions * sizeof(struct smem_region);
