@@ -283,6 +283,7 @@ config IPQ_NET
 	select CMD_TFTPPUT
 	select CMD_DHCP
 	select TFTP_PORT
+	imply ETH_SKIP_INIT_R
 
 config ETH_MAX_MAC
 	hex "Define Maximum MAC support in SoC"

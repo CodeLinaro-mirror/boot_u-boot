@@ -77,6 +77,11 @@ extern void ipq_board_power_cycle_sdx(void);
 struct udevice *smem;
 struct spi_flash *flash = NULL;
 
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+static int g_eth_initalized = 0;
+extern int eth_initialize(void);
+#endif
+
 int gpt_find_which_flash(gpt_entry *p)
 {
 	/*
@@ -1496,6 +1501,21 @@ int ipq_wdt_expire(void) {
 	}
 
 	wdt_expire_now(wdt_dev, 0);
+	return 0;
+}
+#endif
+
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+int initr_net(void)
+{
+	if (g_eth_initalized == 0) {
+		puts("Net:   ");
+		eth_initialize();
+		g_eth_initalized = 1;
+	} else {
+		return 1;
+	}
+
 	return 0;
 }
 #endif

@@ -241,6 +241,7 @@ static int crashdump_flash_get_args(uint8_t *flash_type, uint64_t *offset);
 static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config);
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+extern int initr_net(void);
 /**
  * add_entry_crashdump_table() - Adds an entry into dump table
  * &dump_config - crashdump ocnfiguration info
@@ -2401,6 +2402,13 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 #endif
 	if (ipq_iscrashed()) {
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+		/*
+		 * Enabling ethernet for dump collection
+		 */
+		initr_net();
+#endif
+
 #ifdef CONFIG_SDX_ATTACH_SUPPORT
 		ipq_board_gpio_config(SDX_POWER_CYCLE);
 #endif
