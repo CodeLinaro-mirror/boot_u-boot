@@ -679,11 +679,31 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 			break;
 		}
 
-		ret = getpart_offset_size(part_name, &off, &size);
- 		if (ret) {
-			printf("Error: %s Invalid partition\n", part_name);
-			ret = CMD_RET_FAILURE;
-			break;
+#ifdef CONFIG_NOR_BLK
+		if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+			blkpart_info_t bpart_info;
+			struct disk_partition disk_info;
+
+			BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
+					sfi->flash_type);
+			ret = ipq_part_get_info_by_name(&bpart_info);
+			if (ret)
+				return ret;
+
+			off = bpart_info.info->start *
+					bpart_info.desc->blksz;
+			size = bpart_info.info->size *
+					bpart_info.desc->blksz;
+		} else
+#endif /* CONFIG_NOR_BLK */
+		{
+			ret = getpart_offset_size(part_name, &off, &size);
+			if (ret) {
+				printf("Error: %s Invalid partition\n",
+						part_name);
+				ret = CMD_RET_FAILURE;
+				break;
+			}
 		}
 
 		dump_config->iface_cfg.crashdump_offset
@@ -1304,17 +1324,21 @@ int init_crashdump_nand_flash_write(void *cnxt, uint64_t offset, uint32_t size)
 {
 	struct crashdump_flash_nand_cxt *nand_cnxt = cnxt;
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
-	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	int ret;
 
 	if (!mtd)
 		return -ENODEV;
 
+#ifdef CONFIG_NOR_BLK
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
 	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
 		ret = ipq_gpt_getpart_from_offset(offset,
 				&nand_cnxt->part_start,&nand_cnxt->part_size,
 				sfi->flash_type);
-	} else {
+	} else
+#endif /* CONFIG_NOR_BLK */
+	{
 		ret = smem_getpart_from_offset(offset, &nand_cnxt->part_start,
 				&nand_cnxt->part_size);
 	}
