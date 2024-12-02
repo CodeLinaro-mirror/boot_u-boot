@@ -134,7 +134,7 @@ struct image_section sections[] = {
 #ifdef IPQ54XX
 	{
 		.section_type           = SBL_TYPE,
-		.type                   = "xbl",
+		.type                   = "xbl-",
 		.max_version            = MAX_SBL_VERSION,
 		.file                   = TMP_FILE_DIR,
 		.version_file           = XBL_VERSION_FILE,
@@ -143,7 +143,7 @@ struct image_section sections[] = {
 	},
 	{
 		.section_type           = SBL_TYPE,
-		.type                   = "xblconfig",
+		.type                   = "xblconfig-",
 		.max_version            = MAX_SBL_VERSION,
 		.file                   = TMP_FILE_DIR,
 		.version_file           = XBLCONFIG_VERSION_FILE,
