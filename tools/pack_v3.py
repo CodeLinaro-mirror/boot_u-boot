@@ -919,6 +919,15 @@ class Pack(object):
                         pname = "0:NORGPT"
                     part_img_map.append([pname, part_fname, psize, ftype, pre_cmd_hook, post_cmd_hook, erase_only])
 
+                    psize = str(int(33*flinfo.blocksize))
+                    pre_cmd_hook = []
+                    post_cmd_hook = []
+                    if ftype == "emmc":
+                        pname = "0:GPTBACKUP"
+                    else:
+                        pname = "0:NORGPTBACKUP"
+                    part_img_map.append([pname, part_info.find('partition_mbn_backup').text, psize, ftype, pre_cmd_hook, post_cmd_hook, erase_only])
+
                 part_fname = os.path.join(self.images_dname, part_fname)
                 print("#################", sys._getframe(0).f_code.co_name, sys._getframe(0).f_lineno, part_fname, flinfo)
                 gpt = GPT(part_fname, flinfo)
@@ -985,16 +994,6 @@ class Pack(object):
                                     part_img_map.append([vol_info["vol_name"], "", size, ptype, pre_cmd_hook, post_cmd_hook, erase_only])
                     except KeyError as e:
                         pass
-
-                if image_type == "all":
-                    psize = str(int(33*flinfo.blocksize))
-                    pre_cmd_hook = []
-                    post_cmd_hook = []
-                    if ftype == "emmc":
-                        pname = "0:GPTBACKUP"
-                    else:
-                        pname = "0:NORGPTBACKUP"
-                    part_img_map.append([pname, part_info.find('partition_mbn_backup').text, psize, ptype, pre_cmd_hook, post_cmd_hook, erase_only])
 
                 if self.flash_type != "norplusemmc":
                     images[layout] = dict()
