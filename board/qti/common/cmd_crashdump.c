@@ -1304,13 +1304,20 @@ int init_crashdump_nand_flash_write(void *cnxt, uint64_t offset, uint32_t size)
 {
 	struct crashdump_flash_nand_cxt *nand_cnxt = cnxt;
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
 	int ret;
 
 	if (!mtd)
 		return -ENODEV;
 
-	ret = smem_getpart_from_offset(offset, &nand_cnxt->part_start,
-						&nand_cnxt->part_size);
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+		ret = ipq_gpt_getpart_from_offset(offset,
+				&nand_cnxt->part_start,&nand_cnxt->part_size,
+				sfi->flash_type);
+	} else {
+		ret = smem_getpart_from_offset(offset, &nand_cnxt->part_start,
+				&nand_cnxt->part_size);
+	}
 	if (ret) {
 		printf("smem_getpart_from_offset failed\n");
 		return ret;
