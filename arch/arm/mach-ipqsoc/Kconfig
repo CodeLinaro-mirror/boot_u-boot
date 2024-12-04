@@ -283,7 +283,6 @@ config IPQ_NET
 	select CMD_TFTPPUT
 	select CMD_DHCP
 	select TFTP_PORT
-	imply ETH_SKIP_INIT_R
 
 config ETH_MAX_MAC
 	hex "Define Maximum MAC support in SoC"
@@ -376,6 +375,7 @@ config TARGET_IPQ5332
 	imply FUSEIPQ_V1 if IPQ_SECURE && SCM_V1
 	imply LIST_FUSE_V2 if IPQ_SECURE && SCM_V1
 	select BOOTCONFIG_V2
+	imply ETH_SKIP_INIT_R
 	help
 	  Support for the IPQ53XX SoC.
 	  - Board Open Platform Specifications.
@@ -414,6 +414,7 @@ config TARGET_IPQ9574
 	imply LIST_FUSE_V1 if IPQ_SECURE && SCM_V1
 	select BOOTCONFIG_V2
 	imply SDX_ATTACH_SUPPORT
+	imply ETH_SKIP_INIT_R
 	help
 	  Support for IPQ95xx SoC.
 	  - Board Open Platform Specifications.
