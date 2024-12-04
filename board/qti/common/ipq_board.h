@@ -345,7 +345,7 @@
 /*
  * Generate AES_256 Key
  */
-#if IS_ENABLED(CONFIG_SCM_V1)
+#if IS_ENABLED(CONFIG_SCM) && IS_ENABLED(CONFIG_CMD_AES_256)
 #define _IPQ_SCM_GENERATE_AES_256_KEY_V1(_param, _a, _b)		\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -363,7 +363,7 @@
 /*
  * Generate AES_256 Key with max 128 bytes context
  */
-#if IS_ENABLED(CONFIG_SCM_V1)
+#if IS_ENABLED(CONFIG_SCM) && IS_ENABLED(CONFIG_CMD_AES_256)
 #define _IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX_V1(_param, _a, _b)	\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -381,7 +381,7 @@
 /*
  * Encrypt AES_256
  */
-#if IS_ENABLED(CONFIG_SCM_V1)
+#if IS_ENABLED(CONFIG_SCM) && IS_ENABLED(CONFIG_CMD_AES_256)
 #define _IPQ_SCM_ENCRYPT_AES_256_V1(_param, _a, _b)			\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -399,7 +399,7 @@
 /*
  * Decrypt AES_256
  */
-#if IS_ENABLED(CONFIG_SCM_V1)
+#if IS_ENABLED(CONFIG_SCM) && IS_ENABLED(CONFIG_CMD_AES_256)
 #define _IPQ_SCM_DECRYPT_AES_256_V1(_param, _a, _b)			\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -585,7 +585,7 @@
 #define _CHECK_FEATURE(...) break;
 #endif
 
-#ifdef CONFIG_SCM_V1
+#if IS_ENABLED(CONFIG_SCM) && IS_ENABLED(CONFIG_CMD_AES_256)
 #define	_IPQ_SCM_CLEAR_AES_KEY_V1(_param, _a)				\
 	do {								\
 		memset(&(_param), 0, sizeof(scm_param));		\
@@ -697,7 +697,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1)
+#if defined(CONFIG_SCM) && defined(CONFIG_CMD_AES_256)
 #define IPQ_SCM_GENERATE_AES_256_KEY(param, a, b)			\
 		_IPQ_SCM_GENERATE_AES_256_KEY_V1(param, a, b)
 #else
@@ -706,7 +706,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1)
+#if defined(CONFIG_SCM) && defined(CONFIG_CMD_AES_256)
 #define IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX(param, a, b)		\
 		_IPQ_SCM_GENERATE_AES_256_KEY_128B_CNTX_V1(param, a, b)
 #else
@@ -715,7 +715,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1)
+#if defined(CONFIG_SCM) && defined(CONFIG_CMD_AES_256)
 #define IPQ_SCM_ENCRYPT_AES_256(param, a, b)				\
 		_IPQ_SCM_ENCRYPT_AES_256_V1(param, a, b)
 #else
@@ -724,7 +724,7 @@
 #endif
 
 
-#if defined(CONFIG_SCM_V1)
+#if defined(CONFIG_SCM) && defined(CONFIG_CMD_AES_256)
 #define IPQ_SCM_DECRYPT_AES_256(param, a, b)				\
 		_IPQ_SCM_DECRYPT_AES_256_V1(param, a, b)
 #else
@@ -812,7 +812,7 @@
 		_check_atf_support(param)
 #endif
 
-#ifdef CONFIG_SCM_V1
+#if defined(CONFIG_SCM) && defined(CONFIG_CMD_AES_256)
 #define	IPQ_SCM_CLEAR_AES_KEY(param, a)	_IPQ_SCM_CLEAR_AES_KEY_V1(param, a)
 #else
 #define	IPQ_SCM_CLEAR_AES_KEY(...)	break;
@@ -1364,4 +1364,6 @@ int check_rootfs_authentication(void);
 #ifdef CONFIG_WDT
 int ipq_wdt_expire(void);
 #endif
+int ipq_gpt_getpart_from_offset(uint32_t offset, uint32_t *pstart,
+					uint32_t *psize, uint32_t flash_type);
 #endif

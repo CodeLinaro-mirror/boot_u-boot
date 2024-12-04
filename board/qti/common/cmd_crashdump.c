@@ -241,6 +241,7 @@ static int crashdump_flash_get_args(uint8_t *flash_type, uint64_t *offset);
 static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config);
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
+extern int initr_net(void);
 /**
  * add_entry_crashdump_table() - Adds an entry into dump table
  * &dump_config - crashdump ocnfiguration info
@@ -678,11 +679,31 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 			break;
 		}
 
-		ret = getpart_offset_size(part_name, &off, &size);
- 		if (ret) {
-			printf("Error: %s Invalid partition\n", part_name);
-			ret = CMD_RET_FAILURE;
-			break;
+#ifdef CONFIG_NOR_BLK
+		if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+			blkpart_info_t bpart_info;
+			struct disk_partition disk_info;
+
+			BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
+					sfi->flash_type);
+			ret = ipq_part_get_info_by_name(&bpart_info);
+			if (ret)
+				return ret;
+
+			off = bpart_info.info->start *
+					bpart_info.desc->blksz;
+			size = bpart_info.info->size *
+					bpart_info.desc->blksz;
+		} else
+#endif /* CONFIG_NOR_BLK */
+		{
+			ret = getpart_offset_size(part_name, &off, &size);
+			if (ret) {
+				printf("Error: %s Invalid partition\n",
+						part_name);
+				ret = CMD_RET_FAILURE;
+				break;
+			}
 		}
 
 		dump_config->iface_cfg.crashdump_offset
@@ -1308,8 +1329,19 @@ int init_crashdump_nand_flash_write(void *cnxt, uint64_t offset, uint32_t size)
 	if (!mtd)
 		return -ENODEV;
 
-	ret = smem_getpart_from_offset(offset, &nand_cnxt->part_start,
-						&nand_cnxt->part_size);
+#ifdef CONFIG_NOR_BLK
+	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+
+	if (sfi->flash_type == SMEM_BOOT_NORGPT_FLASH) {
+		ret = ipq_gpt_getpart_from_offset(offset,
+				&nand_cnxt->part_start,&nand_cnxt->part_size,
+				sfi->flash_type);
+	} else
+#endif /* CONFIG_NOR_BLK */
+	{
+		ret = smem_getpart_from_offset(offset, &nand_cnxt->part_start,
+				&nand_cnxt->part_size);
+	}
 	if (ret) {
 		printf("smem_getpart_from_offset failed\n");
 		return ret;
@@ -2401,6 +2433,13 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 #endif
 	if (ipq_iscrashed()) {
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+		/*
+		 * Enabling ethernet for dump collection
+		 */
+		initr_net();
+#endif
+
 #ifdef CONFIG_SDX_ATTACH_SUPPORT
 		ipq_board_gpio_config(SDX_POWER_CYCLE);
 #endif

@@ -36,6 +36,10 @@ extern struct mii_dev *qcom_mdio_i2c_alloc(struct udevice *i2c_bus,
 extern int get_eth_mac_address(uchar *enetaddr, int no_of_macs);
 extern int ipq_aquantia_load_fw(struct phy_device *phydev);
 
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+extern int initr_net(void);
+#endif
+
 #ifdef CONFIG_ETH_LOW_MEM
 #define mem_init()			;
 #define mem_alloc(size, align)		malloc_cache_aligned(size)
@@ -3248,13 +3252,26 @@ U_BOOT_DRIVER(eth_ipq) = {
 static int do_aqloadfw(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
 {
-	struct udevice *dev = eth_get_dev_by_name("nss-switch");
-	struct ipq_eth_dev *priv = dev_get_priv(dev);
-	int i, ret = CMD_RET_FAILURE;
+	struct udevice *dev = NULL;
+	struct ipq_eth_dev *priv = NULL;
+	int i;
 	uint8_t phyaddr;
 
 	if (argc != 2)
 		return CMD_RET_USAGE;
+
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+	if (!initr_net())
+		return CMD_RET_SUCCESS;
+#endif
+
+	dev = eth_get_dev_by_name("nss-switch");
+	if (dev == NULL)
+		return CMD_RET_FAILURE;
+
+	priv = dev_get_priv(dev);
+	if (priv == NULL)
+		return CMD_RET_FAILURE;
 
 	phyaddr = simple_strtoul(argv[1], NULL, 16);
 
@@ -3271,12 +3288,12 @@ static int do_aqloadfw(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		if (!ipq_aquantia_load_fw(port->phydev)) {
 			mdelay(100);
-			ret = CMD_RET_SUCCESS;
 		}
+
 		break;
 	}
 
-	return ret;
+	return CMD_RET_SUCCESS;
 }
 
 U_BOOT_CMD(

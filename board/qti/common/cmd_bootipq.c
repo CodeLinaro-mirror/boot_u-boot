@@ -108,6 +108,8 @@ static boot_info_t boot_info;
 extern int ubi_volume_read(char *volume, char *buf, size_t size);
 #endif
 
+extern int initr_net(void);
+
 #ifdef CONFIG_IPQ_ELF_AUTH
 void update_load_addr(image_info *img_info)
 {
@@ -184,11 +186,13 @@ int set_mmc_bootargs(char *boot_args, char *part_name, int buflen,
 #endif
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
-void set_crashdump_bootargs(char *bootargs, uint8_t flash_type)
+void set_crashdump_bootargs(char *bootargs, uint8_t pri_ftype,
+		uint8_t sec_ftype)
 {
 	char *part_name = env_get("dump_to_nvmem");
 	int ret;
 	uint32_t * buf = NULL;
+	uint8_t flash_type = sec_ftype ? sec_ftype : pri_ftype;
 
 	if (bootargs == NULL)
 		return;
@@ -206,9 +210,28 @@ void set_crashdump_bootargs(char *bootargs, uint8_t flash_type)
 		if (!mtd)
 			return;
 
-		if (getpart_offset_size(part_name, (uint32_t*)&offset,
-					(uint32_t*)&part_size))
-			return;
+#ifdef CONFIG_NOR_BLK
+		if (pri_ftype == SMEM_BOOT_NORGPT_FLASH) {
+			blkpart_info_t bpart_info;
+			struct disk_partition disk_info;
+
+			BLK_PART_GET_INFO_S(bpart_info, part_name, &disk_info,
+					pri_ftype);
+			ret = ipq_part_get_info_by_name(&bpart_info);
+			if (ret)
+				return;
+
+			offset = (loff_t)bpart_info.info->start *
+					(loff_t)bpart_info.desc->blksz;
+			part_size = bpart_info.info->size *
+					bpart_info.desc->blksz;
+		} else
+#endif /* CONFIG_NOR_BLK */
+		{
+			if (getpart_offset_size(part_name, (uint32_t*)&offset,
+						(uint32_t*)&part_size))
+				return;
+		}
 
 		buf = malloc(read_size);
 		if (!buf) {
@@ -361,9 +384,8 @@ int set_bootargs(void)
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY
 	if (env_get("dump_to_nvmem")) {
-		set_crashdump_bootargs(cmd_line,
-				sfi->flash_secondary_type ?
-				sfi->flash_secondary_type : sfi->flash_type);
+		set_crashdump_bootargs(cmd_line, sfi->flash_type,
+				sfi->flash_secondary_type);
 	}
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY */
 
@@ -1257,6 +1279,13 @@ reset_board:
 			return CMD_RET_FAILURE;
 		}
 	}
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
+	/*
+	 * Reaching here since booting is failed
+	 * so enabling eth support.
+	 */
+	initr_net();
+#endif
 
 	return CMD_RET_SUCCESS;
 }
