@@ -170,8 +170,10 @@ int wdt_stop(struct udevice *dev)
 		 * And also avoid multiple creation of cyclic node for same
 		 * driver.
 		 */
-		cyclic_unregister(priv->cyclic);
-		priv->cyclic = NULL;
+		if (priv->cyclic) {
+			cyclic_unregister(priv->cyclic);
+			priv->cyclic = NULL;
+		}
 	}
 
 	return ret;
