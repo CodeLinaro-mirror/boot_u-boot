@@ -114,14 +114,17 @@ int initr_watchdog(void)
 int wdt_start(struct udevice *dev, u64 timeout_ms, ulong flags)
 {
 	const struct wdt_ops *ops = device_get_ops(dev);
+	struct wdt_priv *priv = dev_get_uclass_priv(dev);
 	int ret;
 
 	if (!ops->start)
 		return -ENOSYS;
 
+	if (priv->running)
+		return 0;
+
 	ret = ops->start(dev, timeout_ms, flags);
 	if (ret == 0) {
-		struct wdt_priv *priv = dev_get_uclass_priv(dev);
 		char str[16];
 
 		priv->running = true;
@@ -153,15 +156,17 @@ int wdt_start(struct udevice *dev, u64 timeout_ms, ulong flags)
 int wdt_stop(struct udevice *dev)
 {
 	const struct wdt_ops *ops = device_get_ops(dev);
+	struct wdt_priv *priv = dev_get_uclass_priv(dev);
 	int ret;
 
 	if (!ops->stop)
 		return -ENOSYS;
 
+	if (!priv->running)
+		return 0;
+
 	ret = ops->stop(dev);
 	if (ret == 0) {
-		struct wdt_priv *priv = dev_get_uclass_priv(dev);
-
 		priv->running = false;
 		/*
 		 * Remove from cyclic node since start function
@@ -301,6 +306,7 @@ static int wdt_pre_probe(struct udevice *dev)
 	 * watchdog_reset will actually call its ->reset method.
 	 */
 	priv->next_reset = get_timer(0);
+	priv->running = false;
 
 	return 0;
 }
