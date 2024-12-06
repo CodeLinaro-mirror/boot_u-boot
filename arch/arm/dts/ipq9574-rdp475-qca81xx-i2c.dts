@@ -8,7 +8,7 @@
 #include "ipq9574-default.dts"
 
 / {
-	config_name = "config@al05-qca81xx-i2c","config@rdp475-qca81xx-i2c", "config-rdp475-qca81xx-i2c";
+	config_name = "config-al05-qca81xx-i2c", "config@al05-qca81xx-i2c","config@rdp475-qca81xx-i2c", "config-rdp475-qca81xx-i2c";
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {

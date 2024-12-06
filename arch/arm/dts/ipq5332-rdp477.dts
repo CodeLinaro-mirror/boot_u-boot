@@ -6,7 +6,7 @@
 #include "ipq5332-default.dts"
 
 / {
-	config_name = "config@mi01.3-c2", "config@rdp477", "config-rdp477";
+	config_name = "config-mi01.3-c2", "config@mi01.3-c2", "config@rdp477", "config-rdp477";
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {

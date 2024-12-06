@@ -6,7 +6,7 @@
 #include "ipq5332-default.dts"
 
 / {
-	config_name = "config@ap-rdp479", "config@rdp479", "config-rdp479";
+	config_name = "config-ap-rdp479", "config@ap-rdp479", "config@rdp479", "config-rdp479";
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {
