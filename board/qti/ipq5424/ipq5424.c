@@ -560,12 +560,8 @@ uint32_t image_auth_check(void) {
 	case SZ_128M:
 		ret = 0;
 		break;
-	case SZ_256M:
-		ret = (board_type & SECURE_BOARD);
-		break;
 	default:
-		ret = (board_type & SECURE_BOARD) &&
-			!(board_type & ATF_ENABLED);
+		ret = (board_type & SECURE_BOARD);
 		break;
 	}
 
