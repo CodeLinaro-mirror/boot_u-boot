@@ -195,9 +195,8 @@ static void dwc3_ref_clk_period(struct dwc3 *dwc)
 static void dwc3_free_one_event_buffer(struct dwc3 *dwc,
 		struct dwc3_event_buffer *evt)
 {
-	dma_free_coherent(evt->buf);
-
 	if (evt) {
+		dma_free_coherent(evt->buf);
 		free(evt);
 		evt = NULL;
 	}
