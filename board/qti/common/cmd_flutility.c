@@ -846,7 +846,8 @@ mmc:
 #endif
 
 #ifdef CONFIG_CMD_UBI
-	if (!strncmp(part_name, "rootfs", strlen("rootfs")))
+	if (!strncmp(part_name, "rootfs", strlen("rootfs")) ||
+		!strncmp(part_name, "rootfs_1", strlen("rootfs_1")))
 		detach_ubi();
 #endif
 
@@ -973,10 +974,12 @@ int do_xtract_n_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 char * const argv[])
 {
 	char runcmd[256], fname_stripped[256];
+	char alt_part_name[SMEM_PTN_NAME_MAX] = {0};
 	char *file_name, *part_name;
 	uint32_t load_addr, verbose;
 	int ret = CMD_RET_SUCCESS;
 	u16 flash_type = -1;
+	uint8_t redo = 0;
 
 	if (argc < 4 || argc > 5)
 		return CMD_RET_USAGE;
@@ -997,10 +1000,7 @@ char * const argv[])
 		else
 			return CMD_RET_USAGE;
 	}
-
-	if (strstr(part_name, "_1") && !env_get("flash_alt_partition"))
-		return CMD_RET_SUCCESS;
-
+redo_flash:
 	snprintf(fname_stripped , sizeof(fname_stripped),
 		"%.*s:",(int) (strlen(file_name) - SHA1_SIG_LEN), file_name);
 
@@ -1054,6 +1054,23 @@ char * const argv[])
 		printf("Flashing %-30s %s\n", fname_stripped,
 				ret ? "[ failed ]" : "[ done ]");
 	}
+
+	if (unlikely(!redo && env_get("flash_alt_partition"))) {
+		if (strstr(part_name,"GPT") ||
+			!strncmp(part_name, "0:MIBIB", 7 ) ||
+			!strncmp(part_name, "wifi_fw", 7 ) ||
+			!strncmp(part_name, "0:BOOTCONFIG", 12))
+			return ret;
+
+		snprintf(alt_part_name, SMEM_PTN_NAME_MAX,
+			"%s%s", part_name, "_1");
+		part_name = alt_part_name;
+		redo = 1;
+		goto redo_flash;
+	}
+
+	if (redo && ret)
+		ret = CMD_RET_SUCCESS;
 
 	return ret;
 }
