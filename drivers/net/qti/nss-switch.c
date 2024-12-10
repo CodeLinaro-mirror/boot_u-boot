@@ -3177,8 +3177,11 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 			if ((ipq_uniphy) && (uniphy_id <
 						CONFIG_ETH_MAX_UNIPHY)) {
 				if(readl(ipq_uniphy[uniphy_id].reg) & (1 <<
-						ipq_uniphy[uniphy_id].bit))
+						ipq_uniphy[uniphy_id].bit)) {
+					printf("UNIPHY%d is Disabled\n",
+							uniphy_id);
 					continue;
+				}
 			}
 
 			port = malloc_cache_aligned(sizeof(struct port_info));
