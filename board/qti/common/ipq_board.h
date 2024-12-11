@@ -36,6 +36,11 @@
 #define watchdog_reset()
 #endif
 
+#ifndef __IPQ_RESET__
+#define __IPQ_RESET__
+#define reset()			do_reset(NULL, 0, 0, NULL)
+#endif
+
 #ifndef IPQ_NAND_FLASH_VALID_BIT
 #define IPQ_NAND_FLASH_VALID_BIT	3
 #endif

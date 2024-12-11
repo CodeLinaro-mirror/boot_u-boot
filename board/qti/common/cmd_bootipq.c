@@ -1225,7 +1225,7 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 			printf("Failed at state %d\n", state);
 #if CONFIG_BOOTCONFIG_V2 && CONFIG_WDT
 			if (ipq_wdt_expire())
-				run_command("reset", 0);
+				reset();
 #endif
 #ifdef CONFIG_BOOTCONFIG_V3
 			char runcmd[MAX_BOOT_ARGS_SIZE];
@@ -1274,7 +1274,7 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 			if(ret)
 				printf("Failed to update 0:BOOTCONFIG\n");
 reset_board:
-			run_command("reset", 0);
+			reset();
 #endif
 			return CMD_RET_FAILURE;
 		}

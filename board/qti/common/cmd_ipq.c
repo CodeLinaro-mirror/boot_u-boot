@@ -1518,7 +1518,7 @@ int do_runmulticore(struct cmd_tbl *cmdtp,
 			}
 		}
 		if (ctrlc()) {
-			run_command("reset", 0);
+			reset();
 		}
 	}
 
