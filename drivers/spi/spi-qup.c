@@ -858,7 +858,6 @@ static int qup_spi_hw_init(struct udevice *dev)
 	/* Disable Error mask */
 	writel(0, priv->base + SPI_ERROR_FLAGS_EN);
 	writel(0, priv->base + QUP_ERROR_FLAGS_EN);
-	writel(0, priv->base + BLSP0_SPI_DEASSERT_WAIT_REG);
 
 	if (priv->use_dma)
 		clrsetbits_le32(priv->base + QUP_OPERATIONAL_MASK,
