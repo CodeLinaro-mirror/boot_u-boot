@@ -8,7 +8,7 @@
 #include "ipq9574-default.dts"
 
 / {
-	config_name = "config@al02-c10", "config@rdp433-mht-switch", "config-rdp433-mht-switch";
+	config_name = "config-al02-c10", "config@al02-c10", "config@rdp433-mht-switch", "config-rdp433-mht-switch";
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {

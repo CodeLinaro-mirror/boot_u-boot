@@ -6,7 +6,7 @@
 #include "ipq5332-default.dts"
 
 / {
-	config_name = "config@mi04.1", "config@rdp446", "config-rdp446";
+	config_name = "config-mi04.1", "config@mi04.1", "config@rdp446", "config-rdp446";
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {

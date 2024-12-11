@@ -6,7 +6,7 @@
 #include "ipq5332-default.dts"
 
 / {
-	config_name = "config@mi01.2-qca81xx-i2c", "config@rdp441-qca81xx-i2c", "config-rdp441-qca81xx-i2c";
+	config_name = "config-mi01.2-qca81xx-i2c", "config@mi01.2-qca81xx-i2c", "config@rdp441-qca81xx-i2c", "config-rdp441-qca81xx-i2c";
 
 
 	soc: soc {

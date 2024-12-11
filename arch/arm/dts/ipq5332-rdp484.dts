@@ -6,7 +6,7 @@
 #include "ipq5332-default.dts"
 
 / {
-	config_name = "config@mi01.2-c2", "config@rdp484", "config-rdp484";
+	config_name = "config-mi01.2-c2", "config@mi01.2-c2", "config@rdp484", "config-rdp484";
 
 
 	soc: soc {

@@ -263,11 +263,13 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 			config_list[config_nos++] = "config-db-al02-c2";
 			break;
 		case MACH_TYPE_IPQ9574_RDP455_C11:
+			config_list[config_nos++] = "config-al02-c11";
 			config_list[config_nos++] = "config@al02-c11";
 			config_list[config_nos++] = "config@rdp455-c11";
 			config_list[config_nos++] = "config-rdp455-c11";
 			break;
 		case MACH_TYPE_IPQ9574_RDP455_C12:
+			config_list[config_nos++] = "config-al02-c12";
 			config_list[config_nos++] = "config@al02-c12";
 			config_list[config_nos++] = "config@rdp455-c12";
 			config_list[config_nos++] = "config-rdp455-c12";

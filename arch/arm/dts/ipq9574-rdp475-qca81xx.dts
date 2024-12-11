@@ -8,7 +8,7 @@
 #include "ipq9574-default.dts"
 
 / {
-	config_name = "config@al05-qca81xx","config@rdp475-qca81xx", "config-rdp475-qca81xx";
+	config_name = "config-al05-qca81xx", "config@al05-qca81xx", "config@rdp475-qca81xx", "config-rdp475-qca81xx";
 
 	soc: soc {
 		tlmm: pinctrl@1000000 {

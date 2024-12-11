@@ -408,21 +408,25 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 	switch (machid)
 	{
 		case MACH_TYPE_IPQ5332_RDP442:
+			config_list[config_nos++] = "config-mi01.3";
 			config_list[config_nos++] = "config@mi01.3";
 			config_list[config_nos++] = "config@rdp442";
 			config_list[config_nos++] = "config-rdp442";
 			break;
 		case MACH_TYPE_IPQ5332_RDP473:
+			config_list[config_nos++] = "config-mi01.7";
 			config_list[config_nos++] = "config@mi01.7";
 			config_list[config_nos++] = "config@rdp473";
 			config_list[config_nos++] = "config-rdp473";
 			break;
 		case MACH_TYPE_IPQ5332_RDP480:
+			config_list[config_nos++] = "config-mi01.13";
 			config_list[config_nos++] = "config@mi01.13";
 			config_list[config_nos++] = "config@rdp480";
 			config_list[config_nos++] = "config-rdp480";
 			break;
 		case MACH_TYPE_IPQ5332_RDP486:
+			config_list[config_nos++] = "config-mi01.3-c3";
 			config_list[config_nos++] = "config@mi01.3-c3";
 			config_list[config_nos++] = "config@rdp486";
 			config_list[config_nos++] = "config-rdp486";
