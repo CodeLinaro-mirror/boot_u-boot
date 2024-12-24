@@ -145,7 +145,6 @@ enum {
 
 #define FUSEPROV_SUCCESS		0x0
 #define FUSEPROV_INVALID_HASH		0x09
-#define FUSEPROV_SECDAT_LOCK_BLOWN	0xB
 #define SEC_IMG_AUTH_FAILURE		0x101
 
 #define MAX_FUSE_ADDR_SIZE		0x8
@@ -531,9 +530,6 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			switch (fuse_status) {
 			case FUSEPROV_SUCCESS:
 				printf("Fuse Blow Success\n");
-				break;
-			case FUSEPROV_SECDAT_LOCK_BLOWN:
-				printf("Fuse already blown\n");
 				break;
 			case FUSEPROV_INVALID_HASH:
 				printf("Invalid sec.dat\n");
