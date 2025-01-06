@@ -56,5 +56,8 @@
 #define NSS_CC_PORT1_MAC_RESET			34
 #define NSS_CC_PORT2_MAC_RESET			35
 #define NSS_CC_PORT3_MAC_RESET			36
+#define GCC_PCIE0_BCR				37
+#define GCC_PCIE2_BCR				38
+#define GCC_PCIE3_BCR				39
 
 #endif

@@ -547,6 +547,10 @@
 				 <&gcc GCC_CNOC_PCIE0_1LANE_S_CLK>,
 				 <&gcc GCC_PCIE0_PIPE_CLK>;
 
+			resets = <&reset GCC_PCIE0_BCR>,
+				 <&reset GCC_PCIE0PHY_PHY_BCR>,
+				 <&reset GCC_PCIE0_PHY_BCR>;
+
 			#phy-cells = <1>;
 			status = "disabled";
 		};
@@ -562,6 +566,10 @@
 			clocks = <&gcc GCC_ANOC_PCIE1_1LANE_M_CLK>,
 				 <&gcc GCC_CNOC_PCIE1_1LANE_S_CLK>,
 				 <&gcc GCC_PCIE1_PIPE_CLK>;
+
+			resets = <&reset GCC_PCIE1_BCR>,
+				 <&reset GCC_PCIE1PHY_PHY_BCR>,
+				 <&reset GCC_PCIE1_PHY_BCR>;
 
 			#phy-cells = <1>;
 			status = "disabled";
@@ -581,6 +589,10 @@
 				 <&gcc GCC_CNOC_PCIE2_2LANE_S_CLK>,
 				 <&gcc GCC_PCIE2_PIPE_CLK>;
 
+			resets = <&reset GCC_PCIE2_BCR>,
+				 <&reset GCC_PCIE2PHY_PHY_BCR>,
+				 <&reset GCC_PCIE2_PHY_BCR>;
+
 			#phy-cells = <1>;
 			status = "disabled";
 		};
@@ -598,6 +610,10 @@
 			clocks = <&gcc GCC_ANOC_PCIE3_2LANE_M_CLK>,
 				 <&gcc GCC_CNOC_PCIE3_2LANE_S_CLK>,
 				 <&gcc GCC_PCIE3_PIPE_CLK>;
+
+			resets = <&reset GCC_PCIE3_BCR>,
+				 <&reset GCC_PCIE3PHY_PHY_BCR>,
+				 <&reset GCC_PCIE3_PHY_BCR>;
 
 			#phy-cells = <1>;
 			status = "disabled";
@@ -641,9 +657,6 @@
 						<240000000>,
 						<240000000>,
 						<100000000>;
-
-			resets = <&reset GCC_PCIE0_PHY_BCR>,
-				 <&reset GCC_PCIE0PHY_PHY_BCR>;
 
 			phys = <&pcie0_phy PHY_TYPE_PCIE>;
 			phy-names = "pcie-phy";
@@ -689,10 +702,6 @@
 						<240000000>,
 						<100000000>;
 
-			resets = <&reset GCC_PCIE1_PHY_BCR>,
-				 <&reset GCC_PCIE1_BCR>,
-				 <&reset GCC_PCIE1PHY_PHY_BCR>;
-
 			phys = <&pcie1_phy PHY_TYPE_PCIE>;
 			phy-names = "pcie-phy";
 			status = "disabled";
@@ -737,9 +746,6 @@
 						<240000000>,
 						<100000000>;
 
-			resets = <&reset GCC_PCIE2_PHY_BCR>,
-				 <&reset GCC_PCIE2PHY_PHY_BCR>;
-
 			phys = <&pcie2_phy PHY_TYPE_PCIE>;
 			phy-names = "pcie-phy";
 			status = "disabled";
@@ -783,9 +789,6 @@
 						<266666666>,
 						<240000000>,
 						<100000000>;
-
-			resets = <&reset GCC_PCIE3_PHY_BCR>,
-				 <&reset GCC_PCIE3PHY_PHY_BCR>;
 
 			phys = <&pcie3_phy PHY_TYPE_PCIE>;
 			phy-names = "pcie-phy";
