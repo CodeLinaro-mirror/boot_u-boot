@@ -28,6 +28,7 @@
 #define AUTHENTICATE_FILE	"/sys/devices/system/qfprom/qfprom0/authenticate"
 #define SEC_AUTHENTICATE_FILE  "/sys/sec_upgrade/sec_auth"
 #define ROOTFS_AUTH		"/sys/sec_upgrade/rootfs_auth"
+#define ATF_AUTH		"/sys/kernel/debug/qcom_socinfo/tz/name"
 #define TEMP_KERNEL_PATH	"/tmp/tmp_kernel.bin"
 #define TEMP_ROOTFS_PATH	"/tmp/rootfs_tmp.bin"
 #define TEMP_METADATA_PATH	"/tmp/metadata.bin"
@@ -405,6 +406,28 @@ int is_rootfs_auth_enabled(void)
 
 	fclose(file);
 
+	return 0;
+}
+
+int is_atf_auth_enabled(void)
+{
+	FILE *file;
+	char buf[30];
+
+	file = fopen(ATF_AUTH, "r");
+	if (file == NULL) {
+		printf("Error: Unable to open sysfs file\n");
+		return 0;
+	}
+
+	while (fgets(buf, sizeof(buf), file) != NULL) {
+		if ((strstr(buf, "WIN.ATF") != NULL)) {
+			fclose(file);
+			return 1;
+		}
+	}
+
+	fclose(file);
 	return 0;
 }
 
@@ -1858,7 +1881,16 @@ int sec_image_auth(void)
 		if (!sections[i].is_present) {
 			continue;
 		}
-
+#ifdef IPQ54XX
+		if (!strncmp(sections[i].type, "qsee", strlen("qsee"))) {
+			if(is_atf_auth_enabled()) {
+				char imgcode[6];
+				strlcpy(imgcode, "0x1E", sizeof(imgcode));
+				imgcode[5] = '\0';
+				sections[i].img_code = imgcode;
+			}
+		}
+#endif
 		len = snprintf(buf, SIG_SIZE, "%s %s", sections[i].img_code, sections[i].file);
 		if (!strncmp(sections[i].type, "rootfs", strlen("rootfs"))) {
 			struct stat sb;
