@@ -2353,7 +2353,7 @@ static void ipq_dump_func(crashdump_config_t *dump_config, uint8_t debug)
 	delete_crashdump_table();
 
 reset:
-	run_command("reset", 0);
+	reset();
 	return;
 }
 
@@ -2462,7 +2462,7 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 		ipq_board_gpio_config(SDX_POWER_CYCLE);
 #endif
 		printf("Crashdump disabled, resetting the board..\n");
-		run_command("reset", 0);
+		reset();
 	}
 
 	return 0;
