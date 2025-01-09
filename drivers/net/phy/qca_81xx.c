@@ -35,9 +35,9 @@
 #define QCA81XX_DEBUG_DATA				0x1e
 
 #define PHY_INVALID_DATA				0xffff
-#define QCAPHY_MMD1_PMA_CONTROL                         0x0
-#define QCAPHY_CTRL_SOFTWARE_RESET			0x8000
 #define QCAPHY_SPEC_STATUS                              17
+#define QCA81XX_SPEC_CONTROL				0x10
+#define QCA81XX_AUTO_SOFT_RESET_EN			0x8
 
 #define QCAPHY_STATUS_LINK_PASS                         0x0400
 #define QCAPHY_STATUS_SPEED_MASK			0x380
@@ -809,6 +809,31 @@ static int qca81xx_phy_gcc_post_init(struct phy_device *phydev)
 	return ret;
 }
 
+static int qca81xx_phy_soft_reset(struct phy_device *phydev)
+{
+	int ret;
+
+	/* enable auto soft reset when power on */
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_VEND2,
+			QCA81XX_SPEC_CONTROL,
+			QCA81XX_AUTO_SOFT_RESET_EN,
+			QCA81XX_AUTO_SOFT_RESET_EN);
+	if (ret < 0)
+		return ret;
+
+	phy_set_bits_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1, MDIO_CTRL1_LPOWER);
+	mdelay(10);
+	phy_clear_bits_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_CTRL1, MDIO_CTRL1_LPOWER);
+	mdelay(1);
+
+	/* disable auto soft reset when power on */
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_VEND2,
+			QCA81XX_SPEC_CONTROL,
+			QCA81XX_AUTO_SOFT_RESET_EN, 0);
+
+	return ret;
+}
+
 static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 {
 	uint16_t count, phy_data = 0;
@@ -920,9 +945,7 @@ static int qca_81xx_phy_usxgmii_init(struct phy_device *phydev)
 		return ret;
 
 	debug("ethphy software reset\n");
-	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PMAPMD,
-			QCAPHY_MMD1_PMA_CONTROL, QCAPHY_CTRL_SOFTWARE_RESET,
-			QCAPHY_CTRL_SOFTWARE_RESET);
+	ret = qca81xx_phy_soft_reset(phydev);
 	if (ret)
 		goto fail;
 
