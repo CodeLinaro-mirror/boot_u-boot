@@ -53,8 +53,8 @@ static int qti_wdt_stop(struct udevice *dev)
 
 	writel(0, priv->base + WDT_EN);
 	writel(BIT(0), priv->base + WDT_RST);
-	writel(0, priv->base + WDT_BARK_TIME);
-	writel(0, priv->base + WDT_BITE_TIME);
+	writel(0x7ffff, priv->base + WDT_BARK_TIME);
+	writel(0xfffff, priv->base + WDT_BITE_TIME);
 
 	return 0;
 }
