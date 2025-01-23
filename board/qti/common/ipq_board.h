@@ -1033,11 +1033,11 @@ typedef struct __attribute__((packed))
 {
 #define  _SMEM_DUAL_BOOTINFO_MAGIC_START		0x72637279
 	uint32_t magic_start;   /* Magic number for identification when reading from flash */
-	uint32_t image_set_status_A; /* Represents the health status of the Bank A*/
-	uint32_t image_set_status_B; /* Represents the health status of the Bank B*/
+	uint32_t image_set_status; /* Represents the health status of the Bank A & B*/
 	uint32_t owner;  /* Indicates which component updated the health status of a Bank */
 	uint32_t boot_set;    /* Indicates the current active Bank*/
-	uint32_t reserved;
+	uint32_t reserved1;
+	uint32_t reserved2;
 	uint32_t crc;  /* CRC field for fields above */
 } ipq_smem_bootconfig_info_t;
 #endif

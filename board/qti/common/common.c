@@ -1288,55 +1288,29 @@ int get_rootfs_active_partition(ipq_smem_flash_info_t *sfi)
 		}
 	}
 #elif CONFIG_BOOTCONFIG_V3
-	uint32_t *image_set_status_A = &(binfo->image_set_status_A);
-	uint32_t *image_set_status_B = &(binfo->image_set_status_B);
+	uint32_t *image_set_status = &(binfo->image_set_status);
 	uint32_t *boot_set = &(binfo->boot_set);
 
-	if (BOOT_SET_A == *boot_set) {
-		if((DONT_USE_SET == *image_set_status_A) ||
-				((SET_PARTIAL_USABLE == *image_set_status_A) &&
-				 (SET_USABLE == *image_set_status_B))) {
+
+	if (*image_set_status == DONT_USE_SET_AB) {
+		ret = BOOT_SET_INVALID;
+	} else if (BOOT_SET_A == *boot_set) {
+		if(DONT_USE_SET_A == *image_set_status) {
 			ret = BOOT_SET_B;
-		} else if((SET_USABLE == *image_set_status_A) ||
-				((SET_PARTIAL_USABLE == *image_set_status_A) &&
-				 (SET_USABLE != *image_set_status_B))) {
-			ret = BOOT_SET_A;
 		} else {
 			ret = *boot_set;
 		}
 	} else if (BOOT_SET_B == *boot_set) {
-		if((DONT_USE_SET == *image_set_status_B) ||
-				((SET_PARTIAL_USABLE == *image_set_status_B) &&
-				 (SET_USABLE == *image_set_status_A))) {
+		if (DONT_USE_SET_B == *image_set_status) {
 			ret = BOOT_SET_A;
-		} else if((SET_USABLE == *image_set_status_B) ||
-				((SET_PARTIAL_USABLE == *image_set_status_B) &&
-				 (SET_USABLE != *image_set_status_A))) {
-			ret = BOOT_SET_B;
 		} else {
 			ret = *boot_set;
 		}
 	}
 
-	if (sfi->try_mode_inprogress)
+	if ((*image_set_status != DONT_USE_SET_AB) &&
+		(sfi->try_mode_inprogress))
 		ret = !ret;
-	else {
-		if (*image_set_status_A && *image_set_status_B) {
-			if (sfi->edl_mode & EDL_RECOVERY_MODE)
-				write_tcsr_boot_misc_reg(ENABLE_EDL_MODE , 1);
-			return ret;
-		}
-
-		if((BOOT_SET_A == ret) && (SET_USABLE != *image_set_status_A)) {
-			if (sfi->edl_mode & EDL_RECOVERY_MODE)
-				write_tcsr_boot_misc_reg(ENABLE_EDL_MODE , 1);
-		}
-
-		if((BOOT_SET_B == ret) && (SET_USABLE != *image_set_status_B)) {
-			if (sfi->edl_mode & EDL_RECOVERY_MODE)
-				write_tcsr_boot_misc_reg(ENABLE_EDL_MODE , 1);
-		}
-	}
 
 	printf("Booting [SET %s]\n", ret ? "B" : "A");
 #endif
