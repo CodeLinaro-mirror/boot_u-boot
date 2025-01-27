@@ -110,6 +110,12 @@ extern int ubi_volume_read(char *volume, char *buf, size_t size);
 
 extern int initr_net(void);
 
+#ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
+__weak bool is_version_rollback_support(void) {
+	return true;
+}
+#endif
+
 #ifdef CONFIG_IPQ_ELF_AUTH
 void update_load_addr(image_info *img_info)
 {
@@ -1013,23 +1019,24 @@ int image_authentication(void)
 		printf("[debug]Authenticating Image\n");
 
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
-	do {
-		ret = -ENOTSUPP;
-		IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
+	if (is_version_rollback_support()) {
+		do {
+			ret = -ENOTSUPP;
+			IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
 
-		ret = ipq_scm_call(&param);
+			ret = ipq_scm_call(&param);
 
-		if (ret) {
-			printf(" Partition info authentication failed \n");
+			if (ret) {
+				printf(" Partition info authentication failed \n");
+				goto clear_mem;
+			}
+		} while (0);
+
+		if (ret == -ENOTSUPP) {
+			printf("Unsupported SCM call\n");
 			goto clear_mem;
 		}
-	} while (0);
-
-	if (ret == -ENOTSUPP) {
-		printf("Unsupported SCM call\n");
-		goto clear_mem;
 	}
-
 #endif
 	kernel_img_info.kernel_load_addr = boot_info.load_address;
 	kernel_img_info.kernel_load_size = boot_info.size;
