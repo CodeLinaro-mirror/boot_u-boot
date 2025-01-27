@@ -412,7 +412,11 @@ int is_rootfs_auth_enabled(void)
 int is_atf_auth_enabled(void)
 {
 	FILE *file;
-	char buf[30];
+	char *buf = NULL;
+	size_t len = 0;
+	ssize_t read;
+	int is_atf = 0;
+
 
 	file = fopen(ATF_AUTH, "r");
 	if (file == NULL) {
@@ -420,15 +424,16 @@ int is_atf_auth_enabled(void)
 		return 0;
 	}
 
-	while (fgets(buf, sizeof(buf), file) != NULL) {
-		if ((strstr(buf, "WIN.ATF") != NULL)) {
-			fclose(file);
-			return 1;
+	while ((read = getline(&buf, &len, file)) != -1) {
+		if (strstr(buf, "WIN.ATF") != NULL) {
+			is_atf = 1;
+			break;
 		}
 	}
 
 	fclose(file);
-	return 0;
+	free(buf);
+	return is_atf;
 }
 
 /**
