@@ -350,24 +350,26 @@ static int do_secure(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
-		active_part = gd->board_type & ACTIVE_BOOT_SET?
-					ALT_PARTITION : PRI_PARTITION;
-		do {
-			scm_ret = -ENOTSUPP;
-			IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
-			scm_ret = ipq_scm_call(&param);
+		if (is_version_rollback_support()) {
+			active_part = gd->board_type & ACTIVE_BOOT_SET?
+						ALT_PARTITION : PRI_PARTITION;
+			do {
+				scm_ret = -ENOTSUPP;
+				IPQ_SCM_SET_ACTIVE_PARTITION(param, active_part);
+				scm_ret = ipq_scm_call(&param);
 
-			if(scm_ret) {
-				printf("Partition info authentication "
-								"failed\n");
-				BUG(); //:TODO check if BUG is necessary
+				if(scm_ret) {
+					printf("Partition info authentication "
+									"failed\n");
+					BUG(); //:TODO check if BUG is necessary
+				}
+			} while(0);
+
+			if (scm_ret == -ENOTSUPP) {
+				printf("Unsupported SCM call\n");
+				ret =  CMD_RET_FAILURE;
+				goto exit;
 			}
-		} while(0);
-
-		if (scm_ret == -ENOTSUPP) {
-			printf("Unsupported SCM call\n");
-			ret =  CMD_RET_FAILURE;
-			goto exit;
 		}
 #endif /* CONFIG_VERSION_ROLLBACK_PARTITION_INFO */
 
