@@ -101,7 +101,7 @@ supported_flash_type["ipq5424"] = { "nor", "nand", "emmc", "norplusnand", "norpl
 gpt_flash = ["nor-gpt", "emmc"]
 soc_hw_versions = {}
 soc_hw_versions["ipq5332"] = { 0x201A0100, 0x201A0101 };
-soc_hw_versions["ipq5424"] = { 0xE0010100, 0xE0010101 };
+soc_hw_versions["ipq5424"] = { 0xE0010100 };
 
 #
 # Python 2.6 and earlier did not have OrderedDict use the backport
