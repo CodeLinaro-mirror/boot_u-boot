@@ -456,30 +456,60 @@ U_BOOT_CMD(secure_authenticate, 4, 0, do_secure,
 		"	- authenticate the signed image\n");
 
 #ifdef CONFIG_FUSE_IPQ
+
+#ifdef CONFIG_FUSEIPQ_V1
+#define FUSEIPQ_MAX_ARGS 3
+
+char fuseipq_cmd_usage[] = ("\nfuseipq [address] [size]  - Load fuse(s) and"
+				" blows in the qfprom\n\nDescription:\n"
+				"[address] = load address\n"
+				"[size] = size of the elf file\n");
+#elif CONFIG_FUSEIPQ_V2
+#define FUSEIPQ_MAX_ARGS 2
+char fuseipq_cmd_usage[] = ("\nfuseipq [address]  - Load fuse(s) and blows"
+				" in the qfprom\n\nDescription:\n"
+				"[address] = load address\n");
+#endif
+
 static int
 do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	int ret = CMD_RET_FAILURE;
 	scm_param param;
 	uint32_t fuse_status = 0;
-	uint32_t fuse_bin_addr;
+	uint32_t fuse_bin_addr = 0;
+#ifdef CONFIG_FUSEIPQ_V1
+	uint64_t fuse_bin_size = 0;
+#endif
 	load_seg_info_t *load_seg_buff = NULL;
 	uint8_t load_seg_cnt = 0;
 	unsigned long meta_data_size = 0;
+	void* load_addr = NULL;
 
-
-	if (argc != 2) {
-		printf("No Arguments provided\n");
-		printf("Command format: fuseipq <address>\n");
-		goto exit;
-	}
+	if (argc == 1)
+		return CMD_RET_USAGE;
 
 	watchdog_reset();
 
-	fuse_bin_addr = simple_strtoul(argv[1], NULL, 16);
 #ifdef CONFIG_FUSEIPQ_V2
-	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
+	if (argc != 2)
+		return CMD_RET_USAGE;
+#endif
 
+	fuse_bin_addr = simple_strtoul(argv[1], NULL, 16);
+	load_addr = (void*)(uintptr_t)fuse_bin_addr;
+#ifdef CONFIG_FUSEIPQ_V1
+	if (IS_ELF(*(Elf32_Ehdr *)load_addr)) {
+		if (argc != 3)
+			return CMD_RET_USAGE;
+		fuse_bin_size = simple_strtoul(argv[2], NULL, 16);
+	} else {
+		if (argc != 2)
+			return CMD_RET_USAGE;
+	}
+#endif
+
+#ifdef CONFIG_FUSEIPQ_V2
 	if (!load_addr || !IS_ELF(*(Elf32_Ehdr *)load_addr)) {
 		printf("It is not a elf image \n");
 		goto exit;
@@ -514,9 +544,12 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 					(uintptr_t)load_seg_buff,
 					load_seg_cnt);
 #ifdef CONFIG_FUSEIPQ_V1
-	void *load_addr = (void*)(uintptr_t)fuse_bin_addr;
-	if (IS_ELF(*(Elf32_Ehdr *)load_addr))
+	if (IS_ELF(*(Elf32_Ehdr *)load_addr)) {
 		param.type = SCM_FUSE_IPQ_UIE_KEY;
+		param.buff[1] = fuse_bin_size;
+		param.arg_type[1] = SCM_VAL;
+		param.len = 2;
+	}
 #endif
 		param.get_ret = true;
 		ret = ipq_scm_call(&param);
@@ -552,16 +585,18 @@ do_fuseipq(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	ret = CMD_RET_SUCCESS;
 
+#ifdef CONFIG_FUSEIPQ_V2
 exit:
+#endif
 	if (load_seg_buff)
 		free(load_seg_buff);
 
 	return ret;
 }
 
-U_BOOT_CMD(fuseipq, 2, 0, do_fuseipq,
-		"fuse QFPROM registers from memory\n",
-		"fuseipq [address]  - Load fuse(s) and blows in the qfprom\n");
+U_BOOT_CMD(fuseipq, FUSEIPQ_MAX_ARGS, 0, do_fuseipq,
+		"fuse QFPROM registers from memory",
+		fuseipq_cmd_usage);
 #endif
 
 #ifdef CONFIG_LIST_FUSE
