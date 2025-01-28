@@ -60,6 +60,7 @@ typedef enum {
 #define MACH_TYPE_IPQ9574_DB_AL02_C1		0x1050001
 #define MACH_TYPE_IPQ9574_DB_AL02_C2		0x1050101
 #define MACH_TYPE_IPQ9574_DB_AL02_C3		0x1050201
+#define MACH_TYPE_IPQ9574_RDP433_SFP		0x8051101
 
 /* Crashdump Magic registers & values */
 #define TCSR_BOOT_MISC_REG			((u32*)0x193D100)
