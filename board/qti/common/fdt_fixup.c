@@ -654,6 +654,7 @@ static void ipq_fdt_fixup_mtdparts(void *blob)
 	char *parts;
 	char parts_str[4096];
 	char *mtdparts = NULL;
+	char *addparts = NULL;
 	int len = sizeof(parts_str);
 
 	if (ipq_set_mtdids(flash_type)) {
@@ -685,6 +686,12 @@ static void ipq_fdt_fixup_mtdparts(void *blob)
 	if (mtdparts) {
 		ipq_smem_part_to_mtdparts(mtdparts,len);
 		if (mtdparts[0] != '\0') {
+			addparts = env_get("addmtdparts");
+			if (addparts) {
+				debug("addmtdparts = %s\n", addparts);
+				strlcat(mtdparts, ",", sizeof(parts_str));
+				strlcat(mtdparts, addparts, sizeof(parts_str));
+			}
 			debug("mtdparts = %s\n", mtdparts);
 			env_set("mtdparts", mtdparts);
 		}
