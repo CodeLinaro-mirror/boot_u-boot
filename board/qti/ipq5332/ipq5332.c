@@ -806,3 +806,14 @@ uint32_t image_auth_check(void) {
 
 	return ret;
 }
+
+#ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
+bool is_version_rollback_support(void) {
+
+	if (gd->board_type & ATF_ENABLED) {
+		return false;
+	}
+
+	return true;
+}
+#endif
