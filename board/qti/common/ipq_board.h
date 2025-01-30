@@ -1371,6 +1371,7 @@ int ipq_wdt_expire(void);
 #endif
 int ipq_gpt_getpart_from_offset(uint32_t offset, uint32_t *pstart,
 					uint32_t *psize, uint32_t flash_type);
+int ipq_iscrashed(void);
 #endif
 #ifdef CONFIG_VERSION_ROLLBACK_PARTITION_INFO
 bool is_version_rollback_support(void);

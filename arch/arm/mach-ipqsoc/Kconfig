@@ -52,6 +52,10 @@ config RAM_PART_NAME_LENGTH
 	int "Max length of ram partition name"
 	default 16
 
+config SKIP_RESET
+	bool "skip reset"
+	default n
+
 config TEXT_SIZE
 	hex "Define Size of u-boot text size in DDR region"
 	default 0x1C0000
