@@ -1206,7 +1206,7 @@ static const state_fuc_t state_sequence[] = {
 static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
 {
-	int ret, state;
+	int state, ret = CMD_RET_SUCCESS;
 	const state_fuc_t *state_sequence_ptr = state_sequence;
 #ifdef CONFIG_BOOTCONFIG_V3
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
@@ -1215,15 +1215,17 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (active_part < 0) {
 		printf("INVALID BOOTCONFIG DATA\n");
-		goto reset_board;
+		ret = CMD_RET_FAILURE;
+		goto exit;
 	}
 
 	binfo = sfi->ipq_smem_bootconfig_info;
 
 	if((binfo != NULL) &&
-		(binfo->image_set_status_B && binfo->image_set_status_A)) {
+		(binfo->image_set_status == DONT_USE_SET_AB)) {
 		printf("Invalid Kernel image on SET A & B\n");
-		return CMD_RET_FAILURE;
+		ret = CMD_RET_FAILURE;
+		goto exit;
 	}
 
 #endif
@@ -1246,62 +1248,19 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = (*state_sequence_ptr)();
 		if(ret) {
 			printf("Failed at state %d\n", state);
-#if CONFIG_BOOTCONFIG_V2 && CONFIG_WDT
-			if (ipq_wdt_expire())
-				reset();
-#endif
-#ifdef CONFIG_BOOTCONFIG_V3
-			char runcmd[MAX_BOOT_ARGS_SIZE];
-			ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
-			ipq_smem_bootconfig_info_t *binfo;
-			int active_part = GET_ACTIVE_PORT;
-
-			if (active_part < 0) {
-				printf("INVALID BOOTCONFIG DATA\n");
-				goto reset_board;
-			}
-
-			printf("Invalid Kernel image on %s\n", active_part ?
-							"SET B" : "SET A");
-
-			binfo = sfi->ipq_smem_bootconfig_info;
-			if (binfo == NULL)
-				return CMD_RET_FAILURE;
-
-			if (active_part)
-				binfo->image_set_status_B = SET_PARTIAL_USABLE;
-			else
-				binfo->image_set_status_A = SET_PARTIAL_USABLE;
-
-			if (binfo->image_set_status_A  &&
-					binfo->image_set_status_B) {
-				printf("Invalid Kernel image on SET A & B\n");
-			}
-
-			binfo->owner = BC_UBOOT_OWNER;
-
-			binfo->crc = crc32_be((uint8_t const *)binfo,
-					sizeof(ipq_smem_bootconfig_info_t) -
-					sizeof(binfo->crc));
-
-			memcpy((void*)(uintptr_t)boot_info.load_address,
-					binfo,
-					sizeof(ipq_smem_bootconfig_info_t));
-
-			snprintf(runcmd, sizeof(runcmd),
-				"flash 0:BOOTCONFIG 0x%lx 0x%x\n",
-				boot_info.load_address,
-				(uint32_t)(uintptr_t)sizeof(ipq_smem_bootconfig_info_t));
-
-			ret = run_command(runcmd, 0);
-			if(ret)
-				printf("Failed to update 0:BOOTCONFIG\n");
-reset_board:
-			reset();
-#endif
-			return CMD_RET_FAILURE;
+			ret = CMD_RET_FAILURE;
+			goto exit;
 		}
 	}
+
+exit:
+#ifdef CONFIG_WDT
+	if(ret == CMD_RET_FAILURE) {
+		if (ipq_wdt_expire())
+			reset();
+	}
+#endif
+
 #if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
 	/*
 	 * Reaching here since booting is failed
@@ -1310,7 +1269,7 @@ reset_board:
 	initr_net();
 #endif
 
-	return CMD_RET_SUCCESS;
+	return ret;
 }
 
 U_BOOT_CMD(

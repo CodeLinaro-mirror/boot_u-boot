@@ -33,14 +33,18 @@ typedef enum {
 	SMEM_MAX_SIZE = SMEM_EDL_MODE + 1,
 } smem_mem_type_t;
 
-#define SET_USABLE				0x0
-#define SET_PARTIAL_USABLE			0x1
-#define DONT_USE_SET				0x2
+#define SET_AB_USABLE				(0x0UL)
+#define DONT_USE_SET_A				(0x1UL)
+#define DONT_USE_SET_B				(0x2UL)
+#define DONT_USE_SET_AB				(0x3UL)
 
 #define BOOT_SET_A				0x0
 #define BOOT_SET_B				0x1
+#define BOOT_SET_INVALID 			0xFFFF
 
 #define BC_UBOOT_OWNER				0x1
+
+#define BOOTCONFIG_V3_MAGIC			(0x72637279UL)
 
 /* MACH IDs for various RDPs */
 #define MACH_TYPE_IPQ5424_EMU			0x8050001
