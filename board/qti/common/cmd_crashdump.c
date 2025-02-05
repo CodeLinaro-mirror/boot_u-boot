@@ -2426,12 +2426,6 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct udevice *dev;
 #endif
 
-#ifdef CONFIG_BOOTCONFIG_V3
-	if((SMEM_BOOT_NO_FLASH != (gd->board_type & FLASH_TYPE_MASK)) &&
-			write_tcsr_boot_misc_reg(MARK_UBOOT_MILESTONE, 0)) {
-		printf("Faile to set uboot milestone\n");
-	}
-#endif
 	if (ipq_iscrashed()) {
 #if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
 		/*
