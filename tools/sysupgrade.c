@@ -1933,11 +1933,9 @@ int sec_image_auth(void)
 int read_bootinfo(struct flash_dual_boot_info *info)
 {
 	printf("magic: %x\n", info->magic);
-	printf("image_set_status_A: %u\n", info->image_set_status_A);
-	printf("image_set_status_B: %u\n", info->image_set_status_B);
+	printf("image_set_status: %u\n", info->image_set_status);
 	printf("owner: %u\n", info->owner);
 	printf("boot_set: %u\n", info->boot_set);
-	printf("reserved1: %u\n", info->reserved1);
 	printf("crc: %x\n", info->crc);
 
 	int bfd = open(TEMP_BOOTMEM_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -1948,8 +1946,8 @@ int read_bootinfo(struct flash_dual_boot_info *info)
 
 	char buffer[256];
 	int length = snprintf(buffer, sizeof(buffer),
-				"magic:%x\nowner:%u\nImage-set-status-A:%u\nImage-set-status-B:%u\nBoot-set:%u\nCRC:%x\n",
-				info->magic, info->owner, info->image_set_status_A, info->image_set_status_B, info->boot_set, info->crc);
+				"magic:%x\nowner:%u\nImage-set-status:%u\nBoot-set:%u\nCRC:%x\n",
+				info->magic, info->owner, info->image_set_status, info->boot_set, info->crc);
 
 	if (length < 0 || length >= sizeof(buffer)) {
 		perror("Boot-info data is higher than file size");
@@ -1972,20 +1970,19 @@ int read_bootinfo(struct flash_dual_boot_info *info)
 */
 int update_bootinfo(struct flash_dual_boot_info *info, uint32_t value)
 {
-	if ((info->boot_set == 0x0) && (info->image_set_status_A != 0x0)) {
-		info->image_set_status_A = value;
-	} else if ((info->boot_set == 0x0) && (info->image_set_status_A == 0x0)) {
-		info->image_set_status_B = value;
-		if ( value == 0x0 ) {
-			info->boot_set = 0x1;
+	if (value == 2) {
+		if (info->boot_set == 0x0 && info->image_set_status == 0) {
+			info->image_set_status = 0x2;
+		} else if (info->boot_set == 0x1 && info->image_set_status == 0) {
+			info->image_set_status = 0x1;
 		}
-	} else if ((info->boot_set == 0x1) && (info->image_set_status_B != 0x0)) {
-		info->image_set_status_B = value;
-	} else if ((info->boot_set == 0x1) && (info->image_set_status_B == 0x0)) {
-		if ( value == 0x0 ) {
-                        info->boot_set = 0x0;
-                }
-		info->image_set_status_A = value;
+	} else {
+		if ((info->boot_set == 0x0) && (info->image_set_status == 0x2)) {
+			info->boot_set = 0x1;
+		} else if ((info->boot_set == 0x1) && (info->image_set_status == 0x1)) {
+			info->boot_set = 0x0;
+		}
+		info->image_set_status = 0x0;
 	}
 	return 1;
 }
@@ -2128,12 +2125,9 @@ int update_bootconfig(char *member,char *arg)
 
 	if (strcmp(member, "magic") == 0) {
 		sscanf(arg, "%x", &info.magic);
-        } else if (strcmp(member, "image_set_status_A") == 0) {
+        } else if (strcmp(member, "image_set_status") == 0) {
 		int value = atoi(arg);
-		info.image_set_status_A = value;
-	} else if (strcmp(member, "image_set_status_B") == 0) {
-		int value = atoi(arg);
-		info.image_set_status_B = value;
+		info.image_set_status = value;
 	} else if (strcmp(member, "owner") == 0) {
 		int value = atoi(arg);
 		info.owner = value;
@@ -2143,6 +2137,9 @@ int update_bootconfig(char *member,char *arg)
 	} else if (strcmp(member, "reserved1") == 0) {
 		int value = atoi(arg);
 		info.reserved1 = value;
+	} else if (strcmp(member, "reserved2") == 0) {
+		int value = atoi(arg);
+		info.reserved2 = value;
 	} else if (strcmp(member, "crc") == 0) {
 		sscanf(arg, "%x", &info.crc);
 	} else {

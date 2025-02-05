@@ -177,11 +177,11 @@ static const uint32_t crc32_table[] = {
 struct flash_dual_boot_info
 {
 	uint32_t magic;	/* Magic number for identification when reading from flash */
-	uint32_t image_set_status_A; /* Represents the health status of a Bank A*/
-	uint32_t image_set_status_B; /* Represents the health status of a Bank B*/
+	uint32_t image_set_status; /* Represents the health status of a Bank A*/
 	uint32_t owner; /* Indicates which component updated the health status of a Bank */
 	uint32_t boot_set;    /* Indicates the current active Bank*/
 	uint32_t reserved1;  /* Indicates the max no. of attempts for n-times trial boot feature*/
+	uint32_t reserved2;  /* Indicates the max no. of attempts for n-times trial boot feature*/
 	uint32_t crc;  /* CRC field for fields above */
 };
 
