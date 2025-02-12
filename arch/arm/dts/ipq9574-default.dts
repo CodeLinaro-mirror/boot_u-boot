@@ -76,7 +76,9 @@
 			};
 
 			serial_pinmux: uart {
+				u-boot,dm-pre-reloc;
 				data {
+					u-boot,dm-pre-reloc;
 					pins = "GPIO_34", "GPIO_35";
 					function = "blsp0_uart0";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
