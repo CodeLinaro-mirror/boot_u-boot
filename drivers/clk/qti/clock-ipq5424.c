@@ -393,7 +393,7 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 	case GCC_PCIE_AUX_CLK:
 		/* GCC_PCIE_AUX_CLK: 20 MHz */
 		clk_rcg_set_rate_mnd(priv->base, &pcie_aux_regs,
-					16, 5, 2, PCIE_GPLL0_OUT_AUX);
+					16, 2, 5, PCIE_GPLL0_OUT_AUX);
 		break;
 	case GCC_PCIE0_AXI_M_CLK:
 		/* GCC_PCIE0_AXI_M_CLK: 240 MHz */
