@@ -115,6 +115,18 @@ void dram_bank_mmu_setup(int bank)
 {
 	struct bd_info *bd = gd->bd;
 	int i;
+	uint32_t ram_size;
+
+	/*
+	 * check and limit the DDR region to avoid overflow
+	 */
+	if (((uint64_t)bd->bi_dram[bank].start +
+		bd->bi_dram[bank].size) > ULONG_MAX) {
+		ram_size = bd->bi_dram[bank].start +
+				(ULONG_MAX - bd->bi_dram[bank].start);
+	} else {
+		ram_size = bd->bi_dram[bank].start + bd->bi_dram[bank].size;
+	}
 
 	/* bd->bi_dram is available only after relocation */
 	if ((gd->flags & GD_FLG_RELOC) == 0)
@@ -122,7 +134,7 @@ void dram_bank_mmu_setup(int bank)
 
 	debug("%s: bank: %d\n", __func__, bank);
 	for (i = bd->bi_dram[bank].start >> 20;
-		i < (bd->bi_dram[bank].start + bd->bi_dram[bank].size) >> 20;
+		i < ram_size >> 20;
 		i++) {
 		/* Set XN bit for all dram regions except uboot code region */
 		if (i >= (CONFIG_TEXT_BASE >> 20) && i <
