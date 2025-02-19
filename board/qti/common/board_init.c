@@ -922,18 +922,7 @@ int dram_init_banksize(void)
 				p->partition_type == RAM_PARTITION_SYS_MEMORY)
 		{
 			gd->bd->bi_dram[bidx].start = p->start_address;
-
-#ifndef CONFIG_ARM64
-			if (((uint64_t)p->start_address + p->length) >
-				ULONG_MAX) {
-				gd->bd->bi_dram[bidx].size = ULONG_MAX -
-					p->start_address;
-			} else
-#endif
-			{
-				gd->bd->bi_dram[bidx].size = p->length;
-			}
-
+			gd->bd->bi_dram[bidx].size = p->length;
 			debug("Detected memory bank %u: "
 				"start: 0x%llx size: 0x%llx\n",
 					bidx, p->start_address, p->length);
