@@ -480,6 +480,34 @@ bool is_atf_enbled(void)
 	return atf_status == ATF_STATE_ENABLED;
 }
 
+void ipq_fdt_fixup_atf(void *blob)
+{
+	if (!(gd->board_type & ATF_ENABLED))
+		return;
+
+#ifdef LINUX_5_4_CRYPTO_BAM_NODE
+	if (fdt_path_offset(blob, LINUX_5_4_CRYPTO_BAM_NODE) > 0) {
+#ifdef LINUX_5_4_CRYPTO_BAM_PIPE_TRUST_FIXUP
+		parse_fdt_fixup(LINUX_5_4_CRYPTO_BAM_PIPE_TRUST_FIXUP, blob);
+#endif
+#ifdef LINUX_5_4_CRYPTO_BAM_CTRL_REMOTE_FIXUP
+		parse_fdt_fixup(LINUX_5_4_CRYPTO_BAM_CTRL_REMOTE_FIXUP, blob);
+#endif
+	}
+#endif
+
+#ifdef LINUX_6_x_CRYPTO_BAM_NODE
+	if (fdt_path_offset(blob, LINUX_6_x_CRYPTO_BAM_NODE) > 0) {
+#ifdef LINUX_6_x_CRYPTO_BAM_PIPE_TRUST_FIXUP
+		parse_fdt_fixup(LINUX_6_x_CRYPTO_BAM_PIPE_TRUST_FIXUP, blob);
+#endif
+#ifdef LINUX_6_x_CRYPTO_BAM_CTRL_REMOTE_FIXUP
+		parse_fdt_fixup(LINUX_6_x_CRYPTO_BAM_CTRL_REMOTE_FIXUP, blob);
+#endif
+	}
+#endif
+}
+
 #ifdef CONFIG_SDX_ATTACH_SUPPORT
 void ipq_board_power_cycle_sdx(void)
 {
