@@ -270,22 +270,22 @@ void subsetparts_fixup_handler(struct fdt_header *fdt_ptr)
 		return;
 	}
 	ret = read_mm_subset_parts(&subset_parts_mm_value);
-	if (ret)
+	if (ret) {
 		log_err("No mm Subset parts found\n");
-	else
+	} else {
 		ret = fixup_dt_node(fdt_ptr, offset, "subset-parts",
 				    (void *)&subset_parts_mm_value, SET_PROP_U32);
 		if (ret)
 			log_err("ERROR: Cannot update subset-parts prop\n");
-
+	}
 	ret = read_cpu_subset_parts(&subset_parts_cpu_value);
-	if (ret)
+	if (ret) {
 		log_err("No Subset parts for cpu ss found\n");
-	else
+	} else {
 		ret = fixup_dt_node(fdt_ptr, offset, "subset-cores",
 				    (void *)&subset_parts_cpu_value, SET_PROP_U32);
 		if (ret)
 			log_err("ERROR: Cannot update subset-cores prop\n");
-
+	}
 	read_and_export_parts_disabled_features(fdt_ptr, offset);
 }
