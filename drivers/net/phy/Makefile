@@ -31,6 +31,7 @@ obj-$(CONFIG_PHY_QTI_8X8X) += qti_8x8x.o
 obj-$(CONFIG_PHY_QTI_8075) += qti_8075.o
 obj-$(CONFIG_PHY_QTI_8081) += qti_8081.o
 obj-$(CONFIG_PHY_QCA_81XX) += qca_81xx.o
+obj-$(CONFIG_PHY_QTI_8033) += qti_8033.o
 obj-$(CONFIG_PHY_REALTEK) += realtek.o
 obj-$(CONFIG_PHY_SMSC) += smsc.o
 obj-$(CONFIG_PHY_TERANETICS) += teranetics.o
