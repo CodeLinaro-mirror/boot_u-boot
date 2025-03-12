@@ -53,6 +53,7 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_EMU_FBC, "ipq5424-emulation"},
 	{ MACH_TYPE_IPQ5424_RDP464, "ipq5424-rdp464"},
 	{ MACH_TYPE_IPQ5424_RDP464_C2, "ipq5424-rdp464-c2"},
+	{ MACH_TYPE_IPQ5424_RDP464_C3, "ipq5424-rdp464-c3"},
 	{ MACH_TYPE_IPQ5424_RDP466, "ipq5424-rdp466"},
 	{ MACH_TYPE_IPQ5424_RDP466_C2, "ipq5424-rdp466-c2"},
 	{ MACH_TYPE_IPQ5424_RDP466_C3, "ipq5424-rdp466"},
