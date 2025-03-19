@@ -19,6 +19,7 @@
 #include <dm/uclass-internal.h>
 #include <dm/read.h>
 #include <power/regulator.h>
+#include <power/pmic.h>
 #include <env.h>
 #include <fdt_support.h>
 #include <init.h>
@@ -32,6 +33,8 @@
 #include <usb.h>
 #include <sort.h>
 #include <time.h>
+#include <command.h>
+
 
 #include "qcom-priv.h"
 
@@ -506,6 +509,32 @@ void qcom_show_boot_source(void)
 	env_set("boot_source", name);
 }
 
+#define FASTBOOT_MODE 0x2
+#define SDAM02_BASE_ADDR 0x7100
+#define PON_RESET_REG_ADDR (SDAM02_BASE_ADDR + 0x48)
+#define REBOOT_MODE_MASK 0xFE
+
+static int check_fastboot_mode(void)
+{
+#ifdef CONFIG_DM_PMIC
+	struct udevice *dev;
+	int ret, reboot_reason, reg_val;
+
+	ret = pmic_get("pmic@0", &dev);
+	if (ret)
+		return ret;
+	reg_val = pmic_reg_read(dev, PON_RESET_REG_ADDR);
+	reboot_reason = (reg_val & REBOOT_MODE_MASK) >> 1;
+	if (reboot_reason == FASTBOOT_MODE) {
+		reg_val &= ~(REBOOT_MODE_MASK);
+		pmic_reg_write(dev, PON_RESET_REG_ADDR, (uint)reg_val);
+		ret = run_command("fastboot usb 0", 0);
+	}
+
+	return ret;
+#endif
+}
+
 void __weak qcom_late_init(void)
 {
 }
@@ -572,6 +601,9 @@ int board_late_init(void)
 	qcom_show_boot_source();
 	/* Configure the dfu_string for capsule updates */
 	qcom_configure_capsule_updates();
+
+	/* Check reboot reason for fastboot*/
+	check_fastboot_mode();
 
 	return 0;
 }
