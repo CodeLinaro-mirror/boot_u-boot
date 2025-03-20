@@ -1342,8 +1342,9 @@ uint8_t is_valid_bootconfig(ipq_smem_bootconfig_info_t *binfo)
 #ifdef CONFIG_BOOTCONFIG_V2
 	if (IS_ERR_OR_NULL(binfo) ||
 		((binfo->magic_start != _SMEM_DUAL_BOOTINFO_MAGIC_START) &&
-		(binfo->magic_start !=
-			_SMEM_DUAL_BOOTINFO_MAGIC_START_TRY_MODE)) ||
+		(binfo->magic_start != _SMEM_DUAL_BOOTINFO_MAGIC_START_TRY_MODE) &&
+		(binfo->magic_start != _SMEM_DUAL_BOOTINFO_MAGIC_START_UNIFIED_FAILSAFE) &&
+		(binfo->magic_start != _SMEM_DUAL_BOOTINFO_MAGIC_START_TRY_UNIFIED_FAILSAFE)) ||
 		(binfo->magic_end != _SMEM_DUAL_BOOTINFO_MAGIC_END)) {
 
 		return 0;
