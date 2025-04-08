@@ -222,7 +222,6 @@
 			index = <0x0>;
 			non-removable;
 			mmc-ddr-1_8v;
-			mmc-hs200-1_8v;
 			bus_pwr_off_rst;
 			status = "okay";
 		};
