@@ -2119,12 +2119,11 @@ static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
 	}
 
 #ifdef CONFIG_CMD_UBI
-	if (ubifs_is_mounted())
-		cmd_ubifs_umount();
-
-	ubi = ubi_get_device(0);
-	if(ubi) {
-		ubi_exit();
+	if (ubi) {
+		ubi_put_device(ubi);
+		ret = run_command("ubi detach", 0);
+		if(ret)
+			printf("Failed to detach ubi!!!\n");
 	}
 #endif
 	watchdog_reset();
