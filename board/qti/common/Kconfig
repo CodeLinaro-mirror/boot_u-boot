@@ -48,3 +48,8 @@ config IPQ_FLUTILS
 config IPQ_FDT_FIXUP
 	bool "IPQ FDT Fixup support"
 	default n
+
+config IPQ_ROOTFS_AUTH
+	bool "Rootfs authentication support"
+	depends on TARGET_IPQ9574 || TARGET_IPQ5332
+	default n

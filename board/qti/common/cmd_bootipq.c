@@ -1005,11 +1005,15 @@ exit:
 
 int check_rootfs_authentication(void)
 {
+	u32 rootfs_auth = 0;
 #ifdef ROOTFS_AUTH_FUSE
-	return (readl(ROOTFS_AUTH_FUSE) & ROOTFS_AUTH_EN);
-#else
-	return 0;
+	 rootfs_auth = readl(ROOTFS_AUTH_FUSE) & ROOTFS_AUTH_EN;
 #endif
+	if (rootfs_auth || IS_ENABLED(CONFIG_IPQ_ROOTFS_AUTH))
+		return 1;
+	else
+		return 0;
+
 }
 
 int image_authentication(void)
