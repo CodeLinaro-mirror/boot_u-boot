@@ -155,3 +155,6 @@ extern uint32_t g_env_offset;
 #ifdef CONFIG_EARLY_CLOCK_ENABLE
 #define GCC_BASE 0x1800000
 #endif
+
+#undef CONFIG_SYS_BOOTM_LEN
+#define CONFIG_SYS_BOOTM_LEN			(200 * SZ_1M)
