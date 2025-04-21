@@ -157,3 +157,5 @@ extern uint32_t g_load_addr;
 #endif
 
 #define CFG_NC_RESERVATION
+#undef CONFIG_SYS_BOOTM_LEN
+#define CONFIG_SYS_BOOTM_LEN			(200 * SZ_1M)
