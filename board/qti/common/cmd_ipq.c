@@ -699,6 +699,71 @@ static int do_list_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(list_fuse, 1, 0, do_list_fuse,
 		"fuse set of QFPROM registers from memory\n",
 		"");
+
+static int do_dump_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
+			char *const argv[])
+{
+	size_t size = sizeof(struct fuse_payload);
+	struct fuse_payload *fuse = NULL;
+	scm_param param;
+	u32 addr;
+	int ret;
+
+	size = roundup(size, CONFIG_SYS_CACHELINE_SIZE);
+
+	if (argc != 2)
+		return CMD_RET_USAGE;
+
+	addr = simple_strtoul(argv[1], NULL, 16);
+
+	fuse = malloc_cache_aligned(size);
+	if (fuse == NULL)
+		return CMD_RET_FAILURE;
+
+	memset(fuse, 0, size);
+	fuse->fuse_addr = addr;
+
+	watchdog_reset();
+
+	do {
+		ret = -ENOTSUPP;
+		IPQ_SCM_READ_FUSE(param, (unsigned long)fuse,
+				  sizeof(struct fuse_payload));
+
+		flush_dcache_range((unsigned long)fuse, (unsigned long)fuse +
+				   size);
+		ret = ipq_scm_call(&param);
+
+		if (ret) {
+			printf("Error (%d) failed to read fuse\n", ret);
+			ret = CMD_RET_FAILURE;
+			goto exit;
+		} else {
+			ret = CMD_RET_SUCCESS;
+		}
+
+#ifdef CONFIG_LIST_FUSE_V1
+		printf("TME_FUSE_ADDR: 0x%08X\tVALUE: 0x%08X\n",
+			fuse->fuse_addr, fuse->val);
+#elif CONFIG_LIST_FUSE_V2
+		printf("TME_FUSE_ADDR: 0x%08X\tVALUE: 0x%08X%08X\n",
+			fuse->fuse_addr, fuse->msb_val, fuse->lsb_val);
+#endif
+	} while (0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		ret = CMD_RET_FAILURE;
+	}
+
+exit:
+	free(fuse);
+	return ret;
+}
+
+U_BOOT_CMD(dump_fuse, 2, 0, do_dump_fuse,
+		"dump given QFPROM register from memory\n",
+		"<0xaddress>");
 #endif
 
 #ifdef CONFIG_IPQ_QCN9224_FUSING
