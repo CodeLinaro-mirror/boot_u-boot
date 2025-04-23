@@ -86,6 +86,8 @@ typedef enum {
 #define LINUX_6_x_USB_DTS_NODE		"/soc@0/usb3@8a00000/dwc3@8a00000/"
 #define LINUX_6_x_USB_DR_MODE_FIXUP	"/soc@0/usb3@8a00000/dwc3@8a00000%dr_mode%?peripheral"
 #define LINUX_6_x_USB_MAX_SPEED_FIXUP	"/soc@0/usb3@8a00000/dwc3@8a00000%maximum-speed%?high-speed"
+#define LINUX_6_x_ROOTFS_AUTH_DTS_NODE	"/soc@0/qfprom"
+#define LINUX_6_x_ROOTFS_AUTH_FIXUP	"/soc@0/qfprom/%rootfs_auth_enable%1"
 
 #define LINUX_RSVD_MEM_DTS_NODE		"/reserved-memory/"
 #define STATUS_OK			"status%?okay"
