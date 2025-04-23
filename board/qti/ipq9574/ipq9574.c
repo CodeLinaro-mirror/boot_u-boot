@@ -234,15 +234,34 @@ void ipq_fdt_serial_fixup(void *blob)
 	return;
 }
 
+void ipq_fdt_rootfs_auth_fixup(void *blob)
+{
+	int auth_nodeoff = -EINVAL;
+
+#ifdef LINUX_6_x_ROOTFS_AUTH_DTS_NODE
+	auth_nodeoff = fdt_path_offset(blob, LINUX_6_x_ROOTFS_AUTH_DTS_NODE);
+
+	if (auth_nodeoff > 0) {
+		parse_fdt_fixup(LINUX_6_x_ROOTFS_AUTH_FIXUP, blob);
+	}
+#endif
+
+	return;
+}
+
 void ipq_fdt_fixup_board(void *blob)
 {
 	unsigned long machid = gd->bd->bi_arch_number;
+	int secure_boot = image_auth_check();
 
 	switch (machid) {
 	case MACH_TYPE_IPQ9574_RDP418_EMMC:
 		ipq_fdt_serial_fixup(blob);
 		break;
 	}
+
+	if(secure_boot && check_rootfs_authentication())
+		ipq_fdt_rootfs_auth_fixup(blob);
 
 	return;
 }
