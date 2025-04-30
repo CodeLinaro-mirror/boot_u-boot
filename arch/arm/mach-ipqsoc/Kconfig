@@ -221,7 +221,6 @@ config IPQ_MMC
 	select MMC_SDHCI
 	select MMC_SDHCI_MSM
 	select MMC_SDHCI_ADMA
-	imply MMC_HS200_SUPPORT
 	select EFI_PARTITION
 	select CMD_GPT
 	select CMD_MMC
