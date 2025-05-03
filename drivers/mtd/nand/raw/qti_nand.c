@@ -103,6 +103,10 @@ struct nand_flash_dev qti_nand_flash_ids[] = {
 		{ .id = {0xef, 0xba, 0x23} },
 		SZ_2K, SZ_512, SZ_128K, QUAD_MODE, 3, 128,
 		NAND_ECC_INFO(8, SZ_512), 0},
+	{"W25N04LW",
+		{ .id = {0xef, 0xb2, 0x23} },
+		SZ_4K, SZ_512, SZ_256K, QUAD_MODE, 3, 256,
+		NAND_ECC_INFO(8, SZ_512), 0},
 	{"MX35UF1GE4AC",
 		{ .id = {0xc2, 0x92} },
 		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 64,
@@ -141,6 +145,9 @@ struct nand_flash_dev qti_nand_flash_ids[] = {
 struct nand_flash_dev qpic_nand_flash_ids_2k[] = {
 	{"MX35UF4GE4AD-Z4I SPI NAND 1G 1.8V",
 			{ .id = {0xc2, 0xb7} },
+		SZ_2K, SZ_512, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
+	{"W25N04LW SPI NAND 4G 1.8V",
+		{ .id = {0xef, 0xb2, 0x23} },
 		SZ_2K, SZ_512, SZ_128K, 0, 2, 128, NAND_ECC_INFO(8, SZ_512), 0},
 	{NULL}
 };
