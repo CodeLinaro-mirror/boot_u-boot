@@ -249,6 +249,28 @@ void ipq_fdt_rootfs_auth_fixup(void *blob)
 	return;
 }
 
+void ipq_fdt_board_model_fixup(void *blob)
+{
+	int node_offset;
+	char *attr_name = "model";
+	char *attr_value;
+	int len;
+	char *c1_pos = NULL;
+
+	node_offset = fdt_path_offset(blob, "/");
+	attr_value = (char *)fdt_getprop(blob, node_offset, attr_name, &len);
+	if (!attr_value) {
+		return;
+	}
+
+	c1_pos = strstr(attr_value, "AL02-C1");
+	if (c1_pos) {
+		c1_pos[6] = '2';
+	}
+
+	return;
+}
+
 void ipq_fdt_fixup_board(void *blob)
 {
 	unsigned long machid = gd->bd->bi_arch_number;
@@ -257,6 +279,7 @@ void ipq_fdt_fixup_board(void *blob)
 	switch (machid) {
 	case MACH_TYPE_IPQ9574_RDP418_EMMC:
 		ipq_fdt_serial_fixup(blob);
+		ipq_fdt_board_model_fixup(blob);
 		break;
 	}
 
