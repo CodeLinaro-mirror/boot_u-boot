@@ -100,6 +100,9 @@ typedef enum {
 #define LINUX_6_x_CRYPTO_BAM_NODE		"/soc@0/dma@704000"
 #define LINUX_6_x_CRYPTO_BAM_PIPE_TRUST_FIXUP	"/soc@0/dma@704000/%qti,config-pipe-trust-reg%2"
 #define LINUX_6_x_CRYPTO_BAM_CTRL_REMOTE_FIXUP	"/soc@0/dma@704000%delete%qcom,controlled-remotely"
+#define LINUX_6_x_ROOTFS_AUTH_DTS_NODE		"/soc@0/qfprom"
+#define LINUX_6_x_ROOTFS_AUTH_FIXUP		"/soc@0/qfprom/%rootfs_auth_enable%1"
+
 
 #define LINUX_RSVD_MEM_DTS_NODE		"/reserved-memory/"
 #define STATUS_OK			"status%?okay"

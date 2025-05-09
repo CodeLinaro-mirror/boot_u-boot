@@ -198,6 +198,31 @@ void lowlevel_init(void)
 	return;
 }
 
+void ipq_fdt_rootfs_auth_fixup(void *blob)
+{
+	int auth_nodeoff = -EINVAL;
+
+#ifdef LINUX_6_x_ROOTFS_AUTH_DTS_NODE
+	auth_nodeoff = fdt_path_offset(blob, LINUX_6_x_ROOTFS_AUTH_DTS_NODE);
+
+	if (auth_nodeoff > 0) {
+		parse_fdt_fixup(LINUX_6_x_ROOTFS_AUTH_FIXUP, blob);
+	}
+#endif
+
+	return;
+}
+
+void ipq_fdt_fixup_board(void *blob)
+{
+	int secure_boot = image_auth_check();
+
+	if(secure_boot && check_rootfs_authentication())
+		ipq_fdt_rootfs_auth_fixup(blob);
+
+	return;
+}
+
 int board_get_smem_target_info(ipq_smem_target_info_t *smem_tinfo_ptr)
 {
 	uint32_t tcsr_wonce0_val;
