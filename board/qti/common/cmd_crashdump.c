@@ -55,6 +55,7 @@
 
 #define TFTP_MAX_TRF_SZ_LIMIT			SZ_1G
 #define DRAM_DUMP_NAME_PREFIX			"EBICS"
+#define STATIC_DMESG_SIZE			0x20000
 
 #if defined(CONFIG_IPQ_CRASHDUMP_TO_MEMORY) || \
 	defined(CONFIG_IPQ_CRASHDUMP_TO_NVMEMORY)
@@ -98,6 +99,19 @@ typedef struct {
 #define QTI_WDT_SCM_TLV_TYPE_LEN_SIZE		(QTI_WDT_SCM_TLV_TYPE_SIZE +\
 						QTI_WDT_SCM_TLV_LEN_SIZE)
 
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+
+#define MINIDUMP_ALL_SEG_CRASHSIG_COUNT		20
+#define QTI_MINIDUMP_HOST_MOD_COUNT		11
+#define QTI_MINIDUMP_NSS_MOD_COUNT		17
+#define MINIDUMP_CRASHMOD_BASED_SIGCOUNT	4
+#define MINIDUMP_CALLTRACE_SIG_COUNT		5
+#define HOST_CRASH_SIG				"Assertion failed!"
+#define IGNORE_HOST_CRASH_SIG			"Assertion failed! 0:ol_ath_wifi_ssr"
+#define WARNING_CRASH_SIG			"WARNING: CPU:"
+#define MODULE_NAME_MAX_SIZE			50
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
+
 typedef struct {
 	uint8_t *msg_buf;
 	uint8_t *cur_msg_buf;
@@ -107,6 +121,9 @@ typedef struct {
 typedef struct {
 	uint64_t start;
 	uint64_t size;
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+	u32 crashtype;
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 } st_tlv_data_t;
 
 enum {
@@ -121,8 +138,70 @@ enum {
 	QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD_DEBUGFS,
 	QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD_INFO,
 	QTI_WDT_LOG_DUMP_TYPE_WLAN_MMU_INFO,
+	QTI_WDT_LOG_DUMP_TYPE_TEXT_DATA_TAIL,
 	QTI_WDT_LOG_DUMP_TYPE_EMPTY,
 } wdt_dump_types_t;
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+
+/*
+ * Crash_Types
+ * MINIDUMP_CRASH_TYPE_MAX - should be the max value when all bit's set true
+ */
+enum minidump_crash_type {
+	MINIDUMP_CRASH_TYPE_LIVEDUMP = 0,
+	MINIDUMP_CRASH_TYPE_DEFAULT = 1,
+	MINIDUMP_CRASH_TYPE_HOST = 2,
+	MINIDUMP_CRASH_TYPE_NSS = 4,
+	MINIDUMP_CRASH_TYPE_FW = 8,
+	MINIDUMP_CRASH_TYPE_MAX = 15,
+};
+
+char *minidump_dump_all_sig[MINIDUMP_ALL_SEG_CRASHSIG_COUNT] = {"oom-killer:",
+	"oom_kill_process",
+	"Out of memory: Kill process",
+	"out_of_memory",
+	"ERROR:NBUF alloc failed",
+	"wbuf alloc failed",
+	"hif_post_recv_buffers_for_pipe buf alloc error",
+	"panic_on_oom",
+	"page allocation failure:",
+	"Unable to handle kernel NULL pointer dereference at virtual address",
+	"Unable to handle kernel paging request at virtual address",
+	"Unable to handle kernel execution of user memory at virtual address",
+	"Unable to handle kernel read from unreadable memory at virtual address",
+	"Unable to handle kernel access to user memory outside uaccess routines at virtual address",
+	"Unable to handle kernel write to read-only memory at virtual address",
+	"Unable to handle kernel execute from non-executable memory at virtual address",
+	"Unhandled fault: alignment exception",
+	"PC Alignment exception",
+	"kernel BUG at mm/slub.c",
+	"WARN: Access Violation"};
+
+char *minidump_dump_crash_sig[MINIDUMP_CRASHMOD_BASED_SIGCOUNT] = {
+	"Internal error:",
+	"rcu_preempt self-detected stall",
+	"rcu_preempt detected stalls",
+	"Kernel panic - not syncing: KASAN: panic_on_warn set"};
+
+char *minidump_host_modules[QTI_MINIDUMP_HOST_MOD_COUNT] = {"ath_pktlog",
+	"cfg80211", "ecm", "ipq_cnss2", "monitor", "qca_ol", "qca_spectral",
+	"qdf", "telemetry_agent", "umac", "wifi_3_0"};
+
+char *minidump_nss_modules[QTI_MINIDUMP_NSS_MOD_COUNT] = {"nf_conntrack",
+	"qca_nss_dp", "qca_nss_ppe_ds", "ecm", "qca_nss_eip", "qca_nss_ppe",
+	"qca_nss_sfe", "qca_nss_ppe_bridge_mgr", "qca_nss_ppe_capwapmgr",
+	"qca_nss_ppe_gre", "qca_nss_ppe_l2tp", "qca_nss_ppe_mapt",
+	"qca_nss_ppe_pppoe_mgr", "qca_nss_ppe_tunipip6", "qca_nss_ppe_vlan",
+	"qca_nss_ppe_vxlanmgr", "qca_nss_ppe_tun"};
+
+char *minidump_calltrace_sig[MINIDUMP_CALLTRACE_SIG_COUNT] = {"Call trace:",
+	"PC is at", "pc : ", "LR is at", "lr : "};
+
+static enum minidump_crash_type g_mini_seg = MINIDUMP_CRASH_TYPE_MAX;
+static char *g_minidump_mod_start;
+static char *g_minidump_mod_end;
+static u8 g_minidump_value;
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 #endif /* CONFIG_IPQ_MINIDUMP */
 
 typedef struct {
@@ -242,13 +321,369 @@ static int crashdump_flash_set_fn_ops(crashdump_config_t *dump_config);
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
 extern int initr_net(void);
+
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+
+/**
+ * searchstring - Search a signature with legth limited characters
+ * @bufferptr - buffer start addr where the Sig to be checked
+ * bufferlen - length of the buffer
+ * strptr - Sig start address to be checked
+ * strlen - Sig length to be searched
+ */
+void *searchstring(const void *bufferptr, size_t bufferlen, const void *strptr,
+		   size_t strlen)
+{
+	if (strlen == 0)
+		return (void *)bufferptr;
+
+	const char *h = (const char *)bufferptr;
+	const char *n = (const char *)strptr;
+
+	for (size_t i = 0; i <= bufferlen - strlen; i++) {
+		if (memcmp(h + i, n, strlen) == 0)
+			return (void *)(h + i);
+	}
+
+	return NULL;
+}
+
+/**
+ * get_calltrace_ptr - check for calltrace pointer
+ * bufferptr - buffer start pointer
+ * bufferlen - buffer length to check
+ */
+char *get_calltrace_ptr(char *bufferptr, size_t bufferlen)
+{
+	int i = 0;
+	char *calltrace_ptr = NULL;
+	size_t bug_len = 0;
+
+	/*
+	 * Read the call trace pointer in the given rage and identify
+	 * module start and end offsets
+	 */
+
+	for (i = 0; i < MINIDUMP_CALLTRACE_SIG_COUNT; i++) {
+		calltrace_ptr = searchstring(bufferptr,
+					     bufferlen,
+					     minidump_calltrace_sig[i],
+					     strlen(minidump_calltrace_sig[i]));
+		if (calltrace_ptr)
+			break;
+	}
+
+	/* Ignore module start address identification and returns NULL
+	 * if call trace pointer not found
+	 */
+	if (!calltrace_ptr)
+		return calltrace_ptr;
+
+	bug_len = (bufferptr + bufferlen) - calltrace_ptr;
+	g_minidump_mod_start = searchstring(calltrace_ptr, bug_len, "[", 1);
+
+	if (g_minidump_mod_start) {
+		bug_len = (bufferptr + bufferlen) - g_minidump_mod_start;
+		g_minidump_mod_end = searchstring(g_minidump_mod_start,
+						  bug_len,
+						  "]",
+						  1);
+	}
+
+	return calltrace_ptr;
+}
+
+/**
+ * get_minidump_crashed_mod - identify the subsystem of crashed module within []
+ * dmesg_start - dmesg start pointer
+ * dmesg_len - dmesg length
+ * dmesg_read_offset - dmesg read pointer offset
+ * first_crash_ptr - first occurred crash pointer from dmesg
+ * sec_crash_ptr - second crash pointer if there were multiple crashes
+ * call_trace_ptr - call trace start address in dmesg
+ **/
+enum minidump_crash_type get_minidump_crashed_mod(char *dmesg_start,
+						  size_t dmesg_len,
+						  size_t dmesg_read_offset,
+						  char *first_crash_ptr,
+						  char *sec_crash_ptr,
+						  char *call_trace_ptr)
+{
+	int index = 0;
+	char module[50] = {0};
+	int match_status = 0;
+	size_t buflen = 0;
+
+	/*
+	 * If the call trace pointer is less than the dmesg read pointer,
+	 * the search operation has already been completed and should be skipped
+	 */
+
+	if (!g_minidump_mod_start && (call_trace_ptr < dmesg_start +
+				      dmesg_read_offset))
+		return MINIDUMP_CRASH_TYPE_MAX;
+
+	/*
+	 * If second crash observed search module start address till second crash
+	 * if not search till dmesg read address
+	 */
+	if (!g_minidump_mod_start && sec_crash_ptr) {
+		buflen = dmesg_start + dmesg_len - sec_crash_ptr;
+		g_minidump_mod_start = searchstring(dmesg_start, buflen, "[", 1);
+		if (g_minidump_mod_start) {
+			buflen = (dmesg_start + (size_t)sec_crash_ptr) -
+				 g_minidump_mod_start;
+			g_minidump_mod_end = searchstring(g_minidump_mod_start,
+							  buflen, "]", 1);
+		}
+	} else if (!g_minidump_mod_start) {
+		buflen = (((size_t)dmesg_start) + dmesg_len) - dmesg_read_offset;
+		g_minidump_mod_start = searchstring(dmesg_start, buflen, "[", 1);
+		if (g_minidump_mod_start) {
+			buflen = (dmesg_start + dmesg_read_offset) -
+				 g_minidump_mod_start;
+			g_minidump_mod_end = searchstring(g_minidump_mod_start,
+							  buflen, "]", 1);
+		}
+	}
+
+	if (!g_minidump_mod_start || !g_minidump_mod_end)
+		return MINIDUMP_CRASH_TYPE_MAX;
+
+	/*
+	 * The module start address will be pointed to character [
+	 * Actual name will be inside [], hence +1 is required for start address
+	 */
+	if ((g_minidump_mod_end - g_minidump_mod_start) < MODULE_NAME_MAX_SIZE)
+		strlcpy(module, g_minidump_mod_start + 1, g_minidump_mod_end -
+			g_minidump_mod_start);
+
+	printf("MINIDUMP:  %s module found in call trace\n", module);
+
+	for (index = 0; index < QTI_MINIDUMP_NSS_MOD_COUNT; index++) {
+		match_status = strncmp(module, minidump_nss_modules[index],
+				       strlen(minidump_nss_modules[index]));
+		if (!match_status) {
+			printf("MINIDUMP: %s found in call trace, belongs to NSS\n",
+			       minidump_nss_modules[index]);
+			return MINIDUMP_CRASH_TYPE_NSS |
+				MINIDUMP_CRASH_TYPE_DEFAULT;
+		}
+	}
+
+	for (index = 0; index < QTI_MINIDUMP_HOST_MOD_COUNT; index++) {
+		match_status = strncmp(module, minidump_host_modules[index],
+				       strlen(minidump_host_modules[index]));
+		if (!match_status) {
+			printf("MINIDUMP: %s found in call trace, belongs to Host\n",
+			       minidump_host_modules[index]);
+			return MINIDUMP_CRASH_TYPE_HOST |
+				MINIDUMP_CRASH_TYPE_DEFAULT;
+		}
+	}
+
+	return MINIDUMP_CRASH_TYPE_MAX;
+}
+
+/**
+ * check_crash_module - Search the module in call trace withtin in the
+			passed buffer and identifies the owner
+ * dmesg_start - dmesg start pointer
+ * dmesg_len - dmesg length
+ * dmesg_read_offset - dmesg read pointer offset
+ * first_crash_ptr - first occurred crash pointer from dmesg
+ * second_crash_ptr - second crash pointer if there were multiple crashes
+ **/
+enum minidump_crash_type check_crash_module(char *dmesg_start,
+					    size_t dmesg_len,
+					    size_t dmesg_read_offset,
+					    char *first_crash_ptr,
+					    char *second_crash_ptr)
+{
+	char *call_trace = NULL;
+	size_t buflen = 0;
+
+	if (second_crash_ptr) {
+		/*
+		 * Dmesg is a circular buffer, reading the dmesg content from
+		 * first occurred to second occurred crash pointer
+		 */
+
+		if ((first_crash_ptr <= dmesg_start + dmesg_read_offset &&
+		     second_crash_ptr <= dmesg_start + dmesg_read_offset) ||
+		     (first_crash_ptr >= dmesg_start + dmesg_read_offset &&
+		     second_crash_ptr >= dmesg_start + dmesg_read_offset)) {
+			buflen = second_crash_ptr - first_crash_ptr;
+			call_trace = get_calltrace_ptr(first_crash_ptr, buflen);
+		} else {
+			/*
+			 * Dmesg is a circular buffer reading the dmesg from
+			 * first crash pointer to till end if module not
+			 * found reading from start to dmesg read end
+			 */
+			buflen = (dmesg_start + dmesg_len) - first_crash_ptr;
+			call_trace = get_calltrace_ptr(first_crash_ptr, buflen);
+			if (!call_trace) {
+				buflen = second_crash_ptr - dmesg_start;
+				call_trace = get_calltrace_ptr(dmesg_start,
+							       buflen);
+			}
+		}
+	} else {
+		/*
+		 * reading first occurred crash to dmesg read start address
+		 */
+		if (first_crash_ptr < dmesg_start + dmesg_read_offset) {
+			buflen = (dmesg_start + dmesg_read_offset) -
+				 first_crash_ptr;
+			call_trace = get_calltrace_ptr(first_crash_ptr, buflen);
+		} else {
+			/*
+			 * reading from first occurred crash to till dmesg end
+			 * and if no module found reading from start to dmesg
+			 * read start
+			 */
+			buflen = (dmesg_start + dmesg_len) - first_crash_ptr;
+			call_trace = get_calltrace_ptr(first_crash_ptr, buflen);
+			if (!call_trace && dmesg_read_offset) {
+				buflen = dmesg_start + dmesg_read_offset -
+					 dmesg_start;
+				call_trace = get_calltrace_ptr(dmesg_start,
+							       buflen);
+			}
+		}
+	}
+
+	if (!call_trace)
+		return MINIDUMP_CRASH_TYPE_MAX;
+
+	return get_minidump_crashed_mod(dmesg_start, dmesg_len, dmesg_read_offset,
+					first_crash_ptr, second_crash_ptr,
+					call_trace);
+}
+
+/**
+ * checkcrashtype - Iterate through the buffer and identifies the cause of the
+		    system crash
+ * bufferptr - buffer start address
+ * bufferlen - buffer length
+ * dmesg_read_offset - buffer read start address which is circular buffer
+ **/
+static void checkcrashtype(char *dmesg_start, size_t dmesg_len,
+			   size_t dmesg_read_offset)
+{
+	int i = 0;
+	char *strptr = NULL;
+	char *ignore_assertion = NULL;
+	char *warning_ptr = NULL;
+	char *crash_ptr[MINIDUMP_CRASHMOD_BASED_SIGCOUNT] = {NULL};
+	char *normalize_ptr = NULL;
+	char *first_crash_ptr = NULL;
+	char *second_crash_ptr = NULL;
+	char *crash_ptr_tmp = NULL;
+
+	/*
+	 * For the crashes like corruption, Low mem, access violation etc..,
+	 * All segments has to be dumped
+	 */
+
+	for (i = 0; i < MINIDUMP_ALL_SEG_CRASHSIG_COUNT; i++) {
+		strptr = searchstring(dmesg_start, dmesg_len,
+				      minidump_dump_all_sig[i],
+				      strlen(minidump_dump_all_sig[i]));
+
+		if (strptr) {
+			printf("MINIDUMP: %s found in dmesg, dumping all segs\n",
+			       minidump_dump_all_sig[i]);
+			g_mini_seg = MINIDUMP_CRASH_TYPE_MAX;
+		}
+	}
+
+	/*
+	 * There is no other subsystem has a chance to crash assertion
+	 * failure except Host. Host segments has to be dumped
+	 */
+
+	strptr = searchstring(dmesg_start, dmesg_len, HOST_CRASH_SIG,
+			      strlen(HOST_CRASH_SIG));
+	ignore_assertion = searchstring(dmesg_start, dmesg_len,
+					IGNORE_HOST_CRASH_SIG,
+					strlen(IGNORE_HOST_CRASH_SIG));
+
+	if (strptr && !ignore_assertion) {
+		printf("MINIDUMP: Host Assertion found in dmesg, dumping host segs\n");
+		g_mini_seg = MINIDUMP_CRASH_TYPE_HOST | MINIDUMP_CRASH_TYPE_DEFAULT;
+	}
+
+	/*
+	 * For all other crashes First occurred crash has to be considered and
+	 * it's respective module caused crash segments has to be dumped
+	 */
+
+	for (i = 0; i < MINIDUMP_CRASHMOD_BASED_SIGCOUNT; i++) {
+		crash_ptr_tmp = searchstring(dmesg_start,
+					     dmesg_len,
+					     minidump_dump_crash_sig[i],
+					     strlen(minidump_dump_crash_sig[i]));
+		if (crash_ptr_tmp) {
+			printf("MINIDUMP: %s found in dmesg\n",
+			       minidump_dump_crash_sig[i]);
+			crash_ptr[i] = crash_ptr_tmp;
+		}
+	}
+
+	for (i = 0; i < MINIDUMP_CRASHMOD_BASED_SIGCOUNT; i++) {
+		if (crash_ptr[i] &&
+		    crash_ptr[i] < dmesg_start + dmesg_read_offset) {
+			normalize_ptr = crash_ptr[i] + dmesg_read_offset;
+		} else if (crash_ptr[i]) {
+			normalize_ptr = crash_ptr[i];
+		}
+
+		if (normalize_ptr &&
+		    (!first_crash_ptr || normalize_ptr < first_crash_ptr)) {
+			second_crash_ptr = first_crash_ptr;
+			first_crash_ptr = crash_ptr[i];
+		} else if ((normalize_ptr < second_crash_ptr ||
+			   !second_crash_ptr) && normalize_ptr !=
+			   first_crash_ptr) {
+			second_crash_ptr = crash_ptr[i];
+		}
+	}
+
+	if (first_crash_ptr) {
+		g_mini_seg = check_crash_module(dmesg_start,
+						dmesg_len,
+						dmesg_read_offset,
+						first_crash_ptr,
+						second_crash_ptr);
+	}
+
+	/*
+	 * Warning will be always least priority and to be checked at last
+	 */
+	warning_ptr = searchstring(dmesg_start, dmesg_len, WARNING_CRASH_SIG,
+				   strlen(WARNING_CRASH_SIG));
+
+	if (warning_ptr) {
+		printf("MINIDUMP: Warning crash identified from dmesg\n");
+		g_mini_seg = check_crash_module(dmesg_start,
+						dmesg_len,
+						dmesg_read_offset,
+						warning_ptr,
+						second_crash_ptr);
+	}
+}
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
+
 /**
  * add_entry_crashdump_table() - Adds an entry into dump table
  * &dump_config - crashdump ocnfiguration info
  * &dump_entry - entry that needs to be added into the dump table
  */
+
 static int add_entry_crashdump_table(crashdump_config_t *dump_config,
-		crashdump_infos_int_t *dump_entry)
+				     crashdump_infos_int_t *dump_entry)
 {
 	crashdump_infos_int_t *new_entry;
 
@@ -340,6 +775,49 @@ static int wdt_extract_tlv_data(wdt_dump_tlv_infos_t *tlv_info,
 	return 0;
 }
 
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+
+/**
+ * get_dmesg_read - to read the DMESG TEXT TAIL LPOS address and identify the
+		    read start address of dmesg from circular buffer
+**/
+
+static uint64_t get_dmesg_read(void)
+{
+	u64 tail_counter = 0;
+	u32 cur_size = 0;
+	u8 cur_type = 0;
+	int ret = CMD_RET_FAILURE;
+	wdt_dump_tlv_infos_t tlv_info;
+
+	tlv_info.msg_buf = (uint8_t *)(uintptr_t)(CFG_QTI_KERN_WDT_ADDR +
+			   TLV_BUF_OFFSET);
+	tlv_info.cur_msg_buf = tlv_info.msg_buf;
+	tlv_info.buf_len = CFG_TLV_DUMP_SIZE;
+	do {
+		u8 buf[512] = { 0 };
+		st_tlv_data_t *tlv_data = NULL;
+
+		ret = wdt_extract_tlv_info(&tlv_info, &cur_type, &cur_size);
+		if (ret)
+			break;
+
+		if (cur_type == QTI_WDT_LOG_DUMP_TYPE_TEXT_DATA_TAIL) {
+			ret = wdt_extract_tlv_data(&tlv_info, buf, cur_size);
+			tlv_data = (st_tlv_data_t *)&buf;
+			tail_counter = *(uint64_t *)(uintptr_t)tlv_data->start;
+			return((tail_counter + STATIC_DMESG_SIZE) %
+			       STATIC_DMESG_SIZE);
+		}
+
+		tlv_info.cur_msg_buf +=	(cur_size +
+					 QTI_WDT_SCM_TLV_TYPE_LEN_SIZE);
+	} while (cur_type != QTI_WDT_LOG_DUMP_TYPE_INVALID);
+
+	return 0;
+}
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
+
 /**
  * wdt_extract_dump() - extract details of the requested tlv dump
  * &dump_config - crashdump configuration info
@@ -355,6 +833,12 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 	uint32_t cur_size = 0;
 	wdt_dump_tlv_infos_t tlv_info;
 	crashdump_infos_t *dump_infos = &dump_config->dump_infos[dump_idx];
+
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+	u64 dmesg_read_offset = 0;
+	u32 crash_type = 0;
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
+
 	char *dumps[] = { "INVALID",
 		UNAME_DUMP_NAME_PREFIX,
 		DMESG_DUMP_NAME_PREFIX,
@@ -398,7 +882,7 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 		if ((tlv_type == QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD) &&
 				(cur_type >= QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD)
 				&& (cur_type <=
-				QTI_WDT_LOG_DUMP_TYPE_WLAN_MMU_INFO)){
+				QTI_WDT_LOG_DUMP_TYPE_TEXT_DATA_TAIL)){
 
 			ret = wdt_extract_tlv_data(&tlv_info, buf, cur_size);
 			if (ret)
@@ -406,7 +890,9 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 
 			tlv_data = (st_tlv_data_t*)&buf;
 			dump_entry->start_addr = tlv_data->start;
-
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+			crash_type = tlv_data->crashtype;
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 			switch (cur_type) {
 			case QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD_INFO:
 				snprintf(dump_entry->name,
@@ -429,7 +915,18 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 					(uint32_t)tlv_data->start);
 				dump_entry->size = tlv_data->size;
 				break;
+			case QTI_WDT_LOG_DUMP_TYPE_TEXT_DATA_TAIL:
+				snprintf(dump_entry->name,
+					 sizeof(dump_entry->name),
+					 "%X.BIN",
+					 (uint32_t)tlv_data->start);
+				dump_entry->size = tlv_data->size;
+				break;
 			case QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD:
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+				if (!(crash_type & g_mini_seg))
+					continue;
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 				snprintf(dump_entry->name,
 					sizeof(dump_entry->name),
 					"%X.BIN", (uint32_t)tlv_data->start);
@@ -460,7 +957,16 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 				tlv_data = (st_tlv_data_t*)&buf;
 				dump_entry->start_addr = tlv_data->start;
 				dump_entry->size = *(uint32_t *)(uintptr_t)
-					tlv_data->size;
+						    tlv_data->size;
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+				if (g_minidump_value == 2) {
+					dmesg_read_offset = get_dmesg_read();
+					checkcrashtype((char *)(uintptr_t)
+						       dump_entry->start_addr,
+						       dump_entry->size,
+						       dmesg_read_offset);
+				}
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 				break;
 			case QTI_WDT_LOG_DUMP_TYPE_LEVEL1_PT:
 				tlv_data = (st_tlv_data_t*)&buf;
@@ -470,7 +976,7 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 			}
 
 			snprintf(dump_entry->name, sizeof(dump_entry->name),
-					"%llX.BIN", dump_entry->start_addr);
+				"%llX.BIN", dump_entry->start_addr);
 			ret = CMD_RET_SUCCESS;
 			break;
 		} else {
@@ -514,6 +1020,27 @@ int ipq_iscrashed(void)
 	return ((dmagic & DLOAD_MAGIC_COOKIE) ? 1 : 0);
 }
 
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+
+/**
+ * get_minidimp_level - to read the minidump env and identify dump level
+ */
+static void get_minidimp_level(void)
+{
+	char *envptr = env_get("dump_minimal");
+	char *minidump_level = NULL;
+
+	if (envptr) {
+		minidump_level = strsep(&envptr, " ");
+		if (!minidump_level || !str2long(minidump_level,
+						 (ulong *)
+						 &g_minidump_value)) {
+			printf("Failed to identify minidump level\n");
+		}
+	}
+}
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
+
 /**
  * parse_crashdump_config() - parse the crashdump configurations from the
  * system environments
@@ -524,8 +1051,13 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_MINIDUMP
 	if (env_get("dump_minimal_and_full"))
 		dump_config->dump_level = MINIDUMP_AND_FULLDUMP;
-	else if (env_get("dump_minimal") || env_get("dump_to_flash"))
+	else if (env_get("dump_minimal") || env_get("dump_to_flash")) {
 		dump_config->dump_level = MINIDUMP;
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+		get_minidimp_level();
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
+	}
+
 	else
 #endif /* CONFIG_IPQ_MINIDUMP */
 		dump_config->dump_level = FULLDUMP;
@@ -1117,7 +1649,6 @@ static int prepare_crashdump_level_table(crashdump_config_t *dump_config,
 			dump_entry.compression_support =
 				dump_infos[i].compression_support;
 #endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
-
 		if (dump_infos[i].size == 0xBAD0FF5E) {
 			switch (dump_level) {
 #ifdef CONFIG_IPQ_MINIDUMP
