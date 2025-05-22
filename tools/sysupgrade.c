@@ -390,21 +390,27 @@ int is_rootfs_auth_enabled(void)
 {
 	FILE *file;
 	char buf[10];
+	char command[36];
+	int retval;
 
 	file = fopen(ROOTFS_AUTH, "r");
-	if (file == NULL) {
-		printf("Error: Unable to open sysfs file\n");
-		return 0;
-	}
-
-	while (fgets(buf, sizeof(buf), file) != NULL) {
-		if (!strncmp(buf, "Enabled", 7)) {
-			fclose(file);
-			return 1;
+	if (file != NULL) {
+		while (fgets(buf, sizeof(buf), file) != NULL) {
+			if (!strncmp(buf, "Enabled", 7)) {
+				fclose(file);
+				return 1;
+			}
 		}
+		fclose(file);
+	} else {
+		printf("Error: Unable to open sysfs file, checking ENV...\n");
 	}
 
-	fclose(file);
+	snprintf(command, sizeof(command), "fw_printenv | grep -q rootfs_auth");
+	retval = system(command);
+	if (retval == 0) {
+		return 1;
+	}
 
 	return 0;
 }
