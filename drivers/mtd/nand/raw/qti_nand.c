@@ -4349,6 +4349,7 @@ int qti_nand_deinit(struct udevice *device)
 {
 	int ret = 0;
 	struct qcom_nand_controller *nandc = NULL;
+	struct mtd_info *slave, *next;
 	struct mtd_info *mtd = get_nand_dev_by_index(dev_seq(device));
 	if(!mtd) {
 		printf("%s: mtd device not available\n", __func__);
@@ -4359,6 +4360,14 @@ int qti_nand_deinit(struct udevice *device)
 	if(!nandc) {
 		printf("%s: nand controller not available\n", __func__);
 		return -ENOMEM;
+	}
+	/*
+	 * Unmount the filesystem that was mounted on the MTD partition
+	 * before removing the MTD device.
+	 * For example, this applies to filesystems like rootfs.
+	 */
+	list_for_each_entry_safe(slave, next, &mtd->partitions, node) {
+		put_mtd_device(slave);
 	}
 
 	ret = del_mtd_device(mtd);
