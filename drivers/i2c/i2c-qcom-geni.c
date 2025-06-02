@@ -35,6 +35,7 @@
 #define SE_I2C_ERR  (M_CMD_OVERRUN_EN | M_ILLEGAL_CMD_EN | M_CMD_FAILURE_EN |\
 			M_GP_IRQ_1_EN | M_GP_IRQ_3_EN | M_GP_IRQ_4_EN)
 #define SE_I2C_ABORT		BIT(1)
+#define I2C_IRQ_SUCCESS		BIT(0)
 
 /* M_CMD OP codes for I2C */
 #define I2C_WRITE		0x1
@@ -166,14 +167,12 @@ static const struct geni_i2c_clk_fld geni_i2c_clk_map[] = {
 	{KHZ(400), 4,  3, 11, 20},
 	{KHZ(1000), 2, 3,  6, 15},
 };
-
-static int geni_i2c_clk_map_idx(struct geni_i2c_dev *gi2c)
+static int geni_i2c_clk_map_idx(struct geni_i2c_dev *gi2c, unsigned int clk_freq)
 {
 	int i;
 	const struct geni_i2c_clk_fld *itr = geni_i2c_clk_map;
-
 	for (i = 0; i < ARRAY_SIZE(geni_i2c_clk_map); i++, itr++) {
-		if (itr->clk_freq_out == gi2c->clk_freq_out) {
+		if (itr->clk_freq_out == clk_freq) {
 			gi2c->clk_fld = itr;
 			return 0;
 		}
@@ -222,69 +221,67 @@ static void geni_i2c_err_misc(struct geni_i2c_dev *gi2c)
 static int geni_i2c_irq(struct geni_i2c_dev *gi2c)
 {
 	phys_addr_t base = gi2c->base;
-	unsigned long time_left = 1000;
 	int j, p;
 	u32 m_stat;
 	u32 rx_st;
 	u32 val;
 	struct i2c_msg *cur;
+	ulong start = get_timer(0);
 
-	m_stat = readl(base + SE_GENI_M_IRQ_STATUS);
-	rx_st = readl(base + SE_GENI_RX_FIFO_STATUS);
-	cur = gi2c->cur;
+	do {
+		m_stat = readl(base + SE_GENI_M_IRQ_STATUS);
+		rx_st = readl(base + SE_GENI_RX_FIFO_STATUS);
+		cur = gi2c->cur;
 
-	if (!cur ||
-	    m_stat & SE_I2C_ERR || m_stat & (M_GP_IRQ_0_EN | M_CMD_ABORT_EN)) {
-		geni_i2c_err_misc(gi2c);
-		/* Disable the TX Watermark interrupt to stop TX */
-		writel(0, base + SE_GENI_TX_WATERMARK_REG);
-	} else if (cur->flags & I2C_M_RD &&
+		if (!cur || m_stat & SE_I2C_ERR || m_stat &	\
+					(M_GP_IRQ_0_EN | M_CMD_ABORT_EN)) {
+			geni_i2c_err_misc(gi2c);
+			/* Disable the TX Watermark interrupt to stop TX */
+			writel(0, base + SE_GENI_TX_WATERMARK_REG);
+		} else if (cur->flags & I2C_M_RD &&
 		   m_stat & (M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN)) {
-		u32 rxcnt = rx_st & RX_FIFO_WC_MSK;
+			u32 rxcnt = rx_st & RX_FIFO_WC_MSK;
 
-		for (j = 0; j < rxcnt; j++) {
-			p = 0;
-			val = readl(base + SE_GENI_RX_FIFOn);
-			while (gi2c->cur_rd < cur->len && p < sizeof(val)) {
-				cur->buf[gi2c->cur_rd++] = val & 0xff;
-				val >>= 8;
-				p++;
+			for (j = 0; j < rxcnt; j++) {
+				p = 0;
+				val = readl(base + SE_GENI_RX_FIFOn);
+				while (gi2c->cur_rd < cur->len && p < sizeof(val)) {
+					cur->buf[gi2c->cur_rd++] = val & 0xff;
+					val >>= 8;
+					p++;
+				}
+				if (gi2c->cur_rd == cur->len)
+					break;
 			}
-			if (gi2c->cur_rd == cur->len)
-				break;
-		}
-	} else if (!(cur->flags & I2C_M_RD) &&
-		   m_stat & M_TX_FIFO_WATERMARK_EN) {
-		for (j = 0; j < gi2c->tx_wm; j++) {
-			u32 temp;
-
-			val = 0;
-			p = 0;
-			while (gi2c->cur_wr < cur->len && p < sizeof(val)) {
-				temp = cur->buf[gi2c->cur_wr++];
-				val |= temp << (p * 8);
-				p++;
-			}
-			writel(val, base + SE_GENI_TX_FIFOn);
-			/* TX Complete, Disable the TX Watermark interrupt */
-			if (gi2c->cur_wr == cur->len) {
-				writel_relaxed(0, base +
+			mdelay(1);
+		} else if (!(cur->flags & I2C_M_RD) &&
+		   		m_stat & M_TX_FIFO_WATERMARK_EN) {
+			for (j = 0; j < gi2c->tx_wm; j++) {
+				u32 temp;
+				val = 0;
+				p = 0;
+				while (gi2c->cur_wr < cur->len && p < sizeof(val)) {
+					temp = cur->buf[gi2c->cur_wr++];
+					val |= temp << (p * 8);
+					p++;
+				}
+				writel(val, base + SE_GENI_TX_FIFOn);
+				/* TX Complete, Disable the TX Watermark interrupt */
+				if (gi2c->cur_wr == cur->len) {
+					writel_relaxed(0, base +
 						SE_GENI_TX_WATERMARK_REG);
-				break;
+					break;
+				}
+
+				mdelay(1);
 			}
 		}
-	}
+		writel(m_stat, base + SE_GENI_M_IRQ_CLEAR);
+		if (m_stat & I2C_IRQ_SUCCESS)
+			return 0;
+	} while (get_timer(start) < 100);
 
-	do{
-		--time_left;
-		udelay(10);
-	}while(time_left && !(readl(base + SE_GENI_M_IRQ_STATUS) & 0x1));
-
-	m_stat = readl(base + SE_GENI_M_IRQ_STATUS) & SE_I2C_ERR ? -ENODEV : 0;
-	writel(m_stat, base + SE_GENI_M_IRQ_CLEAR);
-
-	return m_stat;
-
+	return -ETIMEDOUT;
 }
 
 static void geni_se_setup_m_cmd(phys_addr_t base, u32 cmd, u32 params)
@@ -334,18 +331,12 @@ static int geni_i2c_tx_one_msg(struct geni_i2c_dev *gi2c, struct i2c_msg *msg,
 }
 
 static int geni_i2c_fifo_xfer(struct geni_i2c_dev *gi2c,
-			      struct i2c_msg msgs[], int num)
+				  struct i2c_msg msgs[], int num)
 {
 	int i, ret = -1;
 
 	for (i = 0; i < num; i++) {
 		u32 m_param = i < (num - 1) ? STOP_STRETCH : 0;
-
-		if(msgs[i].len > 64)
-		{
-			printf("Given size is larger than the FIFO size\n");
-			return -EINVAL;
-		}
 
 		m_param |= ((msgs[i].addr << SLV_ADDR_SHFT) & SLV_ADDR_MSK);
 
@@ -381,7 +372,7 @@ static int geni_i2c_xfer(struct udevice *bus,
 
 /* Probe to see if a chip is present. */
 static int geni_i2c_probe_chip(struct udevice *dev, uint chip_addr,
-			      uint chip_flags)
+				  uint chip_flags)
 {
 	struct i2c_msg msgs;
 	struct geni_i2c_dev *gi2c = dev_get_priv(dev);
@@ -446,7 +437,7 @@ static int geni_i2c_probe(struct udevice *pdev)
 	gi2c->clk_freq_out = dev_read_u32_default(pdev, "clock-frequency",
 							KHZ(100));
 
-	ret = geni_i2c_clk_map_idx(gi2c);
+	ret = geni_i2c_clk_map_idx(gi2c, gi2c->clk_freq_out);
 	if (ret) {
 		dev_err(pdev, "Invalid clk frequency %d Hz: %d\n",
 			gi2c->clk_freq_out, ret);
@@ -465,15 +456,24 @@ static int geni_i2c_probe(struct udevice *pdev)
 		geni_se_init(gi2c, gi2c->tx_wm, tx_depth);
 		geni_se_config_packing(gi2c->base, BITS_PER_BYTE,
 				       true, true, true);
+
 	}
 
 	return 0;
 
 }
 
+static int geni_i2c_set_bus_speed(struct udevice *dev, unsigned int clk_freq)
+{
+	struct geni_i2c_dev *geni = dev_get_priv(dev);
+
+	return geni_i2c_clk_map_idx(geni, clk_freq);
+}
+
 static const struct dm_i2c_ops geni_i2c_ops = {
 	.xfer		= geni_i2c_xfer,
 	.probe_chip	= geni_i2c_probe_chip,
+	.set_bus_speed  = geni_i2c_set_bus_speed,
 };
 
 static const struct udevice_id geni_i2c_dt_match[] = {
