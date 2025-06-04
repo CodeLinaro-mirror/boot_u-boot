@@ -23,6 +23,8 @@ enum sysreset_t {
 	SYSRESET_POWER_OFF,
 	/** @SYSRESET_COUNT: number of available reset types */
 	SYSRESET_COUNT,
+	/** @SYSRESET_EDL: reset to Emergency download mode */
+	SYSRESET_EDL,
 };
 
 /**
