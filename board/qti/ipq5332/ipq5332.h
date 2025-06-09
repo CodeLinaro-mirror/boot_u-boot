@@ -71,8 +71,14 @@ typedef enum {
 /* Crashdump minimal configs */
 #define CFG_CPU_CONTEXT_DUMP_SIZE		0x1000
 #define TME_CTXT_SIZE				(300 * 1024)
-#define TLV_BUF_OFFSET				(500 * 1024) - TME_CTXT_SIZE
+
+#if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
+#define TLV_BUF_OFFSET				(489 * 1024) - TME_CTXT_SIZE
+#define CFG_TLV_DUMP_SIZE			(23 * 1024)
+#else
+#define TLV_BUF_OFFSET                          (500 * 1024) - TME_CTXT_SIZE
 #define CFG_TLV_DUMP_SIZE			(12 * 1024)
+#endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 
 /* DT Fixup nodes */
 #define LINUX_5_4_NAND_DTS_NODE		"/soc/nand@79b0000/"

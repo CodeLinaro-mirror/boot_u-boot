@@ -52,4 +52,12 @@ config IPQ_FDT_FIXUP
 config IPQ_ROOTFS_AUTH
 	bool "Rootfs authentication support"
 	depends on TARGET_IPQ9574 || TARGET_IPQ5332
+
+config IPQ_MINIDUMP_VERSION_2
+	bool "Enable Minidump Version 2 with Crash-Type-Based Dumping"
+	depends on IPQ_CRASHDUMP && IPQ_MINIDUMP
 	default n
+	help
+	Enable support for Minidump Version 2, which allows selective
+	dumping of segments based on the crash type
+
