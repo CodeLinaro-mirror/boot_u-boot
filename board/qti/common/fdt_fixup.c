@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2015-2017, 2020 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <common.h>
@@ -37,6 +37,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #endif
 
 typedef void (*fdt_fixup_t)(void *blob);
+static LIST_HEAD(wifi_config_list);
+struct list_head *lhead = &wifi_config_list;
 
 #define FDT_EDIT "fdtedit"
 /* Buffer size to hold numbers from 0-99 + 1 NULL character */
@@ -358,6 +360,110 @@ __weak void ipq_fdt_fixup_atf(void *blob)
 {
 	return;
 }
+
+#ifdef CONFIG_CB_CALIB
+static int ipq_fdt_create_cal_config(void *blob, int node)
+{
+	int ret, len, ep_node, rc_node;
+	const u32 *pval;
+	const char *name;
+	struct cal_dt_config *config;
+	struct fdt_memory carveout;
+	const char **compatibles = NULL;
+	unsigned int num_compatibles;
+	unsigned long flags;
+	char path[200];
+
+	config = malloc(sizeof(*config));
+	if (!config) {
+		printf("failed to allocate memory for wifi config\n");
+		return -ENOMEM;
+	}
+
+	memset(config, 0, sizeof(*config));
+
+	ret = fdt_get_path(blob, node, path, sizeof(path));
+	if (ret < 0) {
+		printf("failed to get node path from blob\n");
+		return -EINVAL;
+	}
+	ret = fdtdec_get_carveout(blob, (const char *)path, "memory-region", 0, &carveout, &name,
+				  &compatibles, &num_compatibles, &flags);
+	if (ret < 0) {
+		printf("failed to get carveout for %s: %d\n", path, ret);
+		return ret;
+	}
+
+	config->rmem_base_addr = (uint32_t)carveout.start;
+	config->rmem_size = (uint32_t)(carveout.end - carveout.start + 1);
+
+	pval = fdt_getprop(blob, node, "qcom,board_id", &len);
+	if (pval)
+		config->board_id = fdt32_to_cpu(*pval);
+
+	pval = fdt_getprop(blob, node, "qcom,caldata_offset", &len);
+	if (pval)
+		config->caldata_offset = fdt32_to_cpu(*pval);
+
+	ep_node = fdt_parent_offset(blob, node);
+	if (ep_node <= 0) {
+		printf("Failed to get ep node\n");
+		return -EINVAL;
+	}
+
+	rc_node = fdt_parent_offset(blob, ep_node);
+	if (rc_node <= 0) {
+		printf("Failed to get rc node\n");
+		return -EINVAL;
+	}
+
+	pval = fdt_getprop(blob, rc_node, "linux,pci-domain", &len);
+	if (pval)
+		config->pci_slot_id = fdt32_to_cpu(*pval);
+
+	list_add_tail(&config->list, lhead);
+
+	return 0;
+}
+
+void ipq_fdt_fixup_start_cal(void *blob)
+{
+	int node = -1;
+	int id = 0, debug = 0;
+	int ret;
+
+	do {
+		node = fdt_node_offset_by_prop_value(blob, node,
+						     "qcom,early_cal_enabled",
+						     "okay", 5);
+		if (node > 0 && (fdtdec_get_is_enabled(blob, node))) {
+			if (ipq_fdt_create_cal_config(blob, node))
+				break;
+			id++;
+		}
+	} while (node > 0);
+
+	if (!id)
+		return;
+
+	if (env_get("cal_debug"))
+		debug = 1;
+
+	ret = cal_qcn9224(debug);
+	if (ret) {
+		node = -1;
+		do {
+			node = fdt_node_offset_by_prop_value(blob, node, "qcom,early_cal_enabled",
+							     "okay", 5);
+			if (node > 0 && (fdtdec_get_is_enabled(blob, node))) {
+				fdt_setprop_string(blob, node,
+						   "qcom,early_cal_enabled",
+						   "disabled");
+			}
+		} while (node > 0);
+	}
+}
+#endif
 
 __weak void ipq_fdt_fixup_socinfo(void *blob)
 {
@@ -849,13 +955,16 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 }
 
 static const fdt_fixup_t fixup_functions[] = {
+	ipq_fdt_fixup,
+#ifdef CONFIG_CB_CALIB
+	ipq_fdt_fixup_start_cal,
+#endif
 	ipq_fdt_fixup_socinfo,
 	ipq_fdt_fixup_smem,
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 	ipq_fdt_fixup_mtdparts,
 #endif
 	ipq_fdt_fixup_flash,
-	ipq_fdt_fixup,
 #ifdef CONFIG_CMD_NAND
 	ipq_fdt_fixup_qti_nand,
 #endif
