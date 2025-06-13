@@ -2429,15 +2429,15 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 	if (ipq_iscrashed()) {
+#ifdef CONFIG_SDX_ATTACH_SUPPORT
+		ipq_board_gpio_config(SDX_POWER_CYCLE);
+#endif
+
 #if defined(CONFIG_CMD_NET) && defined(CONFIG_ETH_SKIP_INIT_R)
 		/*
 		 * Enabling ethernet for dump collection
 		 */
 		initr_net();
-#endif
-
-#ifdef CONFIG_SDX_ATTACH_SUPPORT
-		ipq_board_gpio_config(SDX_POWER_CYCLE);
 #endif
 
 		ulong debug = env_get_ulong("debug", 10, 0);
