@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <common.h>
@@ -62,6 +62,7 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_RDP485_C3, "ipq5424-rdp485"},
 	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
 	{ MACH_TYPE_IPQ5424_RDP487_C2, "ipq5424-rdp487"},
+	{ MACH_TYPE_IPQ5424_RDP487_C3, "ipq5424-rdp487-c3"},
 	{ MACH_TYPE_IPQ5424_RDP466_RFFE, "ipq5424-rdp466"},
 	{ MACH_TYPE_IPQ5424_RDP496, "ipq5424-rdp485"},
 	{ MACH_TYPE_IPQ5424_RDP485_RFFE, "ipq5424-rdp485"},
