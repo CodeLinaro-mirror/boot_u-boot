@@ -29,6 +29,9 @@
 #define PSCI_METHOD_HVC 1
 #define PSCI_METHOD_SMC 2
 
+#define PSCI_RESET2_TYPE_VENDOR_SHIFT	31
+#define PSCI_RESET2_TYPE_VENDOR		BIT(PSCI_RESET2_TYPE_VENDOR_SHIFT)
+
 /*
  * While a 64-bit OS can make calls with SMC32 calling conventions, for some
  * calls it is necessary to use SMC64 to pass or return 64-bit values.
@@ -259,6 +262,11 @@ void reset_misc(void)
 }
 #endif /* CONFIG_PSCI_RESET */
 
+static int psci_vendor_system_reset2(void) {
+	return invoke_psci_fn(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2),
+			      PSCI_RESET2_TYPE_VENDOR, 1, 0);
+}
+
 void psci_sys_reset(u32 type)
 {
 	bool reset2_supported;
@@ -266,6 +274,9 @@ void psci_sys_reset(u32 type)
 	do_psci_probe();
 
 	reset2_supported = psci_is_system_reset2_supported();
+
+	if (type == SYSRESET_EDL && reset2_supported && !psci_vendor_system_reset2())
+		return;
 
 	if (type == SYSRESET_WARM && reset2_supported) {
 		/*
