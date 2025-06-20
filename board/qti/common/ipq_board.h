@@ -918,6 +918,7 @@ int smem_ram_ptable_init_v2(
 #define ROOTFS_AUTH_SUCCESS		BIT(11)
 #define ACTIVE_BOOT_SET			BIT(12)
 #define INVALID_BOOT			BIT(13)
+#define RECOVERY_MODE			BIT(14)
 #define FLASH_TYPE_MASK			0xFF
 
 enum {
@@ -1207,7 +1208,7 @@ typedef struct {
 
 extern crashdump_infos_t *board_dumpinfo;
 extern uint8_t *board_dump_entries;
-extern uint8_t g_recovery_path __attribute__((section(".data")));
+extern uint32_t g_recovery_path __attribute__((section(".data")));
 
 #if IS_ENABLED(CONFIG_MMC) || IS_ENABLED(CONFIG_NOR_BLK)
 /* BLK part info */
@@ -1301,6 +1302,7 @@ typedef struct {
 #define MAX_BOOT_ARGS_SIZE	64
 #endif
 
+#define MAGIC_RECOVERY_PATH				0xAECDBDDE
 /*
  * Function declaration
  */

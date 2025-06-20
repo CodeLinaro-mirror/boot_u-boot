@@ -1462,7 +1462,7 @@ int write_tcsr_boot_misc_reg(uint32_t mask, uint32_t value) {
 
 	cookie = (cookie & ~mask) | (value & mask);
 
-	if (g_recovery_path) {
+	if (gd->board_type & RECOVERY_MODE) {
 		writel(cookie, TCSR_BOOT_MISC_REG);
 	} else {
 		do {
