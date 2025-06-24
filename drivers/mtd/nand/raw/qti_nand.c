@@ -4367,7 +4367,8 @@ int qti_nand_deinit(struct udevice *device)
 	 * For example, this applies to filesystems like rootfs.
 	 */
 	list_for_each_entry_safe(slave, next, &mtd->partitions, node) {
-		put_mtd_device(slave);
+		if (slave->usecount)
+			put_mtd_device(slave);
 	}
 
 	ret = del_mtd_device(mtd);
