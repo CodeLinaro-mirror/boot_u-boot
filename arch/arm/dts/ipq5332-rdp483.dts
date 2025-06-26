@@ -144,6 +144,7 @@
 			phy-handle0 = <&phy0>;
 			phy-handle1 = <&phy1>;
 			status = "okay";
+			50mhz = <1>;
 		};
 
 		pcie1_x2: pci@18000000 {

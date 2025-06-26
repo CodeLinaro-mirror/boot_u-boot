@@ -1077,6 +1077,6 @@ struct ipq_eth_dev {
 	struct port_info *port[CONFIG_ETH_MAX_MAC];
 	struct ipq_edma_hw hw;
 	size_t uniphy_size;
-	bool uniphy_50mhz;
+	int uniphy_50mhz;
 	bool emulation;
 };
