@@ -794,6 +794,11 @@
 			status = "disabled";
 		};
 
+		sdx_rst: gpio{
+			compatible = "gpio, config";
+			status = "disabled";
+		};
+
 		watchdog: non-sec@f410000 {
 			compatible = "qti,wdt";
 			reg =  <0xf410000 0x1000>;

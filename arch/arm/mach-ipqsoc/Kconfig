@@ -471,6 +471,7 @@ config TARGET_IPQ5424
 	select BOOTCONFIG_V3
         imply CRC32_BE
 	imply CB_CALIB
+	imply SDX_ATTACH_SUPPORT
 	help
 	  Support for IPQ5424 SoC.
 

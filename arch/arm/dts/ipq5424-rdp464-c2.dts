@@ -95,6 +95,20 @@
 					bias-pull-up;
 				};
 			};
+
+			sdx_rst_pinmux: sdx_pins{
+				power {
+					pins = "GPIO_32";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+
+				reset {
+					pins = "GPIO_30";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+			};
 		};
 
 		qupv3: geniqup@1ac0000 {
@@ -268,6 +282,15 @@
 			phy-handle1 = <&phy1>;
 			phy-handle2 = <&phy2>;
 			status = "okay";
+		};
+
+		sdx_rst: gpio{
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdx_rst_pinmux>;
+			status = "okay";
+			power_gpio = <&tlmm 32 0>;
+			reset_gpio = <&tlmm 30 0>;
+			e911_gpio = <&tlmm 14 0>;
 		};
 	};
 };
