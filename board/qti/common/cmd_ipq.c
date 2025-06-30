@@ -883,7 +883,7 @@ static int fuse_qcn9224(const struct pci_device_id *ids, int device_id)
 
 fail:
 	/* Target SoC global reset */
-	qcn92xx_global_soc_reset(bar0_base);
+	qcn92xx_global_soc_reset(bar0_base, false);
 
 	mdelay(1000);
 
