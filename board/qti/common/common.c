@@ -1598,15 +1598,20 @@ void print_error_code(pci_addr_t addr, bool pbl_log)
 	}
 }
 
-void qcn92xx_global_soc_reset(uintptr_t bar0_base)
+void qcn92xx_global_soc_reset(uintptr_t bar0_base, bool force_reset)
 {
 	u32 val, ret, count = 0;
 	uintptr_t reg;
 
 	do {
+		watchdog_reset();
 		reg = bar0_base + PCIE_SOC_GLOBAL_RESET_ADDRESS;
-		writel(PCIE_SOC_GLOBAL_RESET_VALUE, reg);
-
+		if (force_reset) {
+			writel(PCIE_SOC_GLOBAL_RESET_FORCE_RESET_VALUE, reg);
+			mdelay(1000);
+		} else {
+			writel(PCIE_SOC_GLOBAL_RESET_VALUE, reg);
+		}
 		reg = bar0_base + BHI_EXECENV;
 		ret = readl_poll_sleep_timeout(reg, val, val == 0, 1 * 1000,
 					       20 * 1000);
@@ -1812,6 +1817,13 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 	 */
 	flush_dcache_all();
 
+	/* Check if the target is in PBL, else do a force reset */
+	ret = readl(bar0_base + BHI_EXECENV);
+	if (ret) {
+		printf("Resetting target to start calibration\n");
+		qcn92xx_global_soc_reset(bar0_base, true);
+	}
+
 	writel(lower_32_bits((uintptr_t)tlv), bar0_base + PCIE_LOCAL_RSV0);
 	writel(0xFF, (uintptr_t)dev_cfg->host_ddr_status);
 	writel(0, bar0_base + BHI_STATUS);
@@ -1849,7 +1861,7 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 
 fail:
 	/* Target SoC global reset */
-	qcn92xx_global_soc_reset(bar0_base);
+	qcn92xx_global_soc_reset(bar0_base, false);
 
 	mdelay(1000);
 

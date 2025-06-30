@@ -1247,6 +1247,7 @@ typedef struct {
 #define QCN9224_TCSR_SOC_HW_VERSION_MASK		GENMASK(11,8)
 #define QCN9224_TCSR_SOC_HW_VERSION_SHIFT		8
 #define PCIE_SOC_GLOBAL_RESET_VALUE			0x5
+#define PCIE_SOC_GLOBAL_RESET_FORCE_RESET_VALUE		0x1
 #define MAX_SOC_GLOBAL_RESET_WAIT_CNT			50 /* x 20msec */
 
 #define QCN9224_TCSR_PBL_LOGGING_REG			0x01B00094
@@ -1464,5 +1465,5 @@ int cal_qcn9224(int debug);
 #ifdef CONFIG_IPQ_PCIE
 void pci_select_window(uintptr_t base, uint32_t offset);
 void print_error_code(pci_addr_t addr, bool pbl_log);
-void qcn92xx_global_soc_reset(uintptr_t bar0_base);
+void qcn92xx_global_soc_reset(uintptr_t bar0_base, bool force_reset);
 #endif
