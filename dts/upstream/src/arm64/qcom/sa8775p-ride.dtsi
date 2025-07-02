@@ -958,7 +958,7 @@
 };
 
 &usb_1_dwc3 {
-	dr_mode = "host";
+	dr_mode = "peripheral";
 };
 
 &usb_1_hsphy {
@@ -984,7 +984,7 @@
 };
 
 &usb_2_dwc3 {
-	dr_mode = "host";
+	dr_mode = "peripheral";
 };
 
 &usb_2_hsphy {

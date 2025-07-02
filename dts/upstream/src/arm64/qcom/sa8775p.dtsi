@@ -3619,7 +3619,7 @@
 			reg = <0 0x088e4000 0 0x120>;
 			clocks = <&rpmhcc RPMH_CXO_CLK>;
 			clock-names = "ref";
-			resets = <&gcc GCC_USB2_PHY_PRIM_BCR>;
+			resets = <&gcc GCC_USB3_PHY_PRIM_BCR>;
 
 			#phy-cells = <0>;
 
@@ -3683,6 +3683,7 @@
 			required-opps = <&rpmhpd_opp_nom>;
 
 			resets = <&gcc GCC_USB30_PRIM_BCR>;
+			qcom,select-utmi-as-pipe-clk;
 
 			interconnects = <&aggre1_noc MASTER_USB3_0 0 &mc_virt SLAVE_EBI1 0>,
 					<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_USB3_0 0>;
@@ -3697,8 +3698,9 @@
 				reg = <0 0x0a600000 0 0xe000>;
 				interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH>;
 				iommus = <&apps_smmu 0x080 0x0>;
-				phys = <&usb_0_hsphy>, <&usb_0_qmpphy>;
-				phy-names = "usb2-phy", "usb3-phy";
+				phys = <&usb_0_hsphy>;
+				phy-names = "usb2-phy";
+				maximum-speed = "high-speed";
 				snps,dis-u1-entry-quirk;
 				snps,dis-u2-entry-quirk;
 			};
@@ -3788,8 +3790,8 @@
 				reg = <0 0x0a800000 0 0xe000>;
 				interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
 				iommus = <&apps_smmu 0x0a0 0x0>;
-				phys = <&usb_1_hsphy>, <&usb_1_qmpphy>;
-				phy-names = "usb2-phy", "usb3-phy";
+				phys = <&usb_1_hsphy>;
+				phy-names = "usb2-phy";
 				snps,dis-u1-entry-quirk;
 				snps,dis-u2-entry-quirk;
 			};
