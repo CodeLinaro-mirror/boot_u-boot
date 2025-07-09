@@ -264,7 +264,7 @@ void set_crashdump_bootargs(char *bootargs, uint8_t pri_ftype,
 		if (ret)
 			return;
 
-		buf = malloc(disk_info.blksz);
+		buf = malloc_cache_aligned(disk_info.blksz);
 		if (!buf) {
 			debug("failed to allocate memory at %s\n", __func__);
 			return;
