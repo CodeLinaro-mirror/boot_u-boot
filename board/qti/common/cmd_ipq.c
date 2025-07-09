@@ -2087,7 +2087,7 @@ static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
 	struct mtd_info *mtd = get_nand_dev_by_index(0);
 	char *env_layout = NULL;
 #ifdef CONFIG_CMD_UBI
-	struct ubi_device *ubi = NULL;
+	struct ubi_device *ubi = ubi_get_device(0);
 #endif
 	if(!mtd) {
 		printf("%s: mtd device not available\n", __func__);
@@ -2114,7 +2114,8 @@ static int do_qpic_switch_layout(struct cmd_tbl *cmdtp, int flag,
 
 #ifdef CONFIG_CMD_UBI
 	if (ubi) {
-		ubi_put_device(ubi);
+		if (ubi->ref_count)
+			ubi_put_device(ubi);
 		ret = run_command("ubi detach", 0);
 		if(ret)
 			printf("Failed to detach ubi!!!\n");
