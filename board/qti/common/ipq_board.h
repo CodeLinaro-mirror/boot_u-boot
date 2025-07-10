@@ -1456,6 +1456,7 @@ struct cal_dt_config {
 	u32 board_id;
 	u32 caldata_offset;
 	u32 pci_slot_id;
+	u32 caldb_offset;
 	struct list_head list;
 };
 

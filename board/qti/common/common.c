@@ -1912,37 +1912,40 @@ static int populate_cfg(struct cal_dt_config *dt_cfg, struct cal_config *cfg)
 
 	/* Memory Layout for miniFW for calibration
 	 *
-	 * +==========+==============+=========+
-	 * |  Region  | Start Offset |   Size  |
-	 * +----------+--------------+---------+
-	 * | miniFW   |  0x00000000  |   4MB   |
-	 * +----------+--------------+---------+
-	 * | Hremote  |  0x00400000  |  24MB   |
-	 * +----------+--------------+---------+
-	 * |  Caldb   |  0x01C00000  |   8MB   |
-	 * +----------+--------------+---------+
-	 * | Host DDR |  0x02400000  |   1MB   |
-	 * | Status   |              |         |
-	 * |   +      |              |         |
-	 * | Per Dev  |              |         |
-	 * | CalData  |              |         |
-	 * +----------+--------------+---------+
-	 * | Cal Data |  0x02500000  |   1MB   |
-	 * | ART Part |              |         |
-	 * +----------+--------------+---------+
-	 * | cal_fw   |  0x02600000  |  12MB   |
-	 * |from flash|              |         |
-	 * +----------+--------------+---------+
-	 * |  RDDM    |  0x02C00000  |Last 6MB |
-	 * +===================================+
+	 * +==========+===============+=========+
+	 * |  Region  | Start Offset  |   Size  |
+	 * +----------+---------------+---------+
+	 * | miniFW   |  0x00000000   |   4MB   |
+	 * +----------+---------------+---------+
+	 * | Hremote  |  0x00400000   |   4MB   |
+	 * +----------+---------------+---------+
+	 * | Host DDR |  0x00800000   |   1MB   |
+	 * | Status   |               |         |
+	 * |   +      |               |         |
+	 * | Per Dev  |               |         |
+	 * | CalData  |               |         |
+	 * +----------+---------------+---------+
+	 * | Cal Data |  0x00900000   |   1MB   |
+	 * | ART Part |               |         |
+	 * +----------+---------------+---------+
+	 * | cal_fw   |  0x00A00000   |  10MB   |
+	 * |from flash|               |         |
+	 * +----------+---------------+---------+
+	 * |  Caldb   |  0x01400000   |   8MB   |
+	 * |          |(LM512 profile)|         |
+	 * |          |  0x01C00000   |   8MB   |
+	 * |          | (1GB profile) |         |
+	 * +----------+---------------+---------+
+	 * |  RDDM    |               |Last 6MB |
+	 * +====================================+
 	 *
 	 */
 	if (!global_cfg_filled) {
 		cfg->ddr_base_addr = dt_cfg->rmem_base_addr;
 		cfg->ddr_rmem_size = dt_cfg->rmem_size;
-		cfg->caldata_addr = cfg->ddr_base_addr + (37 * SZ_1M);
+		cfg->caldata_addr = cfg->ddr_base_addr + (9 * SZ_1M);
 		cfg->cal_fw_header =
-			(struct cal_fw_header *)(uintptr_t)(cfg->ddr_base_addr + (38 * SZ_1M));
+			(struct cal_fw_header *)(uintptr_t)(cfg->ddr_base_addr + (10 * SZ_1M));
 		global_cfg_filled = true;
 	}
 
@@ -1953,12 +1956,16 @@ static int populate_cfg(struct cal_dt_config *dt_cfg, struct cal_config *cfg)
 	dev_cfg->board_id = dt_cfg->board_id;
 	dev_cfg->caldata_offset = dt_cfg->caldata_offset;
 	dev_cfg->caldata_size = MAX_CALDATA_SIZE;
+
 	dev_cfg->cal_fw_image_addr = dt_cfg->rmem_base_addr;
 	dev_cfg->hremote_addr = dt_cfg->rmem_base_addr + SZ_4M;
-	dev_cfg->hremote_size = (24 * SZ_1M);
-	dev_cfg->caldb_addr = dev_cfg->hremote_addr + dev_cfg->hremote_size;
+	dev_cfg->hremote_size = (4 * SZ_1M);
+
+	dev_cfg->host_ddr_status = dt_cfg->rmem_base_addr + SZ_8M;
+
+	dev_cfg->caldb_addr = dt_cfg->rmem_base_addr + dt_cfg->caldb_offset;
 	dev_cfg->caldb_size = SZ_8M;
-	dev_cfg->host_ddr_status = dev_cfg->caldb_addr + dev_cfg->caldb_size;
+
 	dev_cfg->rddm_addr = dt_cfg->rmem_base_addr + dt_cfg->rmem_size - (6 * SZ_1M);
 	dev_cfg->rddm_size = (6 * SZ_1M);
 
@@ -2052,7 +2059,7 @@ int cal_qcn9224(int debug)
 		goto out;
 	}
 
-	ret = gunzip((void *)cfg->cal_fw_header, (SZ_8M + SZ_4M),
+	ret = gunzip((void *)cfg->cal_fw_header, (SZ_8M + SZ_2M),
 		     (uint8_t *)(uintptr_t)cfg->ddr_base_addr, &len);
 	if (ret < 0) {
 		printf("Failed to uncompress CAL FW %d\n", ret);
