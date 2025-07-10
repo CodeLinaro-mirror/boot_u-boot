@@ -72,6 +72,7 @@
 #include <asm/io.h>
 
 #include "ipq_board.h"
+#include <version.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -223,6 +224,18 @@ int get_current_board_flash_config(int flash_type)
 	return board_type;
 }
 
+void update_uboot_image_version(struct image_version_entry *img_version)
+{
+	/*
+	 * APPSBL version details have to be stored at the 10th index
+	 * of the array of struct image_version_entry
+	 */
+	memcpy(img_version->image_index, "09", 2);
+	memcpy(img_version->image_colon_sep1, ":", 1);
+	memcpy(img_version->image_qc_version_string, U_BOOT_VERSION,
+		IMAGE_QC_VERSION_STRING_LENGTH);
+}
+
 #if CONFIG_IS_ENABLED(NAND_QTI)
 void board_nand_init(void)
 {
@@ -251,7 +264,7 @@ void board_nand_init(void)
 
 __weak uint32_t get_soc_hw_version(void)
 {
-        return readl(CONFIG_SOC_HW_VERSION_REG);
+	return readl(CONFIG_SOC_HW_VERSION_REG);
 }
 
 void update_board_type(void)
@@ -364,6 +377,7 @@ int board_init(void)
 	uint32_t *flash_index;
 	uint32_t *flash_block_size;
 	uint32_t *flash_density;
+	struct image_version_entry *img_version;
 #ifdef CONFIG_BOOTCONFIG_V3
 	uint32_t *try_mode_inprogress;
 	uint32_t *edl_mode;
@@ -413,6 +427,12 @@ int board_init(void)
 		ipq_smem_bootconfig_info = NULL;
 	}
 
+	img_version = smem_get_item(SMEM_IMAGE_VERSION_TABLE);
+	if(!img_version) {
+		debug("Failed to get SMEM item: SMEM_IMAGE_VERSION_TABLE\n");
+		img_version = NULL;
+	}
+
 #ifdef CONFIG_BOOTCONFIG_V3
 	try_mode_inprogress = smem_get_item(SMEM_TRY_MODE_INPROGRESS);
 	if (IS_ERR_OR_NULL(try_mode_inprogress)) {
@@ -426,6 +446,7 @@ int board_init(void)
 		edl_mode = NULL;
 	}
 #endif
+	sfi->image_version = img_version;
 	sfi->flash_type = (!flash_type ? SMEM_BOOT_NO_FLASH : *flash_type);
 	sfi->flash_index = (!flash_index ? 0 : *flash_index);
 	sfi->flash_chip_select = (!flash_chip_select ? 0 : *flash_chip_select);
@@ -850,6 +871,8 @@ int board_late_init(void)
 #ifdef CONFIG_MMC_FLASH_PARTITION_WRITE_PROTECT
 	board_flash_protect();
 #endif
+	if(sfi->image_version != NULL)
+		update_uboot_image_version(sfi->image_version + 9);
 	return 0;
 }
 
@@ -880,7 +903,7 @@ int dram_init(void)
 					count, p->start_address, p->length);
 			count++;
 		}
-        }
+	}
 
 	if (!count) {
 		printf("Failed to detect any memory bank\n");
@@ -928,14 +951,14 @@ int dram_init_banksize(void)
 					bidx, p->start_address, p->length);
 			bidx++;
 		}
-        }
+	}
 
 	return 0;
 }
 
 void *env_sf_get_env_addr(void)
 {
-        return NULL;
+	return NULL;
 }
 
 enum env_location env_get_location(enum env_operation op, int prio)
@@ -1090,11 +1113,11 @@ static int ipq_aquantia_upload_firmware(struct phy_device *phydev,
 		phy_img_hdr_off + 0x7 + 2] << 16) |
 		(buf[primary_header_ptr + phy_img_hdr_off + 0x7 + 1] << 8) |
 		buf[primary_header_ptr + phy_img_hdr_off + 0x7];
-        primary_dram_ptr = (buf[primary_header_ptr +
+	primary_dram_ptr = (buf[primary_header_ptr +
 		phy_img_hdr_off + 0xA + 2] << 16) |
 		(buf[primary_header_ptr + phy_img_hdr_off + 0xA + 1] << 8) |
 		buf[primary_header_ptr + phy_img_hdr_off + 0xA];
-        primary_dram_sz = (buf[primary_header_ptr +
+	primary_dram_sz = (buf[primary_header_ptr +
 		phy_img_hdr_off + 0xD + 2] << 16) |
 		(buf[primary_header_ptr + phy_img_hdr_off + 0xD + 1] << 8) |
 		buf[primary_header_ptr + phy_img_hdr_off + 0xD];
