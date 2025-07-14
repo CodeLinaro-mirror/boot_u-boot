@@ -373,6 +373,7 @@ static int ipq_fdt_create_cal_config(void *blob, int node)
 	unsigned int num_compatibles;
 	unsigned long flags;
 	char path[200];
+	u32 cal_status_offset = cpu_to_fdt32(SZ_8M);
 
 	config = malloc(sizeof(*config));
 	if (!config) {
@@ -397,6 +398,11 @@ static int ipq_fdt_create_cal_config(void *blob, int node)
 	config->rmem_base_addr = (uint32_t)carveout.start;
 	config->rmem_size = (uint32_t)(carveout.end - carveout.start + 1);
 
+	if (gd->ram_size == SZ_512M)
+		config->caldb_offset = (20 * SZ_1M);
+	else
+		config->caldb_offset = (28 * SZ_1M);
+
 	pval = fdt_getprop(blob, node, "qcom,board_id", &len);
 	if (pval)
 		config->board_id = fdt32_to_cpu(*pval);
@@ -420,6 +426,13 @@ static int ipq_fdt_create_cal_config(void *blob, int node)
 	pval = fdt_getprop(blob, rc_node, "linux,pci-domain", &len);
 	if (pval)
 		config->pci_slot_id = fdt32_to_cpu(*pval);
+
+	ret = fdt_setprop(blob, rc_node, "cal-status-offset",
+			  (void *)&cal_status_offset, sizeof(cal_status_offset));
+	if (ret) {
+		printf("Failed to update cal-status-offset %d\n", ret);
+		return ret;
+	}
 
 	list_add_tail(&config->list, lhead);
 
