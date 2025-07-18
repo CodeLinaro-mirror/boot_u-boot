@@ -378,9 +378,13 @@ int set_bootargs(void)
 #endif
 	if (ret)
 		return ret;
+	else
+		printf("Using fsbootargs from env\n");
 
 	if(!strings) {
 		printf("%s: bootargs not available\n", __func__);
+		printf("Please set bootargs or try env default -fa ");
+		printf("to set default bootargs\n");
 		return -ENXIO;
 	}
 
@@ -421,7 +425,7 @@ static int parse_elf_image_phdr(image_info *img_info, unsigned int addr)
 	phdr = (Elf32_Phdr *)(uintptr_t)(addr + ehdr->e_phoff);
 
 	if (!IS_ELF(*ehdr)) {
-		printf("It is not a elf image \n");
+		printf("It is not an elf image, supports only 32-bit ELF\n");
 		return -EINVAL;
 	}
 
@@ -715,12 +719,12 @@ get_img_config:
 
 		}
 	} else {
-		printf("Unknown Image format\n");
+		printf("Unknown Image format - support only FIT & Legacy fmt\n");
 		return CMD_RET_FAILURE;
 	}
 
 	if (config) {
-		printf("Manual device tree config selected!\n");
+		printf("Manual device tree config %s selected!\n", config);
 		if (fit_conf_get_node((void *)request, config) >= 0) {
 
 			goto exit;
@@ -739,8 +743,10 @@ get_img_config:
 		}
 	}
 
-	printf("Config not available\n");
+	printf("%s Configuration not available in image\n", config);
+	printf("Please upgrade the image with %s supported device tree\n", config);
 	return -1;
+
 exit:
 	boot_info.config = config;
 	return 0;
@@ -1167,6 +1173,7 @@ int read_kernel(void)
 #endif
 	default:
 		printf("Unsupported BOOT flash type\n");
+		printf("Booting not support in recovery mode\n");
 		return -1;
 	}
 
@@ -1218,7 +1225,8 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 	int active_part = GET_ACTIVE_PORT;
 
 	if (active_part < 0) {
-		printf("INVALID BOOTCONFIG DATA\n");
+		printf("INVALID BOOTCONFIG DATA %d!!!\n", -EINVAL);
+		printf("Bootconfig will be restored on the next boot\n");
 		ret = CMD_RET_FAILURE;
 		goto exit;
 	}
@@ -1228,6 +1236,7 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 	if((binfo != NULL) &&
 		(binfo->image_set_status == DONT_USE_SET_AB)) {
 		printf("Invalid Kernel image on SET A & B\n");
+		printf("Please Recover the setup or flash valid kernel\n");
 		ret = CMD_RET_FAILURE;
 		goto exit;
 	}
@@ -1260,6 +1269,7 @@ static int do_bootipq(struct cmd_tbl *cmdtp, int flag, int argc,
 exit:
 #ifdef CONFIG_WDT
 	if(ret == CMD_RET_FAILURE) {
+		printf("Invoking watchdog!!!\n");
 		if (ipq_wdt_expire())
 			reset();
 	}

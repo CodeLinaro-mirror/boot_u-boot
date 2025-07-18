@@ -1051,6 +1051,34 @@ typedef struct {
 } gpt_pte_info_t;
 #endif
 
+#define IMAGE_INDEX_LENGTH			2
+#define IMAGE_SEP1_LENGTH			1
+#define IMAGE_QC_VERSION_STRING_LENGTH		72
+#define IMAGE_VARIANT_STRING_LENGTH		20
+#define IMAGE_SEP2_LENGTH			1
+#define IMAGE_OEM_VERSION_STRING_LENGTH		32
+
+/**
+ * Structure to store version information for various images
+ * Used to populate version information in SMEM
+ *
+ * @image_index: Index of the image (2 characters)
+ * @image_colon_sep1: First colon separator (1 character)
+ * @image_qc_version_string: QC version string (72 characters)
+ * @image_variant_string: Variant string (20 characters)
+ * @image_colon_sep2: Second colon separator (1 character)
+ * @image_oem_version_string: OEM version string (32 characters)
+ */
+struct image_version_entry
+{
+	char image_index[IMAGE_INDEX_LENGTH];
+	char image_colon_sep1[IMAGE_SEP1_LENGTH];
+	char image_qc_version_string[IMAGE_QC_VERSION_STRING_LENGTH];
+	char image_variant_string[IMAGE_VARIANT_STRING_LENGTH];
+	char image_colon_sep2[IMAGE_SEP2_LENGTH];
+	char image_oem_version_string[IMAGE_OEM_VERSION_STRING_LENGTH];
+};
+
 typedef struct {
 	uint32_t		flash_type;
 	uint32_t		flash_index;
@@ -1067,6 +1095,7 @@ typedef struct {
 	ipq_part_entry_t	rootfs;
 	ipq_part_entry_t	dtb;
 	ipq_part_entry_t	training;
+	struct image_version_entry *image_version;
 	ipq_smem_bootconfig_info_t *ipq_smem_bootconfig_info;
 #if defined(CONFIG_MMC) || defined(CONFIG_NOR_BLK)
 	gpt_pte_info_t mmc_gpt_pte;
