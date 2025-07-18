@@ -1636,7 +1636,8 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 	ulong vendor, device;
 	struct uboot_cal_tlv *tlv = NULL;
 	void *cal_fw, *bdf_addr, *regdb_addr, *rxgain_addr = NULL;
-	u32 cal_fw_size, bdf_size, rxgain_size = 0, regdb_size;
+	void *fw_ini_addr = NULL;
+	u32 cal_fw_size, bdf_size, rxgain_size = 0, regdb_size, fw_ini_size = 0;
 	struct cal_fw_header *cal_fw_header;
 	void *cal_fw_image;
 	struct cal_per_dev_config *dev_cfg;
@@ -1727,6 +1728,10 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 			regdb_addr = cal_fw_image + file->offset;
 			regdb_size = file->size;
 			break;
+		case FW_INI_CFG:
+			fw_ini_addr = cal_fw_image + file->offset;
+			fw_ini_size = file->size;
+			break;
 		default:
 			printf("Unsupported image type: %d\n", file->type);
 			break;
@@ -1782,6 +1787,12 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 			tlv->img[i].img_sram_addr = 0;
 			tlv->img[i].img_host_addr = (u32)(uintptr_t)regdb_addr;
 			tlv->img[i].img_size = regdb_size;
+			break;
+		case FW_INI_CFG:
+			tlv->img[i].img_type = i;
+			tlv->img[i].img_sram_addr = 0;
+			tlv->img[i].img_host_addr = (u32)(uintptr_t)fw_ini_addr;
+			tlv->img[i].img_size = fw_ini_size;
 			break;
 		default:
 			break;
