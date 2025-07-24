@@ -136,7 +136,7 @@ static int find_target_partition(int *devnum, enum uclass_id *uclass,
 			 * flags might not be set so we assume the A partition unless the B
 			 * partition is active.
 			 */
-			if (!strncmp(info.name, "uefi", strlen("uefi"))) {
+			if (!strncmp(info.name, "uefi_", strlen("uefi_"))) {
 				/*
 				 * If U-Boot was chainloaded somehow we can't be flashed to
 				 * the uefi partition
