@@ -339,7 +339,7 @@ efi_fs_from_path(struct efi_device_path *full_path)
 	efi_free_pool(file_path);
 
 	/* Get the EFI object for the partition */
-	efiobj = efi_dp_find_obj(device_path, NULL, NULL);
+	efiobj = efi_dp_find_obj(device_path, &efi_system_partition_guid, NULL);
 	efi_free_pool(device_path);
 	if (!efiobj)
 		return NULL;

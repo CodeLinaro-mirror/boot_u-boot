@@ -107,54 +107,80 @@ struct efi_device_path *efi_dp_shorten(struct efi_device_path *dp)
  * @rem:	pointer to receive remaining device path
  * Return:	matching handle
  */
+
 static efi_handle_t find_handle(struct efi_device_path *dp,
 				const efi_guid_t *guid, bool short_path,
 				struct efi_device_path **rem)
 {
 	efi_handle_t handle, best_handle = NULL;
-	efi_uintn_t len, best_len = 0;
+	efi_uintn_t len, len_current, best_len = 0;
+	efi_status_t ret;
+	struct efi_device_path *dp_current;
+	struct efi_handler *handler;
 
 	len = efi_dp_instance_size(dp);
 
 	list_for_each_entry(handle, &efi_obj_list, link) {
-		struct efi_handler *handler;
-		struct efi_device_path *dp_current;
-		efi_uintn_t len_current;
-		efi_status_t ret;
-
 		if (guid) {
 			ret = efi_search_protocol(handle, guid, &handler);
 			if (ret != EFI_SUCCESS)
 				continue;
 		}
-		ret = efi_search_protocol(handle, &efi_guid_device_path,
-					  &handler);
+
+		ret = efi_search_protocol(handle, &efi_guid_device_path, &handler);
 		if (ret != EFI_SUCCESS)
 			continue;
+
 		dp_current = handler->protocol_interface;
 		if (short_path) {
 			dp_current = efi_dp_shorten(dp_current);
 			if (!dp_current)
 				continue;
 		}
+
 		len_current = efi_dp_instance_size(dp_current);
+
 		if (rem) {
-			if (len_current > len)
+			/* If current path is shorter than or equal to input path */
+			if (len_current <= len) {
+				if (memcmp(dp_current, dp, len_current))
+					continue;
+				if (!rem)
+					return handle;
+				if (len_current > best_len) {
+					best_len = len_current;
+					best_handle = handle;
+					*rem = (void *)((u8 *)dp + len_current);
+				}
+			}
+			/* If current path is greater than input path */
+			else if (len_current > len) {
+				if (memcmp(dp, dp_current, len))
+					continue;
+				if (len > best_len) {
+					best_len = len;
+					best_handle = handle;
+					*rem = (struct efi_device_path *)((u8 *)dp_current + len);
+				}
+			} else {
 				continue;
+			}
 		} else {
-			if (len_current != len)
+			if (len_current == len) {
+				if (memcmp(dp_current, dp, len_current))
+					continue;
+			}
+			/* If current path is greater than input path */
+			else if (len_current > len) {
+				if (memcmp(dp, dp_current, len))
+					continue;
+			} else {
 				continue;
-		}
-		if (memcmp(dp_current, dp, len_current))
-			continue;
-		if (!rem)
+			}
 			return handle;
-		if (len_current > best_len) {
-			best_len = len_current;
-			best_handle = handle;
-			*rem = (void*)((u8 *)dp + len_current);
 		}
 	}
+
 	return best_handle;
 }
 
