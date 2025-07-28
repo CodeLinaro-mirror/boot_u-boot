@@ -354,7 +354,6 @@ config SDX_ATTACH_SUPPORT
 config CB_CALIB
 	bool "Enable cold boot calibration"
 	depends on IPQ_PCIE
-	imply PCI_INIT_R if TARGET_IPQ9574 || TARGET_IPQ5332
 	default n
 
 choice

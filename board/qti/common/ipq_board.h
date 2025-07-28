@@ -1418,6 +1418,7 @@ enum image_type {
 	CALDATA,
 	RXGAIN,
 	REGDB,
+	FW_INI_CFG,
 	MAX_IMG_TYPE,
 };
 
