@@ -400,3 +400,9 @@ config PHY_QTI_8033
 	bool "QTI Ethernet QCA8033 support"
 	---help---
 	  Adds support for the QTI Ethernet QCA8033.
+
+config PHY_QCA_8337
+	select PHY_QTI
+	bool "QTI Ethernet QCA8337 switch support"
+	---help---
+	  Adds support for the QTI Ethernet QCA8337 switch.

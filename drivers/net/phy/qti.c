@@ -26,6 +26,8 @@ int phy_qti_init(void)
 #ifdef CONFIG_PHY_QTI_8033
 	phy_8033_init();
 #endif
-
+#ifdef CONFIG_PHY_QCA_8337
+	phy_8337_init();
+#endif
 	return 0;
 }
