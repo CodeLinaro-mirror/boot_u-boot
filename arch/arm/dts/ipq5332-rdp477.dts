@@ -32,6 +32,13 @@
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
 				};
+
+				qti_sfp_tx_los {
+					pins = "GPIO_24";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-up;
+					output-enable;
+				};
 			};
 
 			blsp1_i2c_pinmux: blsp1_i2c_pins {
