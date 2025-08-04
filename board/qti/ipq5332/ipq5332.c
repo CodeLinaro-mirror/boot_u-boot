@@ -28,6 +28,13 @@
 #define INTERNAL_48MHZ_CLOCK			0x7
 #define CONFIG_NAME_MAX_LEN			128
 
+#define TIMEOUT_MS				30000
+#define CLK_SRC					32000
+#define WDT_ENABLE_REG				0xb017008
+#define WDT_RST_REG				0xb017004
+#define WDT_BARK_TIME_REG			0xb017010
+#define WDT_BITE_TIME_REG			0xb017014
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #if CONFIG_FDT_FIXUP_PARTITIONS
@@ -193,8 +200,30 @@ void board_cache_init(void)
 #endif
 }
 
+#ifdef CONFIG_IPQ_EARLY_WDT
+void ipq_enable_non_sec_watchdog(void)
+{
+	/*
+	 * Enabling non-secure WDT for early failure recovery support
+	 */
+	ulong bark_timeout_s = ((TIMEOUT_MS - 1)  * CLK_SRC) / 1000;
+	ulong bite_timeout_s = (TIMEOUT_MS * CLK_SRC) / 1000;
+
+	writel(0, WDT_ENABLE_REG);
+	writel(BIT(0), WDT_RST_REG);
+	writel(bark_timeout_s, WDT_BARK_TIME_REG);
+	writel(bite_timeout_s, WDT_BITE_TIME_REG);
+	writel(BIT(0), WDT_ENABLE_REG);
+
+	return;
+}
+#endif
+
 void lowlevel_init(void)
 {
+#ifdef CONFIG_IPQ_EARLY_WDT
+	ipq_enable_non_sec_watchdog();
+#endif
 	return;
 }
 

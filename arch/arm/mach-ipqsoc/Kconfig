@@ -171,6 +171,11 @@ config CRC32_BE
 	bool "crc32 big endian support"
 	default n
 
+config IPQ_EARLY_WDT
+	bool "Enable non-secure watchdog during low level init"
+	depends on WDT_QTI
+	default y
+
 config IPQ_DEFAULTS
 	bool "Enable default configs & tool support for IPQ SOC"
 	select OF_BOARD_SETUP
