@@ -233,7 +233,15 @@ int board_get_smem_target_info(ipq_smem_target_info_t *smem_tinfo_ptr)
 	scm_param param;
 	int ret;
 
-	if (!g_recovery_path)
+	if (g_recovery_path == 1) {
+		gd->board_type |= RECOVERY_MODE;
+	} else {
+		g_recovery_path = readl(CRASH_DUMP_ADDR_IMEM) & 0xFFFFFFFF;
+		gd->board_type |= (g_recovery_path == MAGIC_RECOVERY_PATH) ?
+				   RECOVERY_MODE : 0;
+	}
+
+	if (!(gd->board_type & RECOVERY_MODE))
 	{
 		/* The TCSR WONCE register is protected in latest TZ.
 		 * Old TZ will allow direct read.
@@ -333,7 +341,7 @@ int ipq_read_tcsr_boot_misc(void)
 	int feat_avail = 0;
 	int ret;
 
-	if (!g_recovery_path)
+	if (!(gd->board_type & RECOVERY_MODE))
 	{
 		/* The TCSR DLOAD register is protected in latest TZ
 		 * for the IPQ5332 target.

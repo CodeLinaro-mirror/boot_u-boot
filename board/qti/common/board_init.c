@@ -87,7 +87,7 @@ uint32_t g_load_addr;
 uint32_t g_env_offset __attribute__((section(".data"))) = 0;
 #endif
 char g_board_dts[BOARD_DTS_MAX_NAMELEN] = { 0 };
-uint8_t g_recovery_path __attribute__((section(".data"))) = 0;
+uint32_t g_recovery_path __attribute__((section(".data"))) = 0;
 
 ipq_smem_flash_info_t ipq_smem_flash_info;
 struct smem_ptable *ptable;
@@ -271,9 +271,17 @@ void update_board_type(void)
 {
 	uint32_t board_type;
 
+	if(g_recovery_path == 1) {
+		gd->board_type |= RECOVERY_MODE;
+	} else {
+		g_recovery_path = readl(CRASH_DUMP_ADDR_IMEM) & 0xFFFFFFFF;
+		gd->board_type |= (g_recovery_path == MAGIC_RECOVERY_PATH) ?
+				   RECOVERY_MODE : 0;
+	}
+
 	board_type = gd->board_type;
 
-	if(SMEM_BOOT_NO_FLASH == board_type)
+	if(SMEM_BOOT_NO_FLASH == (board_type & FLASH_TYPE_MASK))
 		return;
 
 	if(is_secure_boot())
