@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-* Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 */
 
 #include "ipq5424-default.dts"
 
 / {
-	config_name = "config-rdp464-c2";
+	config_name = "config-rdp508";
 
 	soc: soc@0 {
 		tlmm: pinctrl@1000000 {
@@ -27,18 +27,16 @@
 			};
 
 			phy_rst_pinmux: phy_rst {
-				qti_i2c_phy0_rst {
+				qti_laguna0_rst {
 					pins = "GPIO_36";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
-					output-enable;
 				};
 
-				qti_i2c_phy1_rst {
+				qti_laguna1_rst {
 					pins = "GPIO_37";
 					drive-strength = <DRIVE_STRENGTH_8MA>;
 					bias-pull-up;
-					output-enable;
 				};
 
 				qti_8x8x_rst {
@@ -95,6 +93,20 @@
 					bias-pull-up;
 				};
 			};
+
+			sdx_rst_pinmux: sdx_pins{
+				power {
+					pins = "GPIO_32";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+
+				reset {
+					pins = "GPIO_30";
+					drive-strength = <DRIVE_STRENGTH_8MA>;
+					bias-pull-down;
+				};
+			};
 		};
 
 		qupv3: geniqup@1ac0000 {
@@ -105,7 +117,6 @@
 			};
 
 			se3_i2c1: i2c@1a8c000 {
-				clock-frequency = <400000>;
 				pinctrl-0 = <&i2c1_pinmux>;
 				pinctrl-names = "default";
 				status = "okay";
@@ -113,7 +124,6 @@
 
 			se5: se5@1a94000 {
 				compatible = "qcom,msm-geni-i2c";
-				clock-frequency = <400000>;
 				pinctrl-0 = <&i2c2_pinmux>;
 				pinctrl-names = "default";
 				status = "okay";
@@ -189,28 +199,24 @@
 			pinctrl-0 = <&mdio_pinmux>;
 			status = "okay";
 
-			phy0: i2c_phy0@1d {
+			phy0: phy@8 {
 				phy-reset-gpio = <&tlmm 36 0>;
-				reg = <0x1d>;
+				reg = <8>;
 				phy_id = <QCA81xx_PHY_TYPE>;
 				id = <1>;
 				uniphy_id = <0>;
 				uniphy_type = <0>;
-				max_speed = <10000>;
 				xgmac;
-				i2c-bus = <&se5>;
 			};
 
-			phy1: i2c_phy1@1d {
+			phy1: phy@12 {
 				phy-reset-gpio = <&tlmm 37 0>;
-				reg = <0x1d>;
+				reg = <12>;
 				phy_id = <QCA81xx_PHY_TYPE>;
 				id = <2>;
 				uniphy_id = <1>;
 				uniphy_type = <0>;
-				max_speed = <10000>;
 				xgmac;
-				i2c-bus = <&se3_i2c1>;
 			};
 
 			phy2: ethernet-switch@1 {
@@ -268,6 +274,15 @@
 			phy-handle1 = <&phy1>;
 			phy-handle2 = <&phy2>;
 			status = "okay";
+		};
+
+		sdx_rst: gpio{
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdx_rst_pinmux>;
+			status = "okay";
+			power_gpio = <&tlmm 32 0>;
+			reset_gpio = <&tlmm 30 0>;
+			e911_gpio = <&tlmm 14 0>;
 		};
 	};
 };
