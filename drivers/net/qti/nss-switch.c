@@ -2898,6 +2898,25 @@ static int ipq_eth_sfp_detect(struct udevice *i2c_bus, struct port_info *port)
 }
 #endif
 
+static void ipq_eth_configure_uniphy_50m(int count, phys_addr_t uniphy_base,
+					size_t size)
+{
+/*
+ * support in IPQ5332
+ */
+	int i = 0;
+	phys_addr_t base;
+
+	while (count) {
+		base = (uniphy_base + (i * size));
+		base += CLKOUT_50M_CTRL_OPTION;
+		writel(readl(base) |  BIT(0), base);
+
+		count >>= 1;
+		++i;
+	}
+}
+
 static int ipq_eth_probe(struct udevice *dev)
 {
 	struct ipq_eth_dev *priv = dev_get_priv(dev);
@@ -2905,8 +2924,7 @@ static int ipq_eth_probe(struct udevice *dev)
 	struct port_info *port;
 	struct clk_bulk clocks;
 	struct reset_ctl_bulk resets;
-	int ret, i, reg_val, configured = 0;
-	phys_addr_t base;
+	int ret, i, configured = 0;
 #ifdef CONFIG_PHY_QTI_8X8X
 	int phy_no = 0;
 #endif
@@ -2941,16 +2959,10 @@ static int ipq_eth_probe(struct udevice *dev)
 		goto fail;
 	}
 
-	if (priv->uniphy_50mhz) {
-		/*
-		 * support in IPQ5332
-		 */
-		base = priv->uniphy_base + CLKOUT_50M_CTRL_OPTION;
-		writel(readl(base) |  BIT(0), base);
-		reg_val = priv->uniphy_base + priv->uniphy_size +
-				CLKOUT_50M_CTRL_OPTION;
-		writel(readl(base) |  BIT(0), base);
-	}
+	if (priv->uniphy_50mhz)
+		ipq_eth_configure_uniphy_50m(priv->uniphy_50mhz,
+						priv->uniphy_base,
+						priv->uniphy_size);
 
 	ipq_edma_hw_init(dev, priv);
 
@@ -3152,7 +3164,7 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 		return -EINVAL;
 	}
 
-	priv->uniphy_50mhz = dev_read_bool(dev, "50mhz");
+	priv->uniphy_50mhz = dev_read_u32_default(dev, "50mhz", 0);
 
 	ppe->tdm_mode = dev_read_u32_default(dev, "tdm_mode", 0);
 	ppe->no_reg = dev_read_u32_default(dev, "no_tdm_reg", 0);
