@@ -731,11 +731,16 @@ get_img_config:
 		}
 
 	} else {
+		const char* tmp_config = NULL;
+
 		for (i = 0;
-			(config = fdt_stringlist_get(gd->fdt_blob, 0,
+			(tmp_config = fdt_stringlist_get(gd->fdt_blob, 0,
 					"config_name", i,&len)); ++i) {
-			if (config == NULL)
+			if (tmp_config == NULL)
 				break;
+
+			config = tmp_config;
+
 			if (fit_conf_get_node((void *)request, config) >= 0) {
 
 				goto exit;
