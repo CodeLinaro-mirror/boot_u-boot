@@ -476,6 +476,23 @@ void ipq_fdt_fixup_start_cal(void *blob)
 		} while (node > 0);
 	}
 }
+#else
+void ipq_fdt_fixup_start_cal(void *blob)
+{
+	int node = -1;
+
+	/* Disable Early Cal if CONFIG_CB_CALIB is disabled */
+	do {
+		node = fdt_node_offset_by_prop_value(blob, node,
+						     "qcom,early_cal_enabled",
+						     "okay", 5);
+		if (node > 0 && (fdtdec_get_is_enabled(blob, node))) {
+			fdt_setprop_string(blob, node,
+					"qcom,early_cal_enabled",
+					"disabled");
+		}
+	} while (node > 0);
+}
 #endif
 
 __weak void ipq_fdt_fixup_socinfo(void *blob)
@@ -969,9 +986,7 @@ static void ipq_fdt_fixup_dload_disable(void *blob)
 
 static const fdt_fixup_t fixup_functions[] = {
 	ipq_fdt_fixup,
-#ifdef CONFIG_CB_CALIB
 	ipq_fdt_fixup_start_cal,
-#endif
 	ipq_fdt_fixup_socinfo,
 	ipq_fdt_fixup_smem,
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
