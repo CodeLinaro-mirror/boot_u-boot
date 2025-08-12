@@ -102,7 +102,7 @@ typedef struct {
 #if defined(CONFIG_IPQ_MINIDUMP_VERSION_2)
 
 #define MINIDUMP_ALL_SEG_CRASHSIG_COUNT		20
-#define QTI_MINIDUMP_HOST_MOD_COUNT		11
+#define QTI_MINIDUMP_HOST_MOD_COUNT		20
 #define QTI_MINIDUMP_NSS_MOD_COUNT		17
 #define MINIDUMP_CRASHMOD_BASED_SIGCOUNT	4
 #define MINIDUMP_CALLTRACE_SIG_COUNT		5
@@ -185,7 +185,9 @@ char *minidump_dump_crash_sig[MINIDUMP_CRASHMOD_BASED_SIGCOUNT] = {
 
 char *minidump_host_modules[QTI_MINIDUMP_HOST_MOD_COUNT] = {"ath_pktlog",
 	"cfg80211", "ecm", "ipq_cnss2", "monitor", "qca_ol", "qca_spectral",
-	"qdf", "telemetry_agent", "umac", "wifi_3_0"};
+	"qdf", "telemetry_agent", "umac", "wifi_3_0", "compat", "ath", "ath11k",
+	"ath11k_ahb", "ath11k_pci", "ath12k", "ath12k_wifi7", "ath_debug",
+	"mac80211"};
 
 char *minidump_nss_modules[QTI_MINIDUMP_NSS_MOD_COUNT] = {"nf_conntrack",
 	"qca_nss_dp", "qca_nss_ppe_ds", "ecm", "qca_nss_eip", "qca_nss_ppe",
@@ -911,15 +913,15 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 			case QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD_DEBUGFS:
 				snprintf(dump_entry->name,
 					sizeof(dump_entry->name),
-					"DEBUGFS_%X.BIN",
-					(uint32_t)tlv_data->start);
+					"DEBUGFS_%llX.BIN",
+					tlv_data->start);
 				dump_entry->size = tlv_data->size;
 				break;
 			case QTI_WDT_LOG_DUMP_TYPE_TEXT_DATA_TAIL:
 				snprintf(dump_entry->name,
 					 sizeof(dump_entry->name),
-					 "%X.BIN",
-					 (uint32_t)tlv_data->start);
+					 "%llX.BIN",
+					 tlv_data->start);
 				dump_entry->size = tlv_data->size;
 				break;
 			case QTI_WDT_LOG_DUMP_TYPE_WLAN_MOD:
@@ -929,7 +931,7 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 #endif /* CONFIG_IPQ_MINIDUMP_VERSION_2 */
 				snprintf(dump_entry->name,
 					sizeof(dump_entry->name),
-					"%X.BIN", (uint32_t)tlv_data->start);
+					"%llX.BIN", tlv_data->start);
 				dump_entry->size = tlv_data->size;
 				break;
 			}
