@@ -2462,6 +2462,12 @@ static int ipq_eth_start(struct udevice *dev)
 			port->cur_speed = 0;
 			continue;
 		}
+		/*
+		 * set default value before read phy status
+		 */
+		link = 0;
+		speed = 10;
+		duplex = 0;
 
 		if ((port->phy_id == SFP10G_PHY_TYPE) ||
 			(port->phy_id == SFP2_5G_PHY_TYPE) ||
@@ -2469,10 +2475,11 @@ static int ipq_eth_start(struct udevice *dev)
 				ret = phy_status_get_from_ppe(priv->ppe.base,
 								port->id);
 			link = ((ret & LINK_STATUS) != 0) ? 1 : 0;
-			duplex = ((ret & DUPLEX) != 0) ? 1: 0;
-			speed = mac_speed_config[ret & SPEED];
-			if (link)
+			if (link) {
 				++linkup;
+				duplex = ((ret & DUPLEX) != 0) ? 1: 0;
+				speed = mac_speed_config[ret & SPEED];
+			}
 		} else {
 			phydev = port->phydev;
 
@@ -2482,11 +2489,12 @@ static int ipq_eth_start(struct udevice *dev)
 				if (ret < 0) {
 					continue;
 				} else {
-					if (phydev->link)
+					if (phydev->link) {
 						++linkup;
-					link = phydev->link;
-					duplex = phydev->duplex;
-					speed = phydev->speed;
+						link = phydev->link;
+						duplex = phydev->duplex;
+						speed = phydev->speed;
+					}
 				}
 			} else if (priv->emulation) {
 				/*
