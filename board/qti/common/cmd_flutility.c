@@ -261,7 +261,7 @@ static int fl_erase(struct fl_info *fl)
 
 	if(!verbose) {
 		env_set("stdout", "serial");
-		printf("Eraseing %-30s %s\n", fl->ubi_vol_name,
+		printf("Erasing %-30s %s\n", fl->ubi_vol_name,
 				ret ? "[ failed ]" : "[ done ]");
 	}
 
