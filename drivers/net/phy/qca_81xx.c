@@ -407,7 +407,7 @@ static int qca81xx_pcs_clk_en_set(struct phy_device *phydev, bool enable)
 	int ret;
 
 	ret = qca81xx_pcs_txclk_en_set(phydev, enable);
-	if(ret < 0)
+	if (ret < 0)
 		return ret;
 
 	return qca81xx_pcs_rxclk_en_set(phydev, enable);
@@ -777,6 +777,17 @@ static int qca81xx_phy_gcc_pre_init(struct phy_device *phydev)
 	/*enable efuse loading into analog circuit*/
 	ret = qca81xx_soc_modify(phydev, EPHY_CFG, EPHY_LDO_CTRL, 0);
 	mdelay(1);
+
+	/* Set AHB clk to 50MHz */
+	ret = qca81xx_soc_modify(phydev, GCC_AHB_CFG_RCGR,
+			0xFFFFFFFF, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = qca81xx_soc_modify(phydev, GCC_AHB_CMD_RCGR,
+			0x3, 0x3);
+	if (ret < 0)
+		return ret;
 
 	return ret;
 }
