@@ -130,7 +130,7 @@ void ipq_port_reset(struct reset_ctl *rst, bool set)
 
 static void ppe_uniphy_reset(struct port_info *port, bool issoft, bool set)
 {
-	struct udevice *dev = port->phydev->dev;
+	struct udevice *dev = port->dev;
 	struct reset_ctl rst;
 	int ret;
 	char name[64];
@@ -2514,7 +2514,8 @@ static int ipq_eth_start(struct udevice *dev)
 			}
 		}
 
-		if ((port->phy_id != QCA8x8x_SWITCH_TYPE))
+		if ((port->phy_id != QCA8x8x_SWITCH_TYPE) &&
+			(port->phy_id != QCA8337_SWITCH_TYPE))
 			printf("PHY%d %s Speed : %d %s \n", port->id,
 				(link ? "Up":"Down"), speed,
 				duplex ? "Full duplex": "Half duplex");
@@ -2790,6 +2791,7 @@ static int ipq_eth_bind(struct udevice *dev)
 static void ipq_eth_phy_hw_reset(struct gpio_desc *gpio)
 {
 	u32 data;
+
 	data = dm_gpio_get_value(gpio);
 	data |= BIT(1);
 	dm_gpio_set_value(gpio, data);
@@ -2985,6 +2987,8 @@ static int ipq_eth_probe(struct udevice *dev)
 			continue;
 		}
 
+		port->dev = dev;
+
 		port->uniphy_base = priv->uniphy_base +
 					(port->uniphy_id * priv->uniphy_size);
 
@@ -3051,6 +3055,35 @@ static int ipq_eth_probe(struct udevice *dev)
 
 		if (ofnode_valid(port->node))
 			port->phydev->node = port->node;
+
+#ifdef CONFIG_PHY_QCA_8337
+		if (port->phy_id == QCA8337_SWITCH_TYPE) {
+		/*
+		 * The below listed configure need to perform
+		 * before init switch
+		 * set UNIPHY mode as SGMII
+		 * Configure GMAC
+		 * Disable txmac
+		 * Disable GMAC
+		 * configure uniphy force mode
+		 */
+			port->uniphy_mode = PORT_WRAPPER_SGMII0_RGMII4;
+			port->cur_uniphy_mode = PORT_WRAPPER_SGMII0_RGMII4;
+			port->gmac_type = port->cur_gmac_type = GMAC;
+			ppe_uniphy_mode_set(port);
+			ppe_port_mux_set(priv->ppe.base, port);
+			ppe_port_bridge_txmac_set(priv->ppe.base, port->id,
+							false);
+
+			if (port->isforce_speed)
+				ppe_uniphy_set_forceMode(port);
+		}
+#endif
+
+#if defined(CONFIG_PHY_QCA_8337) || defined(CONFIG_PHY_QTI_8033)
+	if (port->support_25M)
+		ppe_uniphy_refclk_set_25M(port);
+#endif
 
 #ifdef CONFIG_PHY_QTI_8X8X
 		/*
@@ -3239,7 +3272,9 @@ static int ipq_eth_ofdata_to_platdata(struct udevice *dev)
 						"i2c-bus", 0);
 			port->interface = ofnode_read_phy_mode(
 						phandle_args.node);
-
+			port->support_25M =  ofnode_read_bool(
+						phandle_args.node,
+						"support_25M");
 			gpio_request_by_name_nodev(phandle_args.node,
 							"phy-reset-gpio", 0,
 							&port->rst_gpio,
