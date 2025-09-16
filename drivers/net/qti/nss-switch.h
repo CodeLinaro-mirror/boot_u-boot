@@ -1030,6 +1030,7 @@ struct ipq_edma_hw {
 struct port_info {
 	struct phy_device *phydev;
 	struct mii_dev *bus;
+	struct udevice *dev;
 	phys_addr_t uniphy_base;
 	phy_interface_t interface;
 	struct gpio_desc rst_gpio;
@@ -1052,6 +1053,7 @@ struct port_info {
 	bool isforce_speed;
 	bool xgmac;
 	bool isconfigured;
+	bool support_25M;
 	int i2c_bus;
 }__attribute__ ((aligned(8)));
 
