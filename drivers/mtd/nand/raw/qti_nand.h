@@ -473,7 +473,7 @@ phys_addr_t ebi2nd_base;
 /* Number of max cw's the driver allows to flash. */
 #define QTI_NAND_MAX_CWS_IN_PAGE		10
 
-#define QTI_MAX_NO_CMD_ELEMENT                 64
+#define QTI_MAX_NO_CMD_ELEMENT                 128
 
 /* Reset Values for Status registers */
 #define NAND_FLASH_STATUS_RESET			0x00000020
@@ -531,7 +531,7 @@ phys_addr_t ebi2nd_base;
 #define QTI_BAM_DATA_FIFO_SIZE			MAX_MULTI_PAGE * \
 						MAX_NO_OF_CWS * \
 						DATA_DESC_PER_CW_FOR_MULTIPAGE
-#define QTI_BAM_CMD_FIFO_SIZE			128
+#define QTI_BAM_CMD_FIFO_SIZE			256
 #define QTI_BAM_STATUS_FIFO_SIZE		512
 
 #define QTI_MAX_ONFI_MODES				4
