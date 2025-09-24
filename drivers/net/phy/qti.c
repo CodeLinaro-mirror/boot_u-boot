@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <common.h>
@@ -22,6 +22,12 @@ int phy_qti_init(void)
 #endif
 #ifdef CONFIG_PHY_QCA_81XX
 	phy_81xx_init();
+#endif
+#ifdef CONFIG_PHY_QTI_8033
+	phy_8033_init();
+#endif
+#ifdef CONFIG_PHY_QCA_8337
+	phy_8337_init();
 #endif
 	return 0;
 }

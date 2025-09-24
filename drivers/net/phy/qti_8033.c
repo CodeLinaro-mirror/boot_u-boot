@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,105 +11,98 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
 */
+
 #include <common.h>
-#include <net.h>
-#include <asm-generic/errno.h>
+#include <command.h>
 #include <asm/io.h>
-#include <malloc.h>
 #include <phy.h>
-#include "ipq_qca8033.h"
-#include "ipq_phy.h"
+#include <miiphy.h>
 
-extern int ipq_mdio_write(int mii_id,
-		int regnum, u16 value);
-extern int ipq_mdio_read(int mii_id,
-		int regnum, ushort *data);
+#include "qti.h"
 
-static u16 qca8033_phy_reg_write(u32 dev_id, u32 phy_id,
-		u32 reg_id, u16 reg_val)
+/*
+ * Phy Specific status fields offset:17
+ * 1=Speed & Duplex resolved
+ * 1=Duplex 0=Half Duplex
+ * Speed, bits 14:15
+ * 	00=10Mbs
+ * 	01=100Mbs
+ * 	10=1000Mbs
+ */
+
+#define QTI_8033_PHY_V1				0x004DD074
+#define QTI_8033_PHY_SPEC_STATUS		17
+#define QTI_8033_STATUS_LINK_PASS		0x0400
+#define QTI_8033_STATUS_FULL_DUPLEX		0x2000
+#define QTI_8033_STATUS_SPEED_MASK		0xC000
+#define QTI_8033_STATUS_SPEED_1000MBS		0x8000
+#define QTI_8033_STATUS_SPEED_100MBS		0x4000
+#define QTI_8033_STATUS_SPEED_10MBS		0x0000
+
+static int qti_8033_config(struct phy_device *phydev)
 {
-	ipq_mdio_write(phy_id, reg_id, reg_val);
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x5);
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x2d47);
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0xb);
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0xbc40);
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x0);
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x82ee);
+
 	return 0;
 }
 
-u16 qca8033_phy_reg_read(u32 dev_id, u32 phy_id, u32 reg_id)
-{
-	return ipq_mdio_read(phy_id, reg_id, NULL);
-}
-
-u8 qca8033_phy_get_link_status(u32 dev_id, u32 phy_id)
-{
-	u16 phy_data;
-	phy_data = qca8033_phy_reg_read(dev_id,
-			phy_id, QCA8033_PHY_SPEC_STATUS);
-	if (phy_data & QCA8033_STATUS_LINK_PASS)
-		return 0;
-
-	return 1;
-}
-
-u32 qca8033_phy_get_duplex(u32 dev_id, u32 phy_id, fal_port_duplex_t *duplex)
+static int qti_8033_startup(struct phy_device *phydev)
 {
 	u16 phy_data;
 
-	phy_data = qca8033_phy_reg_read(dev_id, phy_id,
-				QCA8033_PHY_SPEC_STATUS);
-
-	/*
-	 * Read duplex
-	 */
-	if (phy_data & QCA8033_STATUS_FULL_DUPLEX)
-		*duplex = FAL_FULL_DUPLEX;
+	phy_data = phy_read(phydev, MDIO_DEVAD_NONE, QTI_8033_PHY_SPEC_STATUS);
+	if (phy_data & QTI_8033_STATUS_LINK_PASS)
+		phydev->link = 1;
 	else
-		*duplex = FAL_HALF_DUPLEX;
+		phydev->link = 0;
 
-	return 0;
-}
+	if (phy_data & QTI_8033_STATUS_FULL_DUPLEX)
+		phydev->duplex = DUPLEX_FULL;
+	else
+		phydev->duplex = DUPLEX_HALF;
 
-u32 qca8033_phy_get_speed(u32 dev_id, u32 phy_id, fal_port_speed_t *speed)
-{
-	u16 phy_data;
-
-	phy_data = qca8033_phy_reg_read(dev_id,
-			phy_id, QCA8033_PHY_SPEC_STATUS);
-
-	switch (phy_data & QCA8033_STATUS_SPEED_MASK) {
-	case QCA8033_STATUS_SPEED_1000MBS:
-		*speed = FAL_SPEED_1000;
+	switch (phy_data & QTI_8033_STATUS_SPEED_MASK) {
+	case QTI_8033_STATUS_SPEED_1000MBS:
+		phydev->speed = SPEED_1000;
 		break;
-	case QCA8033_STATUS_SPEED_100MBS:
-		*speed = FAL_SPEED_100;
+	case QTI_8033_STATUS_SPEED_100MBS:
+		phydev->speed = SPEED_100;
 		break;
-	case QCA8033_STATUS_SPEED_10MBS:
-		*speed = FAL_SPEED_10;
+	case QTI_8033_STATUS_SPEED_10MBS:
+		phydev->speed = SPEED_10;
 		break;
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
-int ipq_qca8033_phy_init(struct phy_ops **ops, u32 phy_id)
+int qti_8033_probe(struct phy_device *phydev)
 {
-	u16 phy_data;
-	struct phy_ops *qca8033_ops;
-	qca8033_ops = (struct phy_ops *)malloc(sizeof(struct phy_ops));
-	if (!qca8033_ops)
-		return -ENOMEM;
-	qca8033_ops->phy_get_link_status = qca8033_phy_get_link_status;
-	qca8033_ops->phy_get_speed = qca8033_phy_get_speed;
-	qca8033_ops->phy_get_duplex = qca8033_phy_get_duplex;
-	*ops = qca8033_ops;
+	phydev->flags = PHY_FLAG_BROKEN_RESET;
 
-	phy_data = qca8033_phy_reg_read(0x0, phy_id, QCA8033_PHY_ID1);
-	printf ("PHY ID1: 0x%x\n", phy_data);
-	phy_data = qca8033_phy_reg_read(0x0, phy_id, QCA8033_PHY_ID2);
-	printf ("PHY ID2: 0x%x\n", phy_data);
-	qca8033_phy_reg_write(0x0, phy_id, 0x1d, 0x5);
-	qca8033_phy_reg_write(0x0, phy_id, 0x1e, 0x2d47);
-	qca8033_phy_reg_write(0x0, phy_id, 0x1d, 0xb);
-	qca8033_phy_reg_write(0x0, phy_id, 0x1e, 0xbc40);
-	qca8033_phy_reg_write(0x0, phy_id, 0x1d, 0x0);
-	qca8033_phy_reg_write(0x0, phy_id, 0x1e, 0x82ee);
+	return 0;
+}
+
+static struct phy_driver qti_8033_driver = {
+	.name = "QTI 8033 PHY Driver",
+	.uid = QTI_8033_PHY_V1,
+	.mask = 0xfffffff0,
+	.features = PHY_GBIT_FEATURES,
+	.probe  = &qti_8033_probe,
+	.config = &qti_8033_config,
+	.startup = &qti_8033_startup,
+	.shutdown = &genphy_shutdown,
+};
+
+int phy_8033_init(void)
+{
+	phy_register(&qti_8033_driver);
 	return 0;
 }
