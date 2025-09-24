@@ -77,7 +77,7 @@ struct nand_flash_dev qti_nand_flash_ids[] = {
 		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F2GM7REYIG",
 		{ .id = {0xc8, 0x82} },
-		SZ_2K, SZ_128, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
+		SZ_2K, SZ_256, SZ_128K, CHECK_QUAD_CONFIG, 2, 128,
 		NAND_ECC_INFO(8, SZ_512), 0},
 	{"GD5F1GQ5REYIH",
 		{ .id = {0xc8, 0x21} },

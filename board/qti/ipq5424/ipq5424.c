@@ -69,6 +69,7 @@ struct machid_dts_map machid_dts[] = {
 	{ MACH_TYPE_IPQ5424_RDP485, "ipq5424-rdp485"},
 	{ MACH_TYPE_IPQ5424_RDP485_C2, "ipq5424-rdp485-c2"},
 	{ MACH_TYPE_IPQ5424_RDP485_C3, "ipq5424-rdp485"},
+	{ MACH_TYPE_IPQ5424_RDP485_C4, "ipq5424-rdp485"},
 	{ MACH_TYPE_IPQ5424_RDP487, "ipq5424-rdp487"},
 	{ MACH_TYPE_IPQ5424_RDP487_C2, "ipq5424-rdp487"},
 	{ MACH_TYPE_IPQ5424_RDP487_C3, "ipq5424-rdp487-c3"},
@@ -491,6 +492,9 @@ void ipq_uboot_fdt_fixup(uint32_t machid)
 			break;
 		case MACH_TYPE_IPQ5424_RDP485_C3:
 			config_list[config_nos++] = "config-rdp485-c3";
+			break;
+		case MACH_TYPE_IPQ5424_RDP485_C4:
+			config_list[config_nos++] = "config-rdp485-c4";
 			break;
 		case MACH_TYPE_IPQ5424_RDP487_C2:
 			config_list[config_nos++] = "config-rdp487-c2";
