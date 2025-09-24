@@ -370,7 +370,15 @@ void qcom_set_serialno(void)
 {
 	const char *cmdline = get_cmdline();
 	char serial[32];
+	u32 serial_num;
 
+	/* First try to get serial number from SMEM */
+	if (board_serial_num(&serial_num) == 0) {
+		env_set_hex("serial#", serial_num);
+		return;
+	}
+
+	/* Fallback to existing bootargs parsing method */
 	if (!cmdline) {
 		log_debug("Failed to get bootargs\n");
 		return;
