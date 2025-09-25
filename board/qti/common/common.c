@@ -1994,10 +1994,63 @@ int cal_qcn9224(int debug)
 	struct cal_config *cfg;
 	struct cal_dt_config *dt_cfg;
 	unsigned long len = SZ_2M;
+	bool cal_part_present = false;
 	ipq_smem_flash_info_t *sfi = get_ipq_smem_flash_info();
+#ifdef CONFIG_IPQ_NAND
+	struct ubi_device *ubi;
+#endif
+#ifdef CONFIG_IPQ_MMC
+	blkpart_info_t  bpart_info;
+	struct disk_partition disk_info;
+#endif
 
 	if (!sfi)
 		return -EINVAL;
+
+	/* Check if cal_fw partition exists, if not bail out here */
+	switch (gd->board_type & FLASH_TYPE_MASK) {
+#ifdef CONFIG_IPQ_NAND
+	case SMEM_BOOT_NORPLUSNAND:
+	case SMEM_BOOT_QSPI_NAND_FLASH:
+		ubi = ubi_get_device(0);
+		if (!ubi)
+			break;
+
+		for (i = 0; i < (ubi->vtbl_slots + 1); i++) {
+			if (!ubi->volumes[i])
+				continue;	/* Empty record */
+
+			if (ubi->volumes[i]->name_len <= UBI_VOL_NAME_MAX &&
+			    strnlen(ubi->volumes[i]->name,
+				    ubi->volumes[i]->name_len + 1) ==
+						ubi->volumes[i]->name_len) {
+				if (!strncmp("cal_fw", ubi->volumes[i]->name,
+					     UBI_VOL_NAME_MAX)) {
+					cal_part_present = true;
+					break;
+				}
+			}
+		}
+
+		if (ubi)
+			ubi_put_device(ubi);
+
+		break;
+#endif
+	default:
+#ifdef CONFIG_IPQ_MMC
+		BLK_PART_GET_INFO_S(bpart_info, "0:CALFW", &disk_info,
+				    sfi->flash_type);
+		ret = ipq_part_get_info_by_name(&bpart_info);
+		if (!ret)
+			cal_part_present = true;
+#endif
+	}
+
+	if (!cal_part_present) {
+		printf("cal_fw partition not present\n");
+		return -ENOTSUPP;
+	}
 
 	cfg = malloc(sizeof(*cfg));
 	if (!cfg) {
