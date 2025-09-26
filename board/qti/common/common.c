@@ -1630,7 +1630,7 @@ void qcn92xx_global_soc_reset(uintptr_t bar0_base, bool force_reset)
 static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 {
 	struct udevice *dev;
-	uintptr_t bar0_base, reg, load_addr;
+	uintptr_t bar0_base, reg, load_addr = (uintptr_t)NULL;
 	struct file_info *file;
 	int ret, i, version, val;
 	ulong vendor, device;
@@ -1704,6 +1704,7 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 				       file->size);
 				cal_fw = (void *)(uintptr_t)dev_cfg->cal_fw_image_addr;
 				cal_fw_size = file->size;
+				load_addr = (uintptr_t)cal_fw;
 			} else if (file->sub_type == 1 && file->sub_type == num_macs) {
 				printf("Loading %d mac calfw for pci slot: %d\n",
 				       num_macs, dev_cfg->pci_slot_id);
@@ -1712,6 +1713,7 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 				       file->size);
 				cal_fw = (void *)(uintptr_t)dev_cfg->cal_fw_image_addr;
 				cal_fw_size = file->size;
+				load_addr = (uintptr_t)cal_fw;
 			}
 			break;
 		case BDF:
@@ -1738,7 +1740,10 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 		}
 	}
 
-	load_addr = (uintptr_t)cal_fw;
+	if (!load_addr) {
+		printf("CAL_FW not found\n");
+		return -EINVAL;
+	}
 
 	/* FILL TLV */
 	tlv = (struct uboot_cal_tlv *)memalign(SZ_4K, sizeof(struct uboot_cal_tlv));
