@@ -92,6 +92,7 @@ config FASTBOOT_FLASH
 	bool "Enable FASTBOOT FLASH command"
 	default y if ARCH_SUNXI || ARCH_ROCKCHIP
 	depends on MMC || (MTD_RAW_NAND && CMD_MTDPARTS) || DM_SPI_FLASH
+	depends on MMC || UFS || (MTD_RAW_NAND && CMD_MTDPARTS) || DM_SPI_FLASH
 	select IMAGE_SPARSE
 	help
 	  The fastboot protocol includes a "flash" command for writing
@@ -123,6 +124,10 @@ config FASTBOOT_FLASH_SPI
 	bool "FASTBOOT on SPI flash"
 	depends on DM_SPI_FLASH
 
+config FASTBOOT_FLASH_UFS
+	bool "FASTBOOT on UFS"
+	depends on UFS && EFI_PARTITION
+
 endchoice
 
 config FASTBOOT_FLASH_MMC_DEV
@@ -135,6 +140,15 @@ config FASTBOOT_FLASH_MMC_DEV
 	  The fastboot "flash" command requires additional information
 	  regarding the non-volatile storage device. Define this to
 	  the eMMC device that fastboot should use to store the image.
+
+config FASTBOOT_FLASH_UFS_DEV
+	int "Define FASTBOOT UFS FLASH default device"
+	depends on FASTBOOT_FLASH_UFS
+	default 0 if CONFIG_ARCH_SNAPDRAGON
+	help
+	  The fastboot "flash" command requires additional information
+	  regarding the non-volatile storage device. Define this to
+	  the UFS device that fastboot should use to store the image.
 
 config FASTBOOT_FLASH_NAND_TRIMFFS
 	bool "Skip empty pages when flashing NAND"
@@ -199,7 +213,7 @@ config FASTBOOT_MMC_USER_NAME
 
 config FASTBOOT_GPT_NAME
 	string "Target name for updating GPT"
-	depends on FASTBOOT_FLASH_MMC && EFI_PARTITION
+	depends on (FASTBOOT_FLASH_MMC || FASTBOOT_FLASH_UFS) && EFI_PARTITION
 	default "gpt"
 	help
 	  The fastboot "flash" command supports writing the downloaded
@@ -212,7 +226,7 @@ config FASTBOOT_GPT_NAME
 
 config FASTBOOT_MBR_NAME
 	string "Target name for updating MBR"
-	depends on FASTBOOT_FLASH_MMC && DOS_PARTITION
+	depends on (FASTBOOT_FLASH_MMC || FASTBOOT_FLASH_UFS) && DOS_PARTITION
 	default "mbr"
 	help
 	  The fastboot "flash" command allows to write the downloaded image
