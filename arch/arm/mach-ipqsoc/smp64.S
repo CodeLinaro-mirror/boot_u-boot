@@ -69,9 +69,6 @@ ENTRY(secondary_cpu_init)
 	 * d-cache is invalidated before enabled in dcache_enable()
 	 */
 
-	/* Processor specific initialization */
-	bl	lowlevel_init
-
 	mrs     x0, MPIDR_EL1
 #if defined (CONFIG_BASE_CPU_64BIT_BOOTUP)
 	lsr     x0, x0, #8
