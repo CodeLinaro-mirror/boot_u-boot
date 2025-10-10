@@ -73,7 +73,46 @@
 
 
 	soc@0 {
+		apps_smmu: iommu@15000000 {
+			bootph-all;
+		};
+
+		tlmm: pinctrl@3100000 {
+			qup_uart0_tx: qup-uart0-tx-state {
+				bootph-all;
+			};
+
+			qup_uart0_rx: qup-uart0-rx-state {
+				bootph-all;
+			};
+		};
+
+		sdhc_1: mmc@7c4000 {
+			status = "disabled";
+		};
+
+		sdhc_2: mmc@8804000 {
+			status = "disabled";
+		};
+
 		ufs_mem_hc: ufshc@1d84000 {
+			/delete-property/ clocks;
+			/delete-property/ clock-names;
+			/* Keep only the clocks that are implemented in U-Boot clock driver */
+			clocks = <&gcc GCC_UFS_PHY_AXI_CLK>,
+				 <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+				 <&gcc GCC_UFS_PHY_AHB_CLK>,
+				 <&gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
+				 <&gcc GCC_UFS_PHY_ICE_CORE_CLK>,
+				 <&gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
+				 <&gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>;
+			clock-names = "core_clk",
+				      "bus_aggr_clk",
+				      "iface_clk",
+				      "core_clk_unipro",
+				      "ice_core_clk",
+				      "tx_lane0_sync_clk",
+				      "rx_lane0_sync_clk";
 			/delete-property/ operating-points-v2;
 			phys = <&ufs_mem_phy_lanes>;
 			freq-table-hz = <50000000 200000000>,
@@ -90,9 +129,10 @@
 		ufs_mem_phy: phy@1d87000 {
 			reg = <0x0 0x01d87000 0x0 0x1c4>;
                         ranges;
-			clock-names = "ref", "ref_aux";
-			clocks = <&gcc GCC_UFS_MEM_CLKREF_CLK>,
-				<&gcc GCC_UFS_PHY_PHY_AUX_CLK>;
+			/delete-property/ clocks;
+			/delete-property/ clock-names;
+			clock-names = "ref_aux";
+			clocks = <&gcc GCC_UFS_PHY_PHY_AUX_CLK>;
                         ufs_mem_phy_lanes: phy@1d87400 {
                                 reg = <0x0 0x1d87400 0x0 0x12c>,
                                       <0x0 0x1d87600 0x0 0x200>,
