@@ -33,6 +33,19 @@
 /* DEBUG registers indirectly */
 #define QCA81XX_DEBUG_ADDR				0x1d
 #define QCA81XX_DEBUG_DATA				0x1e
+#define QCA81XX_DEBUG_ANA_EDAC_CAP0_CTRL		0x4d80
+#define QCA81XX_DEBUG_ANA_EDAC_CAP0_VAL			0x2528
+#define QCA81XX_DEBUG_ANA_EDAC_CAP1_CTRL		0x4e80
+#define QCA81XX_DEBUG_ANA_EDAC_CAP1_VAL			0x2825
+#define QCA81XX_DEBUG_ANA_AFE_DAC8_DP			0x2f80
+#define QCA81XX_DEBUG_ANA_EDAC_RES_VAL0			0x5868
+#define QCA81XX_DEBUG_ANA_AFE_DAC9_DP			0x3080
+#define QCA81XX_DEBUG_ANA_EDAC_RES_VAL1			0x6858
+#define QCA81XX_DEBUG_ANA_TX_POWER_CTRL			0xbd80
+#define QCA81XX_DEBUG_ANA_TX_POWER_MASK			GENMASK(12, 0)
+#define QCA81XX_DEBUG_ANA_TX_POWER_REDUCED_1P3		0xdc3
+#define QCA81XX_DEBUG_ANA_OPEN_RAMPING_CRTL0		0x9180
+#define QCA81XX_DEBUG_ANA_OPEN_RAMPING_EN		BIT(7)
 
 #define PHY_INVALID_DATA				0xffff
 #define QCAPHY_SPEC_STATUS                              17
@@ -116,6 +129,11 @@
 #define QCA81XX_PCS_MMD1_CALIBRATION_DONE            	0x80
 #define QCA81XX_PCS_MMD1_SSCG_ENABLE                 	0x8
 #define QCA81XX_PCS_MMD1_CALIBRATION4                	0x78
+#define QCA81XX_MMD1_MSE_THRESHOLD_CTRL			0x8020
+#define QCA81XX_MMD1_MSE_THRESHOLD_MASK			GENMASK(10, 0)
+#define QCA81XX_MMD1_MSE_THRESHOLD_VAL			0x419
+#define QCA81XX_MMD1_10G_VGA_GAIN_CTRL			0x8022
+#define QCA81XX_MMD1_10G_VGA_GAIN_VAL			0x5dd9
 
 /*UNIPHY MMD3 register field*/
 #define QCA81XX_PCS_MMD3_PCS_TYPE_MASK               	0xf
@@ -135,6 +153,15 @@
 #define QCA81XX_PCS_MMD3_EEE_RWR_REG_REGS            	0x1c00
 #define QCA81XX_PCS_MMD3_EEE_TRANS_LPI_MODE          	0x1
 #define QCA81XX_PCS_MMD3_EEE_TRANS_RX_LPI_MODE       	0x100
+#define QCA81XX_MMD3_CABLE_SKEW				0xa102
+#define QCA81XX_MMD3_CABLE_TX_SKEW_MASK			GENMASK(7, 0)
+#define QCA81XX_MMD3_OPEN_RAMPING_CTRL1			0xa048
+#define QCA81XX_MMD3_OPEN_RAMPING_EN_MASK1		0x801
+#define QCA81XX_MMD3_OPEN_RAMPING_CTRL2			0xa01f
+#define QCA81XX_MMD3_OPEN_RAMPING_EN_MASK2		BIT(7)
+#define QCA81XX_MMD3_PB0_TRAIN_DURATION_CTRL		0xa017
+#define QCA81XX_MMD3_PB0_DURATION_MASK			GENMASK(5, 4)
+#define QCA81XX_MMD3_PB0_DURATION_VAL			0x10
 
 /*UNIPHY MMD31 register field*/
 #define QCA81XX_PCS_MMD31_AN_COMPLETE_INT            	0x1
@@ -211,6 +238,21 @@ static int qca81xx_phy_debug_write(struct phy_device *phydev,
 	ret = phy_write(phydev, MDIO_MMD_VEND2,	QCA81XX_DEBUG_DATA, val);
 	return ret;
 }
+
+int qca81xx_phy_debug_modify(struct phy_device *phydev,
+			     int reg, u16 clear, u16 set)
+{
+	int ret;
+
+	ret = phy_write(phydev, MDIO_MMD_VEND2, QCA81XX_DEBUG_ADDR, reg);
+	if (ret < 0)
+		return ret;
+
+	ret = phy_modify(phydev, MDIO_MMD_VEND2, QCA81XX_DEBUG_DATA,
+			 clear, set);
+	return ret;
+}
+
 
 static void qca81xx_split_addr(u32 regaddr, u16 *reg_low, u16 *reg_mid,
 		u16 *reg_high)
@@ -366,6 +408,17 @@ static int qca81xx_pcs_read_mmd(struct phy_device *phydev, int devad,
 	local_phydev.addr = phydev->addr + QCA81XX_PCS_ADDR_OFFSET;
 
 	return phy_read(&local_phydev, devad, regnum);
+}
+
+static int qca81xx_pcs_write_mmd(struct phy_device *phydev, int devad,
+		u32 regnum, u16 set)
+{
+	struct phy_device local_phydev;
+
+	memcpy(&local_phydev, phydev, sizeof(struct phy_device));
+	local_phydev.addr = phydev->addr + QCA81XX_PCS_ADDR_OFFSET;
+
+	return phy_write(&local_phydev, devad, regnum, set);
 }
 
 static int qca81xx_pcs_modify_mmd(struct phy_device *phydev, int devad,
@@ -1167,6 +1220,76 @@ static int qca_81xx_probe(struct phy_device *phydev)
 	return 0;
 }
 
+static int qca81xx_phy_ana_capacitance_update(struct phy_device *phydev)
+{
+	int ret = 0;
+
+	/* update tx power value */
+	ret = qca81xx_phy_debug_modify(phydev, QCA81XX_DEBUG_ANA_TX_POWER_CTRL,
+		QCA81XX_DEBUG_ANA_TX_POWER_MASK,
+		QCA81XX_DEBUG_ANA_TX_POWER_REDUCED_1P3);
+	if (ret < 0)
+		return ret;
+	/* update edac value */
+	ret = qca81xx_phy_debug_write(phydev, QCA81XX_DEBUG_ANA_AFE_DAC8_DP,
+		QCA81XX_DEBUG_ANA_EDAC_RES_VAL0);
+	if (ret < 0)
+		return ret;
+	ret = qca81xx_phy_debug_write(phydev, QCA81XX_DEBUG_ANA_AFE_DAC9_DP,
+		QCA81XX_DEBUG_ANA_EDAC_RES_VAL1);
+	if (ret < 0)
+		return ret;
+	/* update analog capacitance value */
+	ret = qca81xx_phy_debug_write(phydev, QCA81XX_DEBUG_ANA_EDAC_CAP0_CTRL,
+		QCA81XX_DEBUG_ANA_EDAC_CAP0_VAL);
+	if (ret < 0)
+		return ret;
+	ret = qca81xx_phy_debug_write(phydev, QCA81XX_DEBUG_ANA_EDAC_CAP1_CTRL,
+		QCA81XX_DEBUG_ANA_EDAC_CAP1_VAL);
+	if (ret < 0)
+		return ret;
+	/* enable open ramping filter */
+	ret = qca81xx_phy_debug_modify(phydev, QCA81XX_DEBUG_ANA_OPEN_RAMPING_CRTL0,
+		QCA81XX_DEBUG_ANA_OPEN_RAMPING_EN,
+		QCA81XX_DEBUG_ANA_OPEN_RAMPING_EN);
+	if (ret < 0)
+		return ret;
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
+		QCA81XX_MMD3_OPEN_RAMPING_CTRL1,
+		QCA81XX_MMD3_OPEN_RAMPING_EN_MASK1, 0x1);
+	if (ret < 0)
+		return ret;
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS,
+		QCA81XX_MMD3_OPEN_RAMPING_CTRL2,
+		QCA81XX_MMD3_OPEN_RAMPING_EN_MASK2, 0);
+	if (ret < 0)
+		return ret;
+	/* update MSE threshold */
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PMAPMD,
+		QCA81XX_MMD1_MSE_THRESHOLD_CTRL, QCA81XX_MMD1_MSE_THRESHOLD_MASK,
+		QCA81XX_MMD1_MSE_THRESHOLD_VAL);
+	if (ret < 0)
+		return ret;
+	/* update VGA gain to improve 10G long cable high temperature performance */
+	ret = qca81xx_pcs_write_mmd(phydev, MDIO_MMD_PMAPMD,
+		QCA81XX_MMD1_10G_VGA_GAIN_CTRL, QCA81XX_MMD1_10G_VGA_GAIN_VAL);
+	if (ret < 0)
+		return ret;
+	/* adjust the cable tx skew to improve 10G link performance */
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS, QCA81XX_MMD3_CABLE_SKEW,
+		QCA81XX_MMD3_CABLE_TX_SKEW_MASK, 0x30);
+	if (ret < 0)
+		return ret;
+	/* adjust the PBO duration */
+	ret = qca81xx_pcs_modify_mmd(phydev, MDIO_MMD_PCS, QCA81XX_MMD3_PB0_TRAIN_DURATION_CTRL,
+		QCA81XX_MMD3_PB0_DURATION_MASK, QCA81XX_MMD3_PB0_DURATION_VAL);
+	if (ret < 0)
+		return ret;
+	ret = qca81xx_phy_soft_reset(phydev);
+
+	return ret;
+}
+
 static int qca_81xx_config(struct phy_device *phydev)
 {
 	struct qca_81xx_device *dev = phydev->priv;
@@ -1199,6 +1322,7 @@ static int qca_81xx_config(struct phy_device *phydev)
 	if (ret)
 		goto fail;
 
+	ret = qca81xx_phy_ana_capacitance_update(phydev);
 fail:
 	if (ret)
 		printf("%s %d failed ret: %d \n", __func__, __LINE__, ret);
