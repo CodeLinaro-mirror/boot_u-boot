@@ -813,6 +813,11 @@ static int get_board_fit_capsule_guid(efi_guid_t *guid)
 	return -EINVAL;
 }
 
+/*
+ * For creating FIT-based capsule images from FvUpdate.xml files, see:
+ *   - Tool: tools/fvupdate_to_fit.py
+ *   - Documentation: doc/develop/fvupdate_to_fit.rst
+ */
 static void configure_fit_capsule_updates(void)
 {
 	struct qcom_partition_info *all_partitions = NULL;
