@@ -641,6 +641,14 @@ config ESM_K3
 	help
 	  Support ESM (Error Signaling Module) on TI K3 SoCs.
 
+config K3_BIST
+	bool "Enable K3 BIST driver"
+	depends on ARCH_K3
+	help
+	  Support BIST (Built-In Self Test) module on TI K3 SoCs. This driver
+	  supports running both PBIST (Memory BIST) and LBIST (Logic BIST) on
+	  a region or IP in the SoC.
+
 config MICROCHIP_FLEXCOM
 	bool "Enable Microchip Flexcom driver"
 	depends on MISC
@@ -649,6 +657,15 @@ config MICROCHIP_FLEXCOM
 	  an I2C controller and an USART.
 	  Only one function can be used at a time and is chosen at boot time
 	  according to the device tree.
+
+config MPFS_SYSCONTROLLER
+	bool "Enable Microchip PolarFire SoC (MPFS) System Services support"
+	depends on MISC
+	depends on MPFS_MBOX
+	help
+	  This driver adds support for the PolarFire SoC (MPFS) system controller.
+
+	  If unsure, say N.
 
 config K3_AVS0
 	depends on ARCH_K3 && SPL_DM_REGULATOR

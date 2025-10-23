@@ -235,7 +235,7 @@ static int rcar_gen4_pcie_ltssm_control(struct rcar_gen4_pcie *rcar, bool enable
 	clrsetbits_le32(rcar->phy_base + 0x148, GENMASK(23, 22), BIT(22));
 	clrsetbits_le32(rcar->phy_base + 0x148, GENMASK(18, 16), GENMASK(17, 16));
 	clrsetbits_le32(rcar->phy_base + 0x148, GENMASK(7, 6), BIT(6));
-	clrsetbits_le32(rcar->phy_base + 0x148, GENMASK(2, 0), GENMASK(11, 0));
+	clrsetbits_le32(rcar->phy_base + 0x148, GENMASK(2, 0), GENMASK(1, 0));
 	clrsetbits_le32(rcar->phy_base + 0x1d4, GENMASK(16, 15), GENMASK(16, 15));
 	clrsetbits_le32(rcar->phy_base + 0x514, BIT(26), BIT(26));
 	clrsetbits_le32(rcar->phy_base + 0x0f8, BIT(16), 0);
@@ -243,7 +243,7 @@ static int rcar_gen4_pcie_ltssm_control(struct rcar_gen4_pcie *rcar, bool enable
 
 	clrbits_le32(rcar->app_base + PCIERSTCTRL1, APP_HOLD_PHY_RST);
 
-	ret = readl_poll_timeout(rcar->phy_base + 0x0f8, val, !(val & BIT(18)), 10000);
+	ret = readl_poll_timeout(rcar->phy_base + 0x0f8, val, val & BIT(18), 10000);
 	if (ret < 0)
 		return ret;
 
@@ -306,6 +306,8 @@ static int rcar_gen4_pcie_common_init(struct rcar_gen4_pcie *rcar)
 	if (ret)
 		goto err_unprepare;
 
+	mdelay(1);
+
 	setbits_le32(rcar->app_base + PCIEMSR0,
 		     DEVICE_TYPE_RC |
 		     ((rcar->num_lanes < 4) ? BIFUR_MOD_SET_ON : 0));
@@ -313,6 +315,9 @@ static int rcar_gen4_pcie_common_init(struct rcar_gen4_pcie *rcar)
 	ret = reset_deassert(&rcar->pwr_rst);
 	if (ret)
 		goto err_unprepare;
+
+	reset_status(&rcar->pwr_rst);
+	mdelay(1);
 
 	rcar_gen4_pcie_additional_common_init(rcar);
 

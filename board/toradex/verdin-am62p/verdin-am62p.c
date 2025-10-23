@@ -55,11 +55,6 @@ static void read_hw_cfg(void)
 	printf("0x%02x\n", hw_cfg);
 }
 
-int board_init(void)
-{
-	return 0;
-}
-
 int dram_init(void)
 {
 	gd->ram_size = get_ram_size((long *)CFG_SYS_SDRAM_BASE, CFG_SYS_SDRAM_SIZE);
@@ -124,7 +119,7 @@ static void select_dt_from_module_version(void)
 	else
 		strlcpy(&variant[0], "nonwifi", sizeof(variant));
 
-	if (strcmp(variant, env_variant)) {
+	if (!env_variant || strcmp(variant, env_variant)) {
 		printf("Setting variant to %s\n", variant);
 		env_set("variant", variant);
 	}

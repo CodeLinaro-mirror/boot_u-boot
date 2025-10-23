@@ -12,6 +12,7 @@ Use U-Boot
    fit/index
    netconsole
    partitions
+   pxe
    cmdline
    semihosting
    measured_boot
@@ -81,6 +82,7 @@ Shell commands
    cmd/if
    cmd/itest
    cmd/imxtract
+   cmd/i3c
    cmd/load
    cmd/loadb
    cmd/loadm

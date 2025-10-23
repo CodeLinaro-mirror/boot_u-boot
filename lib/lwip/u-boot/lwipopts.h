@@ -44,6 +44,7 @@
 #define DNS_DEBUG                       LWIP_DBG_ON
 #define IP6_DEBUG                       LWIP_DBG_OFF
 #define DHCP6_DEBUG                     LWIP_DBG_OFF
+#define SNTP_DEBUG                      LWIP_DBG_ON
 #endif
 
 #define LWIP_TESTMODE                   0
@@ -80,7 +81,11 @@
 
 #define IP_DEFAULT_TTL                  255
 
+#if defined(CONFIG_PROT_ICMP_LWIP)
+#define LWIP_ICMP                       1
+#else
 #define LWIP_ICMP                       0
+#endif
 
 #if defined(CONFIG_PROT_RAW_LWIP)
 #define LWIP_RAW                        1
