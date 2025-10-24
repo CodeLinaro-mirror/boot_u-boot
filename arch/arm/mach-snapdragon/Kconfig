@@ -43,6 +43,16 @@ config OF_LIVE_SA8775P
           Say Y here to enable support for OF LIVE fixups
           on the Snapdragon SA8775 SoC.
 
+config QCOM_USB_FIXUP
+	bool "Enable USB speed fixup for Qualcomm platforms"
+	default y
+	help
+	  Enable runtime fixup of USB device tree nodes to limit USB to
+	  high-speed mode. This is needed on some Qualcomm platforms where
+	  U-Boot doesn't support super-speed USB.
+	  Disable this for platforms that have proper super-speed USB support
+	  in U-Boot.
+
 config SYS_BOARD
 	string "Snapdragon SoCs based board"
 	help

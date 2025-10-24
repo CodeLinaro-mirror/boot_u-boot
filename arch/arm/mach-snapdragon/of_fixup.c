@@ -28,6 +28,7 @@
 #include <time.h>
 #include "qcom_fixup_handlers.h"
 
+#ifdef CONFIG_QCOM_USB_FIXUP
 /* U-Boot only supports USB high-speed mode on Qualcomm platforms with DWC3
  * USB controllers. Rather than requiring source level DT changes, we fix up
  * DT here. This improves compatibility with upstream DT and simplifies the
@@ -134,6 +135,7 @@ static int qcom_of_fixup_nodes(void * __maybe_unused ctx, struct event *event)
 }
 
 EVENT_SPY_FULL(EVT_OF_LIVE_BUILT, qcom_of_fixup_nodes);
+#endif
 
 __weak void fixup_dt_handler(struct fdt_header *fdt_ptr)
 {
