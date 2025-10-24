@@ -17,17 +17,7 @@
 	};
 };
 
-&usb_1_dwc3 {
-	dr_mode = "peripheral";
-	/delete-property/ usb-role-switch;
-};
-
 &apps_smmu {
-	bootph-all;
-};
-
-/* Enable TLMM pinctrl controller for pre-relocation */
-&tlmm {
 	bootph-all;
 };
 
@@ -38,6 +28,25 @@
 
 &qup_uart5_rx {
 	bootph-all;
+};
+
+/* Enable TLMM pinctrl controller for pre-relocation */
+&tlmm {
+	bootph-all;
+};
+
+&usb_1_dwc3 {
+	dr_mode = "peripheral";
+	/delete-property/ usb-role-switch;
+};
+
+&usb_1_qmpphy {
+	clocks = <&gcc GCC_USB3_PRIM_PHY_AUX_CLK>,
+		 <&gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>,
+		 <&gcc GCC_USB3_PRIM_PHY_PIPE_CLK>;
+	clock-names = "aux",
+		      "com_aux",
+		      "usb3_pipe";
 };
 
 /* Disable GPIO buttons in U-Boot to avoid pinctrl errors */
