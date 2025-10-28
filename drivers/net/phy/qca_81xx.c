@@ -216,6 +216,27 @@
 #define EPHY_CFG					0x90F018
 #define EPHY_LDO_CTRL					BIT(20)
 
+/*SOC TLMM registers*/
+#define TLMM_BASE		0x400000
+#define TLMM_GPIO_OFFSET	0x1000
+#define TO_TLMM_CFG_REG(pin)	(TLMM_BASE + TLMM_GPIO_OFFSET * pin)
+#define TLMM_FUNC_MASK		GENMASK(5, 2)
+
+enum {
+	GPIO0_WOL_INT = 0,
+	GPIO1_PHY_INT,
+	GPIO2_LED0,
+	GPIO3_LED1,
+	GPIO4_LED3,
+	GPIO5_PPS_IN = 5,
+	GPIO6_TOD_IN = 6,
+	GPIO7_REFCLK_IN = 7,
+	GPIO10_PPS_OUT = 10,
+	GPIO11_TOD_OUT = 11,
+	GPIO12_CLK125_TDI = 12,
+	GPIO_MAX
+};
+
 enum qca81xx_phy_ext_addr {
 	QCA81XX_PCS_ADDR_OFFSET = 1,
 	QCA81XX_SOC_ADDR_OFFSET = 2,
@@ -1290,6 +1311,23 @@ static int qca81xx_phy_ana_capacitance_update(struct phy_device *phydev)
 	return ret;
 }
 
+static int qca81xx_tlmm_init(struct phy_device *phydev)
+{
+	int ret = 0, pin_id = 0;
+
+	/* the GPIO function bit2~5 is set 1 means the expected function */
+	/* such as GPIO0 is WOL INT function and GPIO2 is LED0 function */
+	for (pin_id  = GPIO0_WOL_INT; pin_id <= GPIO4_LED3; pin_id++) {
+		ret = qca81xx_soc_modify(phydev, TO_TLMM_CFG_REG(pin_id),
+					 TLMM_FUNC_MASK, BIT(2));
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+
 static int qca_81xx_config(struct phy_device *phydev)
 {
 	struct qca_81xx_device *dev = phydev->priv;
@@ -1317,6 +1355,11 @@ static int qca_81xx_config(struct phy_device *phydev)
 	ret = qca81xx_phy_gcc_post_init(phydev);
 	if (ret < 0)
 		goto fail;
+
+	ret = qca81xx_tlmm_init(phydev);
+	if (ret < 0)
+		goto fail;
+
 
 	ret = qca_81xx_phy_cdt_thresh_init(phydev);
 	if (ret)
