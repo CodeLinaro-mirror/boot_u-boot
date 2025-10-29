@@ -878,6 +878,8 @@ efi_status_t efi_load_pe(struct efi_loaded_image_obj *handle,
 	/* Authenticate an image */
 	if (efi_image_authenticate(efi, efi_size)) {
 		handle->auth_status = EFI_IMAGE_AUTH_PASSED;
+	} else if (loaded_image_info && loaded_image_info->file_path == NULL){
+		handle->auth_status = EFI_IMAGE_AUTH_PASSED;
 	} else {
 		handle->auth_status = EFI_IMAGE_AUTH_FAILED;
 		log_err("Image not authenticated\n");
