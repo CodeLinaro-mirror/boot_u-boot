@@ -43,6 +43,13 @@ config OF_LIVE_SA8775P
           Say Y here to enable support for OF LIVE fixups
           on the Snapdragon SA8775 SoC.
 
+config OF_LIVE_SC7280
+        bool "Enable OF LIVE SC7280"
+        select OF_LIVE
+        help
+          Say Y here to enable support for OF LIVE fixups
+          on the Snapdragon SC7280 SoC.
+
 config QCOM_USB_FIXUP
 	bool "Enable USB speed fixup for Qualcomm platforms"
 	default y
