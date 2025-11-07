@@ -45,6 +45,14 @@ static const struct bcr_regs sdc_regs = {
 	.D = SDCC1_APPS_D,
 };
 
+static const struct bcr_regs ice_regs = {
+	.cfg_rcgr = GCC_SDCC1_ICE_CORE_CFG_RCGR,
+	.cmd_rcgr = GCC_SDCC1_ICE_CORE_CMD_RCGR,
+	.M = GCC_SDCC1_ICE_CORE_M,
+	.N = GCC_SDCC1_ICE_CORE_N,
+	.D = GCC_SDCC1_ICE_CORE_D,
+};
+
 static const struct bcr_regs uart0_regs = {
 	.cfg_rcgr = BLSP1_UART_APPS_CFG_RCGR(0),
 	.cmd_rcgr = BLSP1_UART_APPS_CMD_RCGR(0),
@@ -492,6 +500,11 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 6, 0, 0,
 				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
 		break;
+	case GCC_SDCC1_ICE_CORE_CLK:
+		/* ICE: 300MHz */
+		clk_rcg_set_rate_mnd(priv->base, &ice_regs, 4, 0, 0,
+				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
+		break;
 	case GCC_BLSP1_QUP1_SPI_APPS_CLK:
 		/* QUP1 SPI APPS CLK: 50MHz */
 		clk_rcg_set_rate_mnd(priv->base, &qup1_spi_regs, 16, 0, 0,
@@ -872,6 +885,9 @@ int msm_enable(struct clk *clk)
 		break;
 	case GCC_SDCC1_APPS_CLK:
 		clk_enable_cbc(priv->base + SDCC1_APPS_CBCR);
+		break;
+	case GCC_SDCC1_ICE_CORE_CLK:
+		clk_enable_cbc(priv->base + GCC_SDCC1_ICE_CORE_CBCR);
 		break;
 	case GCC_MEM_NOC_NSSNOC_CLK:
 		clk_enable_cbc(priv->base + GCC_MEM_NOC_NSSNOC_CBCR);

@@ -177,6 +177,14 @@ static const struct bcr_regs sdc_regs = {
 	.D = SDCC1_APPS_D,
 };
 
+static const struct bcr_regs ice_regs = {
+	.cfg_rcgr = GCC_SDCC1_ICE_CORE_CFG_RCGR,
+	.cmd_rcgr = GCC_SDCC1_ICE_CORE_CMD_RCGR,
+	.M = GCC_SDCC1_ICE_CORE_M,
+	.N = GCC_SDCC1_ICE_CORE_N,
+	.D = GCC_SDCC1_ICE_CORE_D,
+};
+
 static const struct bcr_regs gcc_usb0_master_clk_regs = {
 	.cfg_rcgr = GCC_USB0_MASTER_CFG_RCGR,
 	.cmd_rcgr = GCC_USB0_MASTER_CMD_RCGR,
@@ -389,6 +397,11 @@ ulong msm_set_rate(struct clk *clk, ulong rate)
 		/* SDCC1: 192 MHz */
 		clk_rcg_set_rate_mnd(priv->base, &sdc_regs, 0, 6, 25,
 				     SDCC1_SRC_SEL_GPLL0_OUT_MAIN);
+		break;
+	case GCC_SDCC1_ICE_CORE_CLK:
+		/* ICE Core Clock: 300 MHz */
+		clk_rcg_set_rate_mnd(priv->base, &ice_regs, 4, 0, 0,
+				     SDCC1_SRC_SEL_GPLL2_OUT_MAIN);
 		break;
 	case GCC_PCIE_AUX_CLK:
 		/* GCC_PCIE_AUX_CLK: 20 MHz */
@@ -624,6 +637,9 @@ int msm_enable(struct clk *clk)
 		break;
 	case GCC_SDCC1_AHB_CLK:
 		clk_enable_cbc(priv->base + GCC_SDCC1_AHB_CBCR);
+		break;
+	case GCC_SDCC1_ICE_CORE_CLK:
+		clk_enable_cbc(priv->base + GCC_SDCC1_ICE_CORE_CBCR);
 		break;
 	case GCC_USB0_MASTER_CLK:
 		clk_enable_cbc(priv->base + GCC_USB0_MASTER_CBCR);
