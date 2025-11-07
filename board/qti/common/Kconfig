@@ -61,3 +61,11 @@ config IPQ_MINIDUMP_VERSION_2
 	Enable support for Minidump Version 2, which allows selective
 	dumping of segments based on the crash type
 
+config IPQ_INLINE_ENCRYPTION
+	bool "IPQ Inline Crypto Engine (ICE) support"
+	depends on IPQ_CRASHDUMP_TO_EMMC
+	default n
+	help
+	Enable support for Qualcomm Inline Crypto Engine (ICE) for
+	hardware-accelerated encryption/decryption during crashdump
+	operations to eMMC storage.
