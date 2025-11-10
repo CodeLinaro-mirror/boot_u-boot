@@ -123,6 +123,10 @@ struct qcom_scm_res {
 #define SCM_READ_OP			0x01
 #define SCM_WRITE_OP			0x02
 
+#define QCOM_SVC_ICE			23
+#define QCOM_SCM_ICE_CMD                0x1
+#define QCOM_SCM_ICE_CONTEXT_CMD	0x3
+
 static inline int qcom_scm_remap_error(int err)
 {
 switch (err) {
@@ -168,7 +172,9 @@ enum scm_type {
 	SCM_AES_256_DEC,
 	SCM_ROOTFS_HASH_VERIFY,
 	SCM_CHECK_FEATURE_ID,
-	SCM_CLEAR_AES_KEY
+	SCM_CLEAR_AES_KEY,
+	SCM_ICE_CONFIGURE,
+	SCM_ICE_KEY_CONFIGURE
 };
 
 typedef struct {
