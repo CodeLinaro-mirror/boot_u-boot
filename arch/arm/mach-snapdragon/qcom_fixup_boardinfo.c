@@ -31,6 +31,7 @@
 #include <soc/qcom/socinfo.h>
 #include "chipinfo_def.h"
 #include "qcom_fixup_handlers.h"
+#include "qcom-priv.h"
 
 static const char *const feature_code_names_external[] = {
 	[CHIPINFO_SKU_UNKNOWN] = "Unknown",
@@ -42,7 +43,6 @@ static const char *const feature_code_names_external[] = {
 	[CHIPINFO_SKU_AF] = "AF",
 };
 
-static int board_serial_num(u32 *serial_num_ptr);
 static int add_serialnum_platinfo_prop(void *fdt_ptr, u32 node_offset);
 static int add_sku_prop(void *fdt_ptr, u32 node_offset);
 static int add_platforminfo_node(void *fdt_ptr);
@@ -55,7 +55,7 @@ static void add_platforminfo_properties(void *fdt_ptr);
  *
  * Return: 0 on success, negative error code on failure.
  */
-static int board_serial_num(u32 *serial_num_ptr)
+int board_serial_num(u32 *serial_num_ptr)
 {
 	struct socinfo *soc_info_ptr;
 	struct udevice *dev_ptr;

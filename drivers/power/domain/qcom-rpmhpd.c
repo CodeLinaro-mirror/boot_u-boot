@@ -137,8 +137,6 @@ static int rpmhpd_power_on(struct power_domain *pd)
 
 	/* Do nothing for undefined power domains */
 	if (!curr_rpmhpd) {
-		log_warning("Power domain id (%d) not supported\n",
-			    pd->id);
 		return 0;
 	}
 
@@ -169,8 +167,6 @@ static int rpmhpd_power_off(struct power_domain *pd)
 
 	/* Do nothing for undefined power domains */
 	if (!curr_rpmhpd) {
-		log_warning("Power domain id (%d) not supported\n",
-			    pd->id, 0);
 		return 0;
 	}
 
