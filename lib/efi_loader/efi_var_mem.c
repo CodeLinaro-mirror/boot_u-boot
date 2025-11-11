@@ -309,9 +309,12 @@ efi_get_variable_mem(const u16 *variable_name, const efi_guid_t *vendor,
 		     u32 *attributes, efi_uintn_t *data_size, void *data,
 		     u64 *timep, u32 mask)
 {
-	efi_uintn_t old_size;
+	efi_uintn_t old_size, var_data_size, auth_size;
 	struct efi_var_entry *var;
 	u16 *pdata;
+	void *var_data;
+	struct efi_time *timestamp;
+	struct win_certificate_uefi_guid *cert;
 
 	if (!variable_name || !vendor || !data_size)
 		return EFI_INVALID_PARAMETER;
@@ -335,19 +338,42 @@ efi_get_variable_mem(const u16 *variable_name, const efi_guid_t *vendor,
 	if (!u16_strcmp(variable_name, vtf))
 		return efi_var_collect_mem(data, data_size, EFI_VARIABLE_NON_VOLATILE);
 
+	for (pdata = var->name; *pdata; ++pdata)
+		;
+	++pdata;
+
+	var_data = (void *)pdata;
+	var_data_size = var->length;
+
+	/* Handle EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS */
+	if (var->attr & EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS) {
+		if (var_data_size > sizeof(struct efi_time)) {
+			timestamp = (struct efi_time *)var_data;
+			cert = (struct win_certificate_uefi_guid *)(timestamp + 1);
+			auth_size = sizeof(struct efi_time) + cert->hdr.dwLength;
+			if (var_data_size > auth_size) {
+				var_data = (u8 *)var_data + auth_size;
+				var_data_size -= auth_size;
+			}
+		}
+	}
+	/*
+	 * EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS type is old & not
+	 * expected for auth variables
+	 */
+	else if (var->attr & EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS)
+		return EFI_INVALID_PARAMETER;
+
 	old_size = *data_size;
-	*data_size = var->length;
-	if (old_size < var->length)
+	*data_size = var_data_size;
+
+	if (old_size < var_data_size)
 		return EFI_BUFFER_TOO_SMALL;
 
 	if (!data)
 		return EFI_INVALID_PARAMETER;
 
-	for (pdata = var->name; *pdata; ++pdata)
-		;
-	++pdata;
-
-	efi_memcpy_runtime(data, pdata, var->length);
+	efi_memcpy_runtime(data, var_data, var_data_size);
 
 	return EFI_SUCCESS;
 }

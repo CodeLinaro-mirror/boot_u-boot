@@ -29,6 +29,13 @@ config SYS_MALLOC_LEN
 config LNX_KRNL_IMG_TEXT_OFFSET_BASE
 	default 0x80000000
 
+config OF_LIVE_QCS615
+        bool "Enable OF LIVE QCS615"
+        select OF_LIVE
+        help
+          Say Y here to enable support for OF LIVE fixups
+          on the Snapdragon QCS615 SoC.
+
 config OF_LIVE_SA8775P
         bool "Enable OF LIVE SA8775P"
         select OF_LIVE
