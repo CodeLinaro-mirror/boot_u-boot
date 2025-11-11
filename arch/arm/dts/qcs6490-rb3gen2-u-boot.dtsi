@@ -22,6 +22,31 @@
 	/delete-property/ usb-role-switch;
 };
 
+&apps_smmu {
+	bootph-all;
+};
+
+/* Enable TLMM pinctrl controller for pre-relocation */
+&tlmm {
+	bootph-all;
+};
+
+/* Enable UART5 pinctrl nodes for pre-relocation */
+&qup_uart5_tx {
+	bootph-all;
+};
+
+&qup_uart5_rx {
+	bootph-all;
+};
+
+/* Disable GPIO buttons in U-Boot to avoid pinctrl errors */
+/ {
+	gpio-keys {
+		status = "disabled";
+	};
+};
+
 // RAM Entry 0 : Base 0x0080000000  Size 0x003A800000
 // RAM Entry 1 : Base 0x00C0000000  Size 0x0001800000
 // RAM Entry 2 : Base 0x00C3400000  Size 0x003CC00000
