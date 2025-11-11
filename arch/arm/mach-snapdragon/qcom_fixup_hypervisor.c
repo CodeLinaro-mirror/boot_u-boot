@@ -235,7 +235,7 @@ static bool add_overlay_fdt(struct fdt_header *fdt_ptr, void *dtbo_base_addr_ptr
 
 	log_debug("%s: Hyp fdt offset- %d\n", __func__, hyp_offset);
 
-	log_debug("%s: Before Overlay Fdt@0x%p | %lu - 0x%lx\n", __func__,
+	log_debug("%s: Before Overlay Fdt@0x%p | %u - 0x%x\n", __func__,
 		  fdt_ptr, fdt_totalsize(fdt_ptr), fdt_totalsize(fdt_ptr));
 
 	ret = fdt_overlay_apply_node(fdt_ptr, 0, dtbo_base_addr_ptr,
@@ -259,7 +259,7 @@ static bool add_overlay_fdt(struct fdt_header *fdt_ptr, void *dtbo_base_addr_ptr
 void hypervisor_fixup_handler(struct fdt_header *fdt_ptr)
 {
 	struct boot_param_list boot_params_list;
-	int ret, idx;
+	int idx;
 	int status = check_and_set_vm_data(&boot_params_list);
 
 	if (status != 0) {
