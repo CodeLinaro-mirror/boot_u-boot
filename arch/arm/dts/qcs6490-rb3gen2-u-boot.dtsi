@@ -18,7 +18,7 @@
 };
 
 &usb_1_dwc3 {
-	dr_mode = "host";
+	dr_mode = "peripheral";
 	/delete-property/ usb-role-switch;
 };
 
