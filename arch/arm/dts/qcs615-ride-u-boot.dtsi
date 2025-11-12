@@ -156,3 +156,29 @@
 
 	};
 };
+
+&i2c2 {
+        /delete-property/ power-domains;
+        clock-frequency = <400000>;
+        status = "okay";
+
+        ioexp: gpio@3e {
+                compatible = "semtech,sx1509q";
+                reg = <0x3e>;
+                interrupt-parent = <&tlmm>;
+                interrupts = <58 0>;
+                gpio-controller;
+                #gpio-cells = <2>;
+                interrupt-controller;
+                #interrupt-cells = <2>;
+                semtech,probe-reset;
+        };
+
+        i2c-mux@77 {
+                compatible = "nxp,pca9542";
+                reg = <0x77>;
+                #address-cells = <1>;
+                #size-cells = <0>;
+        };
+
+};
