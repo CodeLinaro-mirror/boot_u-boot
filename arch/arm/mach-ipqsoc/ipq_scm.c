@@ -344,6 +344,14 @@ int ipq_scm_call(scm_param *param)
 		desc.svc = QCOM_SCM_SVC_CRYPTO;
 		desc.cmd = QCOM_SCM_CMD_AES_CLEAR_KEY;
 		break;
+	case SCM_ICE_CONFIGURE:
+		desc.svc = QCOM_SVC_ICE;
+		desc.cmd = QCOM_SCM_ICE_CMD;
+		break;
+	case SCM_ICE_KEY_CONFIGURE:
+		desc.svc = QCOM_SVC_ICE;
+		desc.cmd = QCOM_SCM_ICE_CONTEXT_CMD;
+		break;
 	default:
 		printf("Invalid call ID: %d\n", param->type);
 		ret = -EINVAL;

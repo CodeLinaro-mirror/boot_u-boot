@@ -31,6 +31,17 @@
 #include <div64.h>
 #include "ext4_common.h"
 
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+void storage_crypto_config(u64 dun, bool enable);
+#endif
+
+static bool ext4_crashdump_mode;
+
+void ext4fs_set_crashdump_mode(bool enable)
+{
+	ext4_crashdump_mode = enable;
+}
+
 static inline void ext4fs_sb_free_inodes_inc(struct ext2_sblock *sb)
 {
 	sb->free_inodes = cpu_to_le32(le32_to_cpu(sb->free_inodes) + 1);
@@ -778,7 +789,9 @@ static int ext4fs_write_file(struct ext2_inode *file_inode,
 	int delayed_extent = 0;
 	int delayed_next = 0;
 	const char *delayed_buf = NULL;
-
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+	uint64_t dun = (uint64_t)pos / 512;
+#endif
 	/* Adjust len so it we can't read past the end of the file. */
 	if (len > filesize)
 		len = filesize;
@@ -801,10 +814,21 @@ static int ext4fs_write_file(struct ext2_inode *file_inode,
 					delayed_extent += blockend;
 					delayed_next += blockend >> log2blksz;
 				} else {	/* spill */
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+					if (ext4_crashdump_mode) {
+						storage_crypto_config(dun, true);
+					}
+#endif
 					put_ext4((uint64_t)
 						 ((uint64_t)delayed_start << log2blksz),
 						 delayed_buf,
 						 (uint32_t) delayed_extent);
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+					if (ext4_crashdump_mode) {
+						dun += delayed_extent / 512;
+						storage_crypto_config(dun, false);
+					}
+#endif
 					previous_block_number = blknr;
 					delayed_start = blknr;
 					delayed_extent = blockend;
@@ -822,11 +846,21 @@ static int ext4fs_write_file(struct ext2_inode *file_inode,
 			}
 		} else {
 			if (previous_block_number != -1) {
-				/* spill */
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+				if (ext4_crashdump_mode) {
+					storage_crypto_config(dun, true);
+				}
+#endif
 				put_ext4((uint64_t) ((uint64_t)delayed_start <<
 						     log2blksz),
 					 delayed_buf,
 					 (uint32_t) delayed_extent);
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+				if (ext4_crashdump_mode) {
+					dun += delayed_extent / 512;
+					storage_crypto_config(dun, false);
+				}
+#endif
 				previous_block_number = -1;
 			}
 		}
@@ -834,8 +868,19 @@ static int ext4fs_write_file(struct ext2_inode *file_inode,
 	}
 	if (previous_block_number != -1) {
 		/* spill */
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+		if (ext4_crashdump_mode) {
+			storage_crypto_config(dun, true);
+		}
+#endif
 		put_ext4((uint64_t) ((uint64_t)delayed_start << log2blksz),
 			 delayed_buf, (uint32_t) delayed_extent);
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+		if (ext4_crashdump_mode) {
+			dun += delayed_extent / 512;
+			storage_crypto_config(dun, false);
+		}
+#endif
 		previous_block_number = -1;
 	}
 

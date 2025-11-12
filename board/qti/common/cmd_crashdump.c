@@ -15,6 +15,8 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/bitfield.h>
+#include <linux/iopoll.h>
 #include <stdio.h>
 #include <memalign.h>
 #include <command.h>
@@ -45,6 +47,10 @@
 #include <spi_flash.h>
 #endif
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
+
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+extern void ext4fs_set_crashdump_mode(bool enable);
+#endif
 
 #ifdef CONFIG_WDT
 #include <dm/uclass-internal.h>
@@ -268,6 +274,7 @@ typedef struct {
 	uint8_t dump_level;
 	uint8_t dump_to;
 	uint8_t is_compress_enabled;
+	uint8_t encryption_enabled;
 	crashdump_interface_cfg_t iface_cfg;
 	crashdump_infos_t *dump_infos;
 	uint8_t nos_dumps;
@@ -277,6 +284,8 @@ typedef struct {
 
 static LIST_HEAD(actual_dumps_list);
 static crashdump_config_t dump_config;
+
+extern int qcom_set_ice_config(crashdump_config_t *dump_config);
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_FLASH
 #ifdef CONFIG_IPQ_NAND
@@ -1096,6 +1105,13 @@ static void parse_crashdump_config(crashdump_config_t * dump_config)
 #ifdef CONFIG_IPQ_COMPRESSED_CRASHDUMP
 	dump_config->is_compress_enabled = env_get("dump_compressed") ? 1 : 0;
 #endif /* CONFIG_IPQ_COMPRESSED_CRASHDUMP */
+
+	dump_config->encryption_enabled = 0;
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+	if (env_get("dump_encryption"))
+		dump_config->encryption_enabled = 1;
+#endif /* CONFIG_IPQ_INLINE_ENCRYPTION */
+
 	return;
 }
 
@@ -1338,14 +1354,18 @@ static int verify_crashdump_config(crashdump_config_t * dump_config)
 
 #ifdef CONFIG_IPQ_CRASHDUMP_TO_EMMC
 	case DUMP_TO_EMMC:
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+		if (dump_config->encryption_enabled) {
+			ret = qcom_set_ice_config(dump_config);
+			if (ret) {
+				printf("Failed to configure ICE crypto for crashdump\n");
+				ret =  CMD_RET_FAILURE;
+			}
+		}
+#endif /* CONFIG_IPQ_INLINE_ENCRYPTION */
+
 		if (dump_config->dump_level != FULLDUMP) {
 			printf("Only Fulldump is supported in dump_to_emmc\n");
-			ret = CMD_RET_FAILURE;
-		}
-
-		if (!dump_config->is_compress_enabled) {
-			printf("Only Compressed full dump allowed "
-					"in dump_to_emmc\n");
 			ret = CMD_RET_FAILURE;
 		}
 		break;
@@ -2210,6 +2230,345 @@ int crashdump_emmc_flash_write_data(void *cnxt, uint8_t *data, uint32_t size)
 
 	return 0;
 }
+
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+/**
+ * qcom_configure_ice_key_with_context() - Configure ICE crypto key with context data
+ * @ice: ICE configuration structure containing crypto parameters
+ * @context1: First context string (data context for ECB/XTS, hex format)
+ * @context2: Second context string (salt context for XTS mode only, hex format)
+ * @dump_config: Crashdump configuration for adding crypto context to dump table
+ * @mode: Crypto mode string for context file generation
+ *
+ * This function configures the Inline Crypto Engine (ICE) with cryptographic keys
+ * and contexts. It supports both AES-ECB and AES-XTS modes:
+ * - ECB mode: Uses only context1 as data context
+ * - XTS mode: Uses context1 as data context and context2 as salt context
+ *
+ * If contexts are not provided, random contexts are generated automatically.
+ * The function also creates a CRYPTO_CONTEXT.BIN file for crashdump collection
+ * containing the mode and context information.
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+int qcom_configure_ice_key_with_context(struct ice_config_sec *ice,
+		char *context1, char *context2,
+		crashdump_config_t *dump_config, const char *mode)
+{
+	uint8_t *hex_data_context = NULL, *hex_salt_context = NULL;
+	uint8_t *crypto_header = NULL;
+	uint64_t hex_salt_len = 128, hex_data_len = 128;
+	uint32_t seedtype = 1;
+	scm_param param = {0};
+	int ret = 0, i;
+
+	if (!ice) {
+		printf("Error: Invalid ICE configuration structure\n");
+		return -EINVAL;
+	}
+
+	hex_data_context = (uint8_t *)memalign(ARCH_DMA_MINALIGN, 128);
+	if (!hex_data_context) {
+		printf("Error allocating memory for data context\n");
+		return -ENOMEM;
+	}
+
+	if (ice->algo_mode == ICE_CRYPTO_ALGO_MODE_HW_AES_ECB) {
+		if (context1) {
+			ret = hex_string_to_binary(context1, hex_data_context, 128);
+			if (ret < 0) {
+				printf("Error: Failed to parse provided context for ECB mode\n");
+				goto cleanup;
+			}
+		} else {
+			generate_random_context(hex_data_context, 128);
+		}
+	}
+	else if (ice->algo_mode == ICE_CRYPTO_ALGO_MODE_HW_AES_XTS) {
+		hex_salt_context = (uint8_t *)memalign(ARCH_DMA_MINALIGN, 128);
+		if (!hex_salt_context) {
+			printf("Error allocating memory for salt context\n");
+			ret = -ENOMEM;
+			goto cleanup;
+		}
+
+		if (context1 && context2) {
+			ret = hex_string_to_binary(context1, hex_data_context, 128);
+			if (ret < 0) {
+				printf("Error: Failed to parse provided data context for XTS mode\n");
+				goto cleanup;
+			}
+
+			ret = hex_string_to_binary(context2, hex_salt_context, 128);
+			if (ret < 0) {
+				printf("Error: Failed to parse provided salt context for XTS mode\n");
+				goto cleanup;
+			}
+		} else {
+			generate_random_context(hex_data_context, 128);
+			generate_random_context(hex_salt_context, 128);
+
+			/* To always ensure salt context is different from data context */
+			hex_salt_context[0] ^= 0xFF;
+		}
+
+		hex_salt_len = 128;
+	}
+
+	printf("\n data context \n");
+	for (i = 0; i < hex_data_len; i++) {
+		printf("%02x", hex_data_context[i]);
+	}
+	printf("\n");
+
+	if (hex_salt_context) {
+		printf(" salt context \n");
+		for (i = 0; i < hex_salt_len; i++) {
+			printf("%02x", hex_salt_context[i]);
+		}
+		printf("\n");
+	} else {
+		printf(" salt context: Not applicable for ECB mode\n");
+	}
+	do {
+		IPQ_SCM_ICE_KEY_CONFIGURE(param, seedtype, ice->key_size, ice->algo_mode,
+				      (uint64_t)hex_data_context, hex_data_len,
+				      (uint64_t)hex_salt_context, hex_salt_len);
+		invalidate_dcache_all();
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("ipq_scm_call: IPQ_SCM_ICE_KEY_CONFIGURE failed, ret: %d\n", ret);
+			if (ret == -ENOTSUPP) {
+				printf("Unsupported SCM call\n");
+			}
+			ret = CMD_RET_FAILURE;
+			if (crypto_header) {
+				free(crypto_header);
+				crypto_header = NULL;
+			}
+			goto cleanup;
+		}
+	} while(0);
+
+	/* Create CRYPTO_CONTEXT.BIN file for crashdump collection */
+	if (dump_config && mode) {
+		uint32_t mode_len = strlen(mode);
+		uint32_t header_size = mode_len + 1 + hex_data_len; /* mode + space + data context */
+		uint32_t offset = 0;
+		crashdump_infos_int_t crypto_entry;
+
+		if (ice->algo_mode == ICE_CRYPTO_ALGO_MODE_HW_AES_XTS) {
+			header_size += 1 + hex_salt_len; /* space + salt context */
+		}
+
+		header_size = roundup(header_size, CONFIG_SYS_CACHELINE_SIZE);
+		crypto_header = malloc_cache_aligned(header_size);
+		if (!crypto_header) {
+			printf("Failed to allocate memory for crypto context\n");
+			ret = CMD_RET_FAILURE;
+			goto cleanup;
+		}
+		memcpy(crypto_header, mode, mode_len);
+		offset = mode_len;
+		crypto_header[offset++] = ' ';
+		memcpy(crypto_header + offset, hex_data_context, hex_data_len);
+		offset += hex_data_len;
+
+		if (ice->algo_mode == ICE_CRYPTO_ALGO_MODE_HW_AES_XTS) {
+			crypto_header[offset++] = ' ';
+			memcpy(crypto_header + offset, hex_salt_context, hex_salt_len);
+			offset += hex_salt_len;
+		}
+
+		memset(&crypto_entry, 0, sizeof(crypto_entry));
+		strlcpy(crypto_entry.name, "CRYPTO_CONTEXT.BIN", sizeof(crypto_entry.name));
+		crypto_entry.start_addr = (uint64_t)(uintptr_t)crypto_header;
+		crypto_entry.size = header_size;
+		crypto_entry.is_aligned_access = 0;
+		crypto_entry.compression_support = 0;
+		crypto_entry.dumptoflash_support = 1;
+
+		printf("Adding CRYPTO_CONTEXT.BIN to crashdump table (size: %d bytes)\n", header_size);
+		ret = add_entry_crashdump_table(dump_config, &crypto_entry);
+		if (ret) {
+			printf("Failed to add crypto context to crashdump table (ret=%d)\n", ret);
+			ret = CMD_RET_FAILURE;
+			goto cleanup;
+		}
+	}
+/*
+ * Note: crypto_header is intentionally not freed here as it's referenced
+ * by the crashdump table and will be written during dump collection.
+ * It should be freed after dump_to_dst() completes writing all entries.
+ */
+
+cleanup:
+	if (hex_data_context) {
+		free(hex_data_context);
+	}
+	if (hex_salt_context) {
+		free(hex_salt_context);
+	}
+
+	return ret;
+}
+
+/**
+ * qcom_set_ice_config() - Configure ICE (Inline Crypto Engine) for crashdump
+ * @dump_config: Crashdump configuration structure to update with crypto settings
+ *
+ * This function parses the 'dump_encryption' environment variable and configures
+ * the Inline Crypto Engine (ICE) for crashdump encryption. The environment variable
+ * format is: "enable mode [context1] [context2]"
+ *
+ * Where:
+ * - enable: 1 to enable crypto, 0 to disable
+ * - mode: Crypto mode (aes-ecb-128, aes-ecb-256, aes-xts-128, aes-xts-256)
+ * - context1: Optional hex string for data context (ECB/XTS modes)
+ * - context2: Optional hex string for salt context (XTS mode only)
+ *
+ * Returns: 0 on success (crypto may be disabled), negative on failure
+ */
+int qcom_set_ice_config(crashdump_config_t *dump_config)
+{
+	struct ice_config_sec *ice = NULL;
+	scm_param param = {0};
+	int ret;
+	const char *crypto_mode = env_get("dump_encryption");
+	char *crypto_config_str = NULL;
+	char *enable_str = NULL;
+	char *mode = NULL;
+	char *context1 = NULL;
+	char *context2 = NULL;
+
+	if (!dump_config) {
+		printf("Error: dump_config parameter is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!crypto_mode) {
+		printf("dump_encryption environment variable not set, disabling crypto\n");
+		dump_config->encryption_enabled = 0;
+		return 0;
+	}
+
+	crypto_config_str = malloc(strlen(crypto_mode) + 1);
+	if (!crypto_config_str) {
+		printf("Error allocating memory for crypto config parsing, disabling crypto\n");
+		dump_config->encryption_enabled = 0;
+		return -ENOMEM;
+	}
+	strlcpy(crypto_config_str, crypto_mode, strlen(crypto_mode) + 1);
+
+	char *token_ptr = crypto_config_str;
+	enable_str = strsep(&token_ptr, " ");
+
+	if (!enable_str || simple_strtoul(enable_str, NULL, 10) != 1) {
+		printf("ICE crypto disabled (enable bit: %s)\n",
+		       enable_str ? enable_str : "UNKNOWN");
+		free(crypto_config_str);
+		dump_config->encryption_enabled = 0;
+		return 0;
+	}
+
+	mode = strsep(&token_ptr, " ");
+	if (token_ptr) {
+		context1 = strsep(&token_ptr, " ");
+		if (token_ptr) {
+			context2 = strsep(&token_ptr, " ");
+		}
+	}
+
+	if (!mode || strlen(mode) == 0) {
+		printf("No mode specified in dump_encryption, using default: aes-xts-256\n");
+		free(crypto_config_str);
+		const char *default_mode = "aes-xts-256";
+		size_t mode_len = strlen(default_mode) + 1;
+		crypto_config_str = malloc(mode_len);
+		if (!crypto_config_str) {
+			printf("Error allocating memory for default crypto mode, disabling crypto\n");
+			dump_config->encryption_enabled = 0;
+			return -ENOMEM;
+		}
+		strlcpy(crypto_config_str, default_mode, mode_len);
+		mode = crypto_config_str;
+		context1 = NULL;
+		context2 = NULL;
+	}
+	ice = (struct ice_config_sec *)memalign(
+				ARCH_DMA_MINALIGN,
+				sizeof(struct ice_config_sec));
+	if (!ice) {
+		printf("Error allocating memory for key handle request buf, disabling crypto\n");
+		free(crypto_config_str);
+		dump_config->encryption_enabled = 0;
+		return -ENOMEM;
+	}
+
+	if (!strcmp(mode, "aes-ecb-128")) {
+		ice->algo_mode = ICE_CRYPTO_ALGO_MODE_HW_AES_ECB;
+		ice->key_size = ICE_CRYPTO_KEY_SIZE_HW_128;
+	} else if (!strcmp(mode, "aes-ecb-256")) {
+		ice->algo_mode = ICE_CRYPTO_ALGO_MODE_HW_AES_ECB;
+		ice->key_size = ICE_CRYPTO_KEY_SIZE_HW_256;
+	} else if (!strcmp(mode, "aes-xts-128")) {
+		ice->algo_mode = ICE_CRYPTO_ALGO_MODE_HW_AES_XTS;
+		ice->key_size = ICE_CRYPTO_KEY_SIZE_HW_128;
+	} else if (!strcmp(mode, "aes-xts-256")) {
+		ice->algo_mode = ICE_CRYPTO_ALGO_MODE_HW_AES_XTS;
+		ice->key_size = ICE_CRYPTO_KEY_SIZE_HW_256;
+	} else {
+		printf("Error: Unhandled crypto mode: %s, disabling crypto\n", mode);
+		goto cleanup_and_disable;
+	}
+
+	ice->index = 0;
+	ice->key_mode = 0;
+
+	ret = qcom_configure_ice_key_with_context(ice, context1, context2, dump_config, mode);
+	if (ret) {
+		printf("ICE key configuration failed, disabling crypto\n");
+		goto cleanup_and_disable;
+	}
+
+	do {
+		IPQ_SCM_ICE_CONFIGURE(param, (uintptr_t)ice,
+				sizeof(struct ice_config_sec));
+		invalidate_dcache_all();
+		ret = ipq_scm_call(&param);
+		if (ret) {
+			printf("\nipq_scm_call: IPQ_SCM_ICE_CONFIGURE"
+					" failed, ret : %d\n", ret);
+			ret = CMD_RET_FAILURE;
+			goto cleanup_and_disable;
+		}
+	} while(0);
+
+	if (ret == -ENOTSUPP) {
+		printf("Unsupported SCM call\n");
+		ret = CMD_RET_FAILURE;
+	}
+
+	if (ret != 0) {
+		printf("ICE configuration failed, disabling crypto\n");
+		dump_config->encryption_enabled = 0;
+	} else {
+		printf("ICE Parameters configured successfully\n");
+	}
+
+	free(ice);
+	free(crypto_config_str);
+	return 0;
+
+cleanup_and_disable:
+	if (ice)
+		free(ice);
+	if (crypto_config_str)
+		free(crypto_config_str);
+	dump_config->encryption_enabled = 0;
+	return ret ? ret : -EINVAL;
+}
+#endif
 #endif
 
 static int crashdump_flash_get_args(uint8_t *flash_type, uint64_t *offset)
@@ -2551,6 +2910,7 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 			printf("crashdump data writing in flash failure\n");
 			return CMD_RET_FAILURE;
 		}
+
 		break;
 #endif /* CONFIG_IPQ_CRASHDUMP_TO_FLASH */
 
@@ -2567,10 +2927,21 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 			printf("failed to set block device to mmc\n");
 			return CMD_RET_FAILURE;
 		}
-
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+		/* Enable crypto mode only if crypto is enabled and file is not CRYPTO_CONTEXT.BIN */
+		if (dump_config->encryption_enabled && strcmp(dump_entry->name, "CRYPTO_CONTEXT.BIN") != 0) {
+			ext4fs_set_crashdump_mode(true);  /* Enable crypto mode */
+			printf("ICE: Enabled file crypto mode for %s\n", abs_file_path);
+		}
+#endif
 		printf("Writing %s into MMC \n", dump_entry->name);
 		ret = fs_write(abs_file_path, dump_entry->start_addr, 0,
 					dump_entry->size, &len);
+
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+		/* Always disable crypto mode after write */
+		ext4fs_set_crashdump_mode(false);
+#endif
 		if (ret < 0) {
 			printf("failed to write %s file, error : %d\n",
 					dump_entry->name, ret);
@@ -2962,6 +3333,16 @@ int do_crashdump(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 	if (ipq_iscrashed()) {
+#ifdef CONFIG_IPQ_INLINE_ENCRYPTION
+		/* Initialize ICE hardware for crashdump encryption */
+		int ice_ret = qcom_ice_init_crashdump();
+		if (ice_ret) {
+			printf("ICE initialization failed in crashdump mode: %d\n", ice_ret);
+			printf("WARNING: Disabling encryption for crashdump\n");
+			dump_config.encryption_enabled = 0;
+		}
+#endif /* CONFIG_IPQ_INLINE_ENCRYPTION */
+
 #ifdef CONFIG_SDX_ATTACH_SUPPORT
 		ipq_board_gpio_config(SDX_POWER_CYCLE);
 #endif

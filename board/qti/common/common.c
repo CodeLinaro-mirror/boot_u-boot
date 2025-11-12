@@ -34,6 +34,8 @@
 #include <asm/io.h>
 #include <linux/iopoll.h>
 #include <gzip.h>
+#include <rand.h>
+#include <time.h>
 
 #include "ipq_board.h"
 
@@ -2158,3 +2160,129 @@ out:
 	return ret;
 }
 #endif
+
+/**
+ * hex_string_to_binary() - Convert hex string to binary data
+ * @hex_str: Input hex string
+ * @binary_data: Output buffer for binary data
+ * @max_len: Maximum length of output buffer
+ *
+ * Returns: Length of binary data on success, negative error code on failure
+ */
+int hex_string_to_binary(const char *hex_str, uint8_t *binary_data,
+			uint32_t max_len)
+{
+	uint32_t hex_len;
+	uint32_t binary_len;
+	uint32_t i;
+
+	/* Input parameter validation */
+	if (!hex_str) {
+		printf("Error: hex_str parameter is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!binary_data) {
+		printf("Error: binary_data parameter is NULL\n");
+		return -EINVAL;
+	}
+
+	if (max_len == 0) {
+		printf("Error: max_len parameter is zero\n");
+		return -EINVAL;
+	}
+
+	hex_len = strlen(hex_str);
+	if (hex_len == 0) {
+		printf("Error: hex_str is empty\n");
+		return -EINVAL;
+	}
+
+	/* Validate hex_len is reasonable (max 2 * max_len) */
+	if (hex_len > (max_len * 2)) {
+		printf("Error: Hex string too long (length %d, max %d chars)\n",
+			hex_len, max_len * 2);
+		return -EINVAL;
+	}
+
+	if (hex_len % 2 != 0) {
+		printf("Error: Hex string length must be even\n");
+		return -EINVAL;
+	}
+
+	binary_len = hex_len / 2;
+	if (binary_len > max_len) {
+		printf("Error: Hex string too long (max %d bytes)\n", max_len);
+		return -EINVAL;
+	}
+
+	/* Validate all characters are valid hex digits */
+	for (i = 0; i < hex_len; i++) {
+		char c = hex_str[i];
+		if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+				|| (c >= 'A' && c <= 'F'))) {
+			printf("Error: Invalid hex character '%c' at position %d\n", c, i);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < binary_len; i++) {
+		char hex_byte[3];
+		char *endptr;
+		unsigned long byte_val;
+		uint32_t char_pos1 = i * 2;
+		uint32_t char_pos2 = i * 2 + 1;
+
+		hex_byte[0] = hex_str[char_pos1];
+		hex_byte[1] = hex_str[char_pos2];
+		hex_byte[2] = '\0';
+
+		byte_val = strtoul(hex_byte, &endptr, 16);
+
+		if (*endptr != '\0' || byte_val > 0xFF) {
+			printf("Error: Invalid hex value at position %d\n", char_pos1);
+			return -EINVAL;
+		}
+
+		binary_data[i] = (uint8_t)byte_val;
+	}
+
+	/* Function returns actual bytes written - caller manages buffer */
+	return (int)binary_len;
+}
+
+/**
+ * generate_random_context() - Generate random context data
+ * @context: Output buffer for random data
+ * @size: Size of random data to generate
+ */
+void generate_random_context(uint8_t *context, uint32_t size)
+{
+	uint32_t i;
+	uint32_t seed;
+
+	/* Input parameter validation */
+	if (!context) {
+		printf("Error: context parameter is NULL\n");
+		return;
+	}
+
+	if (size == 0) {
+		printf("Error: size parameter is zero\n");
+		return;
+	}
+
+	/* Additional safety check for reasonable size limits */
+	if (size > (1024 * 1024)) {  /* 1MB limit */
+		printf("Error: size parameter too large (%u bytes, max 1MB)\n", size);
+		return;
+	}
+
+	seed = get_timer(0) ^ (ulong)&seed;
+	srand(seed);
+
+	for (i = 0; i < size; i++) {
+		context[i] = (uint8_t)(rand() & 0xFF);
+	}
+}
+
