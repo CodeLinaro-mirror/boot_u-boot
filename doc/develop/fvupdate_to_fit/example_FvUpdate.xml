@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/** @file FVUpdate.xml
+
+    This file configures the content of the payload for firmware update
+
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+**/
+
+#FlashType
+  UFS
+  EMMC
+
+#Operation Type
+  IGNORE
+  UPDATE
+
+#UpdateType
+  UPDATE_PARTITION
+
+#NOTE: PartitionName is Case sensitive
+
+-->
+<FVItems>
+<!--Sample Metadata configuration for UFS FlashTYpe-->
+    <Metadata>
+      <FlashType>UFS</FlashType>
+    </Metadata>
+
+<!--BootLoader entries-->
+
+<!--FwEntry for LUN4 UBoot-->
+  <FwEntry>
+    <InputBinary>u-boot.mbn</InputBinary>
+    <InputPath>Images</InputPath>
+    <Operation>UPDATE</Operation>
+    <UpdateType>UPDATE_PARTITION</UpdateType>
+    <Dest>
+      <DiskType>UFS_LUN4</DiskType>
+      <PartitionName>uefi_a</PartitionName>
+    </Dest>
+  </FwEntry>
+
+<!--FwEntry for LUN4 TZ-->
+  <FwEntry>
+    <InputBinary>tz.mbn</InputBinary>
+    <InputPath>Images</InputPath>
+    <Operation>UPDATE</Operation>
+    <UpdateType>UPDATE_PARTITION</UpdateType>
+    <Dest>
+      <DiskType>UFS_LUN4</DiskType>
+      <PartitionName>tz_a</PartitionName>
+      <PartitionTypeGUID>{DEA0BA2C-CBDD-4805-B4F9-F428251C3E98}</PartitionTypeGUID>
+    </Dest>
+  </FwEntry>
+
+<!--Add FwEntries based on requirement-->
+
+</FVItems>
