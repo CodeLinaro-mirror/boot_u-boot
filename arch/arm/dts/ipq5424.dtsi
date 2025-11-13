@@ -206,12 +206,14 @@
 
 		mmc: sdhci@7800000 {
 			compatible = "qti,sdhci-msm-v5";
-			reg = <0x7804000 0x1000 0x7805000 0x1000>;
-			reg-names = "hc_mem", "cmdq_mem";
+			reg = <0x7804000 0x1000>, <0x7805000 0x1000>,
+				<0x7808000 0x2000>;
+			reg-names = "hc_mem", "cmdq_mem", "ice_mem";
 			resets = <&reset GCC_SDCC1_BCR>;
 			reset-names = "bcr_rst";
 			clock = <&gcc GCC_SDCC1_APPS_CLK>,
-				<&gcc GCC_SDCC1_AHB_CLK>;
+				<&gcc GCC_SDCC1_AHB_CLK>,
+				<&gcc GCC_SDCC1_ICE_CORE_CLK>;
 			clock-frequency = <200000000>;
 			max-frequency = <200000000>;
 			sdhci-caps-mask = <0x0 0x04000000>;
