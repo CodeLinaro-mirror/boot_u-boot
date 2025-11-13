@@ -61,7 +61,7 @@ Creates system.fit and firmware.capsule::
     ./fvupdate_to_fit.py FvUpdate.xml \
         --mkeficapsule <path_to_mkeficapsule_tool> \
         --guid <guid_of_the_board> \
-        --fw-version <version_of_the_capsule_payload>
+        --fw-version <version_of_the_capsule_payload_in_0.0.A.B_format>
 
 Additional Examples
 ~~~~~~~~~~~~~~~~~~~
@@ -71,7 +71,7 @@ With custom output names::
     ./fvupdate_to_fit.py FvUpdate.xml \
         --mkeficapsule /path/to/mkeficapsule \
         --guid 12345678-1234-5678-9abc-123456789abc \
-        --fw-version 2 \
+        --fw-version 0.0.1.0 \
         --output custom.fit \
         --capsule-output custom.capsule
 
@@ -80,8 +80,21 @@ With verbose output::
     ./fvupdate_to_fit.py FvUpdate.xml \
         --mkeficapsule /path/to/mkeficapsule \
         --guid 12345678-1234-5678-9abc-123456789abc \
-        --fw-version 2 \
+        --fw-version 0.0.1.0 \
         --verbose
+
+With Capsule Signing
+~~~~~~~~~~~~~~~~~~~~
+
+Creates a signed capsule::
+
+    ./fvupdate_to_fit.py FvUpdate.xml \
+        --mkeficapsule /path/to/mkeficapsule \
+        --guid 12345678-1234-5678-9abc-123456789abc \
+        --fw-version 0.0.1.0 \
+        --monotonic-count 1 \
+        --private-key keys/CRT.key \
+        --certificate keys/CRT.crt
 
 Command Line Options
 --------------------
@@ -103,7 +116,16 @@ Command Line Options
      - Path to mkeficapsule binary
      - Required
    * - ``--fw-version``
-     - Firmware version number
+     - Firmware version in "0.0.A.B" format (e.g., "0.0.1.0")
+     - Optional
+   * - ``--monotonic-count``
+     - Monotonic count for capsule signing
+     - Optional
+   * - ``--private-key``
+     - Path to the private key for signing
+     - Optional
+   * - ``--certificate``
+     - Path to the certificate for signing
      - Optional
    * - ``-o, --output``
      - Output FIT image name
@@ -220,7 +242,8 @@ Capsule Structure
 - **GUID**: Provided via --guid option
 - **Index**: Always 1 (required for FIT capsules)
 - **Payload**: FIT image containing all firmware
-- **Version**: Optional firmware version via --fw-version
+- **Version**: Optional firmware version (in 0.0.A.B format) via --fw-version, encoded as (A << 16 | B)
+- **Signing**: Optional signing with monotonic count, private key, and certificate
 
 FMP Driver Compatibility
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -272,8 +295,8 @@ Complete Mode
     FIT image compiled successfully: 3670016 bytes
     Using GUID: 12345678-1234-5678-9abc-123456789abc
     Creating capsule: firmware.capsule
-      Firmware version: 2
-      Command: mkeficapsule -g 12345678-1234-5678-9abc-123456789abc -i 1 -v 2 system.fit firmware.capsule
+      Encoded Firmware version: 65536 (from 0.0.1.0)
+      Command: mkeficapsule -g 12345678-1234-5678-9abc-123456789abc -i 1 -v 65536 system.fit firmware.capsule
     Capsule created successfully: 3670144 bytes ✓
     ============================================================
     SUCCESS: Complete capsule workflow completed!
@@ -377,13 +400,13 @@ If you get an error about mkeficapsule not being found, use a locally compiled v
     ./fvupdate_to_fit.py FvUpdate.xml \
         --mkeficapsule /path/to/local/u-boot/tools/mkeficapsule \
         --guid 12345678-1234-5678-9abc-123456789abc \
-        --fw-version 2
+        --fw-version 0.0.1.0
 
     # Example with U-Boot build directory
     ./fvupdate_to_fit.py FvUpdate.xml \
         --mkeficapsule /local/mnt/workspace/bselvana/k2c_le/u-boot_upstream/u-boot_v2025_upstream/tools/mkeficapsule \
         --guid 12345678-1234-5678-9abc-123456789abc \
-        --fw-version 2
+        --fw-version 0.0.1.0
 
 Invalid GUID format
 ~~~~~~~~~~~~~~~~~~~

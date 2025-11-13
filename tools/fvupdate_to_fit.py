@@ -321,20 +321,38 @@ class FvUpdateToFitConverter:
         guid_pattern = r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
         return re.match(guid_pattern, guid) is not None
 
-    def create_capsule(self, fit_path, guid, capsule_path, fw_version=None):
-        """Create capsule using mkeficapsule with optional firmware version"""
+    def create_capsule(self, fit_path, guid, capsule_path, fw_version=None, monotonic_count=None, private_key=None, certificate=None):
+        """Create capsule using mkeficapsule with optional firmware version and signing"""
         print(f"Creating capsule: {capsule_path}")
 
         cmd = [
             self.mkeficapsule_path,
-            '-g', guid,
-            '-i', '1',
+            '--guid', guid,
+            '--index', '1',
         ]
 
         # Add firmware version if provided
         if fw_version is not None:
-            cmd.extend(['-v', str(fw_version)])
-            print(f"  Firmware version: {fw_version}")
+            version_parts = fw_version.split('.')
+            try:
+                major = int(version_parts[2])
+                minor = int(version_parts[3])
+                encoded_version = (major << 16) | minor
+                cmd.extend(['--fw-version', str(encoded_version)])
+                print(f"  Encoded Firmware version: {encoded_version} (from {fw_version})")
+            except (ValueError, IndexError):
+                raise ValueError(f"Invalid version string: {fw_version}")
+
+        # Add signing parameters if provided
+        if private_key and certificate and monotonic_count is not None:
+            print("Signing capsule...")
+            cmd.extend([
+                '--monotonic-count', str(monotonic_count),
+                '--private-key', str(private_key),
+                '--certificate', str(certificate),
+            ])
+        elif any([private_key, certificate, monotonic_count is not None]):
+            raise ValueError("All signing parameters (--private-key, --certificate, --monotonic-count) must be provided together.")
 
         cmd.extend([str(fit_path), str(capsule_path)])
 
@@ -364,7 +382,7 @@ class FvUpdateToFitConverter:
         print(f"Capsule created successfully: {capsule_size} bytes ✓")
         return capsule_size
 
-    def convert_complete(self, fit_output_name="system.fit", capsule_output_name="firmware.capsule", fw_version=None, guid=None):
+    def convert_complete(self, fit_output_name="system.fit", capsule_output_name="firmware.capsule", fw_version=None, guid=None, monotonic_count=None, private_key=None, certificate=None):
         """
         Complete conversion workflow: XML → FIT → Capsule
 
@@ -400,7 +418,7 @@ class FvUpdateToFitConverter:
             raise ValueError("GUID is required for capsule creation. Use --guid option.")
 
         print(f"Using GUID: {guid}")
-        capsule_size = self.create_capsule(fit_path, guid, capsule_path, fw_version)
+        capsule_size = self.create_capsule(fit_path, guid, capsule_path, fw_version, monotonic_count, private_key, certificate)
 
         # Step 7: Summary (keep all files)
         print("=" * 60)
@@ -503,8 +521,14 @@ The generated capsule is ready for deployment in Qualcomm U-Boot systems.
                        default='firmware.capsule',
                        help='Output capsule file name (default: %(default)s)')
     parser.add_argument('--fw-version',
+                       help='Firmware version for capsule in "0.0.A.B" format (e.g., "0.0.1.0"). This version will be stored in ESRT.')
+    parser.add_argument('--monotonic-count',
                        type=int,
-                       help='Firmware version number for capsule (e.g., 1, 2, 3). This version will be stored in ESRT.')
+                       help='Monotonic count for capsule signing.')
+    parser.add_argument('--private-key',
+                       help='Path to the private key for signing.')
+    parser.add_argument('--certificate',
+                       help='Path to the certificate for signing.')
     parser.add_argument('-v', '--verbose',
                        action='store_true',
                        help='Enable verbose output')
@@ -529,13 +553,29 @@ The generated capsule is ready for deployment in Qualcomm U-Boot systems.
             print("Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
             sys.exit(1)
 
+    # Validate fw-version format if provided
+    if args.fw_version:
+        version_pattern = r'^\d+\.\d+\.\d+\.\d+$'
+        if not re.match(version_pattern, args.fw_version):
+            print(f"ERROR: Invalid firmware version format: {args.fw_version}")
+            print('Expected format: "0.0.A.B" (e.g., "0.0.1.0")')
+            sys.exit(1)
+
     # Create converter
     converter = FvUpdateToFitConverter(xml_path, args.mkeficapsule)
 
     try:
         if args.guid:
             # Complete capsule workflow
-            capsule_path = converter.convert_complete(args.output, args.capsule_output, args.fw_version, args.guid)
+            capsule_path = converter.convert_complete(
+                args.output,
+                args.capsule_output,
+                args.fw_version,
+                args.guid,
+                args.monotonic_count,
+                args.private_key,
+                args.certificate
+            )
 
             print("\n" + "=" * 60)
             print("SUCCESS: Complete capsule workflow completed!")
