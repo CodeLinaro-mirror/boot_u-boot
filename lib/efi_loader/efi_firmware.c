@@ -471,6 +471,15 @@ efi_status_t efi_firmware_capsule_authenticate(const void **p_image,
 
 		if (status == EFI_SECURITY_VIOLATION) {
 			printf("Capsule authentication check failed. Aborting update\n");
+			/*
+			 * Even though authentication failed, update the pointers
+			 * to skip past the auth wrapper so the caller can read
+			 * the FMP payload header for version information.
+			 */
+			image = capsule_payload;
+			image_size = capsule_payload_size;
+			*p_image = image;
+			*p_image_size = image_size;
 			return status;
 		} else if (status != EFI_SUCCESS) {
 			return status;
@@ -620,8 +629,10 @@ efi_status_t efi_firmware_verify_image(const void **p_image,
 	efi_guid_t *image_type_id;
 
 	ret = efi_firmware_capsule_authenticate(p_image, p_image_size);
-	if (ret != EFI_SUCCESS)
+	if (ret != EFI_SUCCESS) {
+		efi_firmware_get_fw_version(p_image, p_image_size, state);
 		return ret;
+	}
 
 	efi_firmware_get_fw_version(p_image, p_image_size, state);
 
@@ -855,8 +866,17 @@ efi_status_t EFIAPI efi_firmware_raw_set_image(
 
 	status = efi_firmware_verify_image(&image, &image_size, image_index,
 					   &state);
-	if (status != EFI_SUCCESS)
+	if (status != EFI_SUCCESS) {
+		/* Set last attempt information for failed verification */
+		efi_firmware_set_last_attempt(&state, state.fw_version,
+					      efi_firmware_map_error_to_status(status));
+		efi_firmware_set_fmp_state_var(&state, image_index);
 		return EFI_EXIT(status);
+	}
+
+	/* Set last attempt version before starting the update */
+	efi_firmware_set_last_attempt(&state, state.fw_version,
+				      LAST_ATTEMPT_STATUS_SUCCESS);
 
 	/*
 	 * dfu_alt_num is assigned from 0 while image_index starts from 1.
@@ -881,13 +901,21 @@ efi_status_t EFIAPI efi_firmware_raw_set_image(
 		orig_dfu_env = strdup(orig_dfu_env);
 		if (!orig_dfu_env) {
 			log_err("strdup() failed!\n");
-			return EFI_EXIT(EFI_OUT_OF_RESOURCES);
+			status = EFI_OUT_OF_RESOURCES;
+			efi_firmware_set_last_attempt(&state, state.fw_version,
+						      efi_firmware_map_error_to_status(status));
+			efi_firmware_set_fmp_state_var(&state, image_index);
+			return EFI_EXIT(status);
 		}
 	}
 	if (env_set("dfu_alt_info", update_info.dfu_string)) {
 		log_err("Unable to set env variable \"dfu_alt_info\"!\n");
 		free(orig_dfu_env);
-		return EFI_EXIT(EFI_DEVICE_ERROR);
+		status = EFI_DEVICE_ERROR;
+		efi_firmware_set_last_attempt(&state, state.fw_version,
+					      efi_firmware_map_error_to_status(status));
+		efi_firmware_set_fmp_state_var(&state, image_index);
+		return EFI_EXIT(status);
 	}
 
 	ret = dfu_write_by_alt(dfu_alt_num, (void *)image, image_size,
@@ -898,9 +926,17 @@ efi_status_t EFIAPI efi_firmware_raw_set_image(
 
 	free(orig_dfu_env);
 
-	if (ret)
-		return EFI_EXIT(EFI_DEVICE_ERROR);
+	if (ret) {
+		status = EFI_DEVICE_ERROR;
+		efi_firmware_set_last_attempt(&state, state.fw_version,
+					      efi_firmware_map_error_to_status(status));
+		efi_firmware_set_fmp_state_var(&state, image_index);
+		return EFI_EXIT(status);
+	}
 
+	/* Update successful - set success status */
+	efi_firmware_set_last_attempt(&state, state.fw_version,
+				      LAST_ATTEMPT_STATUS_SUCCESS);
 	efi_firmware_set_fmp_state_var(&state, image_index);
 
 	return EFI_EXIT(EFI_SUCCESS);
