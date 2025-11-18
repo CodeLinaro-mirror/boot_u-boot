@@ -2332,8 +2332,8 @@ int qcom_configure_ice_key_with_context(struct ice_config_sec *ice,
 	}
 	do {
 		IPQ_SCM_ICE_KEY_CONFIGURE(param, seedtype, ice->key_size, ice->algo_mode,
-				      (uint64_t)hex_data_context, hex_data_len,
-				      (uint64_t)hex_salt_context, hex_salt_len);
+				      (uintptr_t)hex_data_context, hex_data_len,
+				      (uintptr_t)hex_salt_context, hex_salt_len);
 		invalidate_dcache_all();
 		ret = ipq_scm_call(&param);
 		if (ret) {
