@@ -947,13 +947,9 @@ static int wdt_extract_dump(crashdump_config_t *dump_config, int dump_idx,
 
 			switch (cur_type) {
 			case QTI_WDT_LOG_DUMP_TYPE_UNAME:
-				void * uname_buf = malloc(cur_size);
-				if (!uname_buf)
-					return -ENOMEM;
-				else
-					memcpy(uname_buf, buf, cur_size);
-				dump_entry->start_addr = (uintptr_t)uname_buf;
-				dump_entry->size = cur_size;
+				tlv_data = (st_tlv_data_t*)&buf;
+				dump_entry->start_addr = tlv_data->start;
+				dump_entry->size = tlv_data->size;
 				break;
 			case QTI_WDT_LOG_DUMP_TYPE_DMESG:
 				tlv_data = (st_tlv_data_t*)&buf;
