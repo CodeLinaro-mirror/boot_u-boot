@@ -471,6 +471,96 @@ static int rpmh_probe_tcs_config(struct udevice *dev, struct rsc_drv *drv)
 	return 0;
 }
 
+/**
+ * rpmh_rsc_clear_tcs() - Clear TCS state before kernel handoff
+ * @drv: The RSC controller
+ *
+ * Clears all TCS hardware state to ensure kernel starts with clean state.
+ * This prevents timeout errors during kernel RPMH initialization by clearing:
+ * - CMD_STATUS: Leftover ISSUED/COMPLETED flags
+ * - CMD_WAIT_FOR_CMPL: Completion wait configuration
+ * - CMD_ENABLE: Command slot enables
+ * - CONTROL: AMC mode bits
+ * - IRQ_STATUS: Pending interrupts
+ */
+static void rpmh_rsc_clear_tcs(struct rsc_drv *drv)
+{
+	int i, j, ncpt, pending_cmds = 0;
+	u32 status, irq_status;
+
+	ncpt = drv->tcs[ACTIVE_TCS].ncpt;
+
+	for (i = 0; i < drv->num_tcs; i++) {
+		for (j = 0; j < ncpt; j++) {
+			status = read_tcs_cmd(drv, drv->regs[RSC_DRV_CMD_STATUS], i, j);
+			if (status)
+				pending_cmds++;
+		}
+
+		/* Clear completion wait, command enable, and control registers */
+		write_tcs_reg(drv, drv->regs[RSC_DRV_CMD_WAIT_FOR_CMPL], i, 0);
+		write_tcs_reg(drv, drv->regs[RSC_DRV_CMD_ENABLE], i, 0);
+		write_tcs_reg(drv, drv->regs[RSC_DRV_CONTROL], i, 0);
+	}
+
+	/* Clear any pending IRQ status */
+	irq_status = readl(drv->tcs_base + drv->regs[RSC_DRV_IRQ_STATUS]);
+	if (irq_status)
+		writel(irq_status, drv->tcs_base + drv->regs[RSC_DRV_IRQ_CLEAR]);
+
+	log_debug("RPMH: Cleared %d TCS for %s (pending: %d cmds, IRQ: 0x%x)\n",
+		  drv->num_tcs, drv->name, pending_cmds, irq_status);
+}
+
+/**
+ * rpmh_rsc_cleanup_all() - Public function to cleanup all RPMH controllers
+ *
+ * This function should be called before booting the kernel to ensure all
+ * RPMH controllers have clean TCS state. Can be called from board_quiesce_devices()
+ * or directly before kernel boot.
+ */
+void rpmh_rsc_cleanup_all(void)
+{
+	struct udevice *dev;
+	struct uclass *uc;
+	int ret;
+
+	ret = uclass_get(UCLASS_MISC, &uc);
+	if (ret)
+		return;
+
+	uclass_foreach_dev(dev, uc) {
+		if (device_is_compatible(dev, "qcom,rpmh-rsc")) {
+			struct rsc_drv *drv = dev_get_priv(dev);
+			if (drv && drv->num_tcs > 0)
+				rpmh_rsc_clear_tcs(drv);
+		}
+	}
+}
+
+/**
+ * rpmh_rsc_remove() - Cleanup before handing off to kernel
+ * @dev: The device
+ *
+ * Called before booting kernel to ensure clean TCS state. This prevents
+ * kernel RPMH driver from encountering busy/configured TCS that could
+ * cause timeout errors during initialization.
+ *
+ * Return: 0 on success
+ */
+static int rpmh_rsc_remove(struct udevice *dev)
+{
+	struct rsc_drv *drv = dev_get_priv(dev);
+
+	if (!drv)
+		return 0;
+
+	/* Clear all TCS configurations to provide clean state for kernel */
+	rpmh_rsc_clear_tcs(drv);
+
+	return 0;
+}
+
 static int rpmh_rsc_probe(struct udevice *dev)
 {
 	ofnode dn = dev_ofnode(dev);
@@ -539,6 +629,7 @@ U_BOOT_DRIVER(qcom_rpmh_rsc) = {
 	.id		= UCLASS_MISC,
 	.priv_auto	= sizeof(struct rsc_drv),
 	.probe		= rpmh_rsc_probe,
+	.remove		= rpmh_rsc_remove,
 	.of_match	= qcom_rpmh_ids,
 	/* rpmh is under CLUSTER_PD which we don't support, so skip trying to enable PDs */
 	.flags		= DM_FLAG_DEFAULT_PD_CTRL_OFF,

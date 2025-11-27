@@ -749,6 +749,22 @@ static void carve_out_reserved_memory(void)
 	}
 }
 
+/* Declare external RPMH cleanup function */
+extern void rpmh_rsc_cleanup_all(void);
+
+/**
+ * board_quiesce_devices() - Quiesce devices before booting kernel
+ *
+ * Called by U-Boot before booting the kernel to ensure all devices
+ * are in a clean state. This is critical for RPMH to prevent kernel
+ * timeout issues during initialization.
+ */
+void board_quiesce_devices(void)
+{
+	/* Clear RPMH TCS configurations before kernel boot */
+	rpmh_rsc_cleanup_all();
+}
+
 /* This function open-codes setup_all_pgtables() so that we can
  * insert additional mappings *before* turning on the MMU.
  */
