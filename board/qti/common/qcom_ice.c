@@ -576,6 +576,14 @@ static bool qcom_ice_enable_clock(struct udevice *dev, struct clk *ice_clk)
 		return false;
 	}
 
+	/* Set ICE clock rate to 300 MHz */
+	ret = clk_set_rate(ice_clk, 300000000);
+	if (ret < 0) {
+		printf("ICE: Failed to set ICE clock rate: %d\n", ret);
+		clk_free(ice_clk);
+		return false;
+	}
+
 	ret = clk_enable(ice_clk);
 	if (ret < 0) {
 		printf("ICE: Failed to enable ICE clock: %d\n", ret);
@@ -583,7 +591,8 @@ static bool qcom_ice_enable_clock(struct udevice *dev, struct clk *ice_clk)
 		return false;
 	}
 
-	debug("ICE: ICE clock (ID: %d) enabled successfully\n", clkd[ice_clk_index]);
+	debug("ICE: ICE clock (ID: %d) enabled at 300 MHz\n",
+	      clkd[ice_clk_index]);
 	return true;
 }
 
