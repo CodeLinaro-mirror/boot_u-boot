@@ -106,6 +106,12 @@ config EFI_HAVE_RUNTIME_RESET
 	depends on ARCH_BCM283X || FSL_LAYERSCAPE || PSCI_RESET || \
 		   SANDBOX || SYSRESET_SBI || SYSRESET_X86
 
+config EFI_PSCI_RESET_RUNTIME
+	bool "EFI Runtime PSCI Reset Support"
+	depends on ARM_PSCI_FW
+	help
+	  Enable PSCI-based reset implementation for EFI runtime services.
+
 endmenu
 
 menu "UEFI Variables"
