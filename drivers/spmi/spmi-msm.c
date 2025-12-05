@@ -269,15 +269,41 @@ static void msm_spmi_channel_map_v5(struct msm_spmi_priv *priv, unsigned int i,
 	bool prev_valid = priv->channel_map[slave_id][pid] & SPMI_CHANNEL_VALID;
 	uint32_t prev_read_only = priv->channel_map[slave_id][pid] & SPMI_CHANNEL_READ_ONLY;
 
+	debug("SPMI: Channel %d -> SID=%d PID=0x%02X Owner=%d (Current EE=%d) %s\n",
+	      i, slave_id, pid, owner, priv->owner,
+	      (owner == priv->owner) ? "OWNED" : "NOT-OWNED");
+
 	if (!prev_valid) {
-		/* First PPID mapping */
+		/* First PPID mapping - store it */
 		priv->channel_map[slave_id][pid] = i | SPMI_CHANNEL_VALID;
 		if (owner != priv->owner)
 			priv->channel_map[slave_id][pid] |= SPMI_CHANNEL_READ_ONLY;
-	} else if ((owner == priv->owner) && prev_read_only) {
-		/* Read only and we found one we own, switch */
+
+		debug("SPMI: First mapping for SID=%d PID=0x%02X -> Channel %d %s\n",
+		      slave_id, pid, i, (owner != priv->owner) ? "(READ-ONLY)" : "(WRITABLE)");
+	} else if (owner == priv->owner) {
+		/*
+		 * Found a channel owned by our EE - ALWAYS switch to it!
+		 * This is critical: even if we already have a mapping, we must
+		 * prefer the one owned by our EE to avoid hardware access violations.
+		 * This fixes the crash when writing to registers like PON 0x88F.
+		 */
 		priv->channel_map[slave_id][pid] = i | SPMI_CHANNEL_VALID;
+		/* Clear READ_ONLY flag since we own this channel */
+
+		debug("SPMI: Switching SID=%d PID=0x%02X to owned channel %d (was %s)\n",
+		      slave_id, pid, i, prev_read_only ? "READ-ONLY" : "WRITABLE");
+	} else if (prev_read_only) {
+		/*
+		 * Previous mapping was read-only and this one is also not ours.
+		 * Update to this channel (might be more accessible).
+		 */
+		priv->channel_map[slave_id][pid] = i | SPMI_CHANNEL_VALID | SPMI_CHANNEL_READ_ONLY;
+
+		debug("SPMI: Updating SID=%d PID=0x%02X to channel %d (still READ-ONLY)\n",
+		      slave_id, pid, i);
 	}
+	/* else: Previous was writable and owned by us, this one isn't - keep previous */
 }
 
 static int msm_spmi_probe(struct udevice *dev)
