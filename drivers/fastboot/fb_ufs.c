@@ -19,9 +19,12 @@
 #include <scsi.h>
 #include <div64.h>
 #include <linux/compat.h>
+#include <linux/ctype.h>
+#include <stdlib.h>
+#include <vsprintf.h>
 
 #define fb_flash_str	"scsi"
-#define fb_flash_dev	CONFIG_FASTBOOT_FLASH_UFS_DEV
+static int fb_flash_dev = CONFIG_FASTBOOT_FLASH_UFS_DEV;
 
 struct fb_ufs_sparse {
 	struct blk_desc	*dev_desc;
@@ -277,5 +280,32 @@ void fastboot_ufs_erase(const char *cmd, char *response)
 
 	printf("........ erased " LBAFU " bytes from '%s'\n",
 	       blks_size * info.blksz, cmd);
+	fastboot_okay(NULL, response);
+}
+
+void fastboot_select_ufs_active_lun(const char *cmd, char *response)
+{
+	struct blk_desc *blk;
+	unsigned long lun;
+	char *endptr;
+	const char *p = cmd;
+
+	/* skip whitespace */
+	while (*p && isblank(*p))
+		p++;
+
+	lun = simple_strtoul(p, &endptr, 10);
+
+	if (*endptr != '\0' || lun > 255) {
+		fastboot_fail("invalid lun number", response);
+		return;
+	}
+
+	if (blk_get_desc(UCLASS_SCSI, lun, &blk)) {
+		fastboot_fail("invalid lun number", response);
+		return;
+	}
+
+	fb_flash_dev = lun;
 	fastboot_okay(NULL, response);
 }

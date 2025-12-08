@@ -48,6 +48,10 @@ static void oem_board(char *, char *);
 static void run_ucmd(char *, char *);
 static void run_acmd(char *, char *);
 
+#if defined(CONFIG_FASTBOOT_FLASH_UFS)
+static void select_ufs_active_lun(char *, char *);
+#endif
+
 static const struct {
 	const char *command;
 	void (*dispatch)(char *cmd_parameter, char *response);
@@ -120,6 +124,12 @@ static const struct {
 		.command = "oem board",
 		.dispatch = CONFIG_IS_ENABLED(FASTBOOT_OEM_BOARD, (oem_board), (NULL))
 	},
+#if defined(CONFIG_FASTBOOT_FLASH_UFS)
+	[FASTBOOT_COMMAND_SELECT_UFS_ACTIVE_LUN] = {
+		.command = "oem select_ufs_active_lun",
+		.dispatch = select_ufs_active_lun,
+	},
+#endif
 	[FASTBOOT_COMMAND_UCMD] = {
 		.command = "UCmd",
 		.dispatch = CONFIG_IS_ENABLED(FASTBOOT_UUU_SUPPORT, (run_ucmd), (NULL))
@@ -589,3 +599,10 @@ static void __maybe_unused oem_board(char *cmd_parameter, char *response)
 {
 	fastboot_oem_board(cmd_parameter, (void *)fastboot_buf_addr, image_size, response);
 }
+
+#if defined(CONFIG_FASTBOOT_FLASH_UFS)
+static void select_ufs_active_lun(char *cmd_parameter, char *response)
+{
+	fastboot_select_ufs_active_lun(cmd_parameter, response);
+}
+#endif
