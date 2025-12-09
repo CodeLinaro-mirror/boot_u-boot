@@ -48,6 +48,10 @@ static void oem_board(char *, char *);
 static void run_ucmd(char *, char *);
 static void run_acmd(char *, char *);
 
+#if defined(CONFIG_FASTBOOT_FLASH_UFS)
+static void select_ufs_active_lun(char *, char *);
+#endif
+
 static const struct {
 	const char *command;
 	void (*dispatch)(char *cmd_parameter, char *response);
@@ -120,6 +124,12 @@ static const struct {
 		.command = "oem board",
 		.dispatch = CONFIG_IS_ENABLED(FASTBOOT_OEM_BOARD, (oem_board), (NULL))
 	},
+#if defined(CONFIG_FASTBOOT_FLASH_UFS)
+	[FASTBOOT_COMMAND_SELECT_UFS_ACTIVE_LUN] = {
+		.command = "oem select_ufs_active_lun",
+		.dispatch = select_ufs_active_lun,
+	},
+#endif
 	[FASTBOOT_COMMAND_UCMD] = {
 		.command = "UCmd",
 		.dispatch = CONFIG_IS_ENABLED(FASTBOOT_UUU_SUPPORT, (run_ucmd), (NULL))
@@ -481,18 +491,41 @@ static void reboot_recovery(char *cmd_parameter, char *response)
  */
 static void __maybe_unused oem_format(char *cmd_parameter, char *response)
 {
-	char cmdbuf[32];
-	const int mmc_dev = config_opt_enabled(CONFIG_FASTBOOT_FLASH_MMC,
-					       CONFIG_FASTBOOT_FLASH_MMC_DEV, -1);
+#if IS_ENABLED(CONFIG_FASTBOOT_FLASH_UFS)
+	int devnum = config_val(FASTBOOT_FLASH_UFS_DEV);
+	char *dev = "scsi";
+#elif IS_ENABLED(CONFIG_FASTBOOT_FLASH_MMC)
+	int devnum = config_val(FASTBOOT_FLASH_MMC_DEV);
+	char *dev = "mmc";
+#endif
+	char cmdbuf[80];
+	char *env_varname = NULL;
+	char *partition_info = NULL;
+	char *space = NULL;
 
-	if (!env_get("partitions")) {
-		fastboot_fail("partitions not set", response);
+	if (cmd_parameter && cmd_parameter[0] != '\0') {
+		devnum = simple_strtoul(cmd_parameter, &space, 10);
+		if (space && space[0] != '\0')
+			env_varname = space + 1;
+	}
+
+	if (!env_varname || env_varname[0] == '\0')
+		env_varname = "partitions";
+
+	partition_info = env_get(env_varname);
+	if (!partition_info) {
+		snprintf(cmdbuf, sizeof(cmdbuf), "%s env variable not set", env_varname);
+		fastboot_fail(cmdbuf, response);
+		return;
+	}
+
+	snprintf(cmdbuf, sizeof(cmdbuf), "gpt write %s %x $%s", dev, devnum, env_varname);
+
+	if (run_command(cmdbuf, 0)) {
+		fastboot_fail("", response);
 	} else {
-		sprintf(cmdbuf, "gpt write mmc %x $partitions", mmc_dev);
-		if (run_command(cmdbuf, 0))
-			fastboot_fail("", response);
-		else
-			fastboot_okay(NULL, response);
+		printf("Wrote %s to GPT of LUN %d\n", env_varname, devnum);
+		fastboot_okay(NULL, response);
 	}
 }
 
@@ -589,3 +622,10 @@ static void __maybe_unused oem_board(char *cmd_parameter, char *response)
 {
 	fastboot_oem_board(cmd_parameter, (void *)fastboot_buf_addr, image_size, response);
 }
+
+#if defined(CONFIG_FASTBOOT_FLASH_UFS)
+static void select_ufs_active_lun(char *cmd_parameter, char *response)
+{
+	fastboot_select_ufs_active_lun(cmd_parameter, response);
+}
+#endif

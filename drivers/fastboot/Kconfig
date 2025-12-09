@@ -91,7 +91,6 @@ config FASTBOOT_USB_DEV
 config FASTBOOT_FLASH
 	bool "Enable FASTBOOT FLASH command"
 	default y if ARCH_SUNXI || ARCH_ROCKCHIP
-	depends on MMC || (MTD_RAW_NAND && CMD_MTDPARTS) || DM_SPI_FLASH
 	depends on MMC || UFS || (MTD_RAW_NAND && CMD_MTDPARTS) || DM_SPI_FLASH
 	select IMAGE_SPARSE
 	help
@@ -236,7 +235,7 @@ config FASTBOOT_MBR_NAME
 
 config FASTBOOT_CMD_OEM_FORMAT
 	bool "Enable the 'oem format' command"
-	depends on FASTBOOT_FLASH_MMC && CMD_GPT
+	depends on (FASTBOOT_FLASH_MMC || FASTBOOT_FLASH_UFS) && CMD_GPT
 	help
 	  Add support for the "oem format" command from a client. This
 	  relies on the env variable partitions to contain the list of
