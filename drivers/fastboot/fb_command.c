@@ -491,18 +491,41 @@ static void reboot_recovery(char *cmd_parameter, char *response)
  */
 static void __maybe_unused oem_format(char *cmd_parameter, char *response)
 {
-	char cmdbuf[32];
-	const int mmc_dev = config_opt_enabled(CONFIG_FASTBOOT_FLASH_MMC,
-					       CONFIG_FASTBOOT_FLASH_MMC_DEV, -1);
+#if IS_ENABLED(CONFIG_FASTBOOT_FLASH_UFS)
+	int devnum = config_val(FASTBOOT_FLASH_UFS_DEV);
+	char *dev = "scsi";
+#elif IS_ENABLED(CONFIG_FASTBOOT_FLASH_MMC)
+	int devnum = config_val(FASTBOOT_FLASH_MMC_DEV);
+	char *dev = "mmc";
+#endif
+	char cmdbuf[80];
+	char *env_varname = NULL;
+	char *partition_info = NULL;
+	char *space = NULL;
 
-	if (!env_get("partitions")) {
-		fastboot_fail("partitions not set", response);
+	if (cmd_parameter && cmd_parameter[0] != '\0') {
+		devnum = simple_strtoul(cmd_parameter, &space, 10);
+		if (space && space[0] != '\0')
+			env_varname = space + 1;
+	}
+
+	if (!env_varname || env_varname[0] == '\0')
+		env_varname = "partitions";
+
+	partition_info = env_get(env_varname);
+	if (!partition_info) {
+		snprintf(cmdbuf, sizeof(cmdbuf), "%s env variable not set", env_varname);
+		fastboot_fail(cmdbuf, response);
+		return;
+	}
+
+	snprintf(cmdbuf, sizeof(cmdbuf), "gpt write %s %x $%s", dev, devnum, env_varname);
+
+	if (run_command(cmdbuf, 0)) {
+		fastboot_fail("", response);
 	} else {
-		sprintf(cmdbuf, "gpt write mmc %x $partitions", mmc_dev);
-		if (run_command(cmdbuf, 0))
-			fastboot_fail("", response);
-		else
-			fastboot_okay(NULL, response);
+		printf("Wrote %s to GPT of LUN %d\n", env_varname, devnum);
+		fastboot_okay(NULL, response);
 	}
 }
 
