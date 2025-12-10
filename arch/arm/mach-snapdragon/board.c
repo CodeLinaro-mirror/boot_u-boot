@@ -38,6 +38,21 @@
 
 #include "qcom-priv.h"
 
+#define FASTBOOT_MODE 0x2
+#define PON_BASE_ADDR 0x800
+#define PON_PERPH_SUBTYPE_ADDR (PON_BASE_ADDR + 0x5)
+#define PON_SOFT_RB_SPARE_ADDR (PON_BASE_ADDR + 0x8F)
+#define PON_RESET_REG_ADDR_SDAM 0x7148
+#define REBOOT_MODE_MASK 0xFE
+
+/* PMIC Model Detection */
+#define PMIC_REVID_BASE_ADDR 0x0100
+#define PMIC_METAL_REV_ADDR (PMIC_REVID_BASE_ADDR + 0x02)
+#define PM_TYPE_QC_DEVICE 0x51
+#define PMIC_IS_INVALID 0x00
+#define PMIC_IS_PM855 30
+#define PMIC_IS_SUBTYPE_4 0x4
+
 DECLARE_GLOBAL_DATA_PTR;
 
 enum qcom_boot_source qcom_boot_source __section(".data") = 0;
@@ -517,29 +532,95 @@ void qcom_show_boot_source(void)
 	env_set("boot_source", name);
 }
 
-#define FASTBOOT_MODE 0x2
-#define SDAM02_BASE_ADDR 0x7100
-#define PON_RESET_REG_ADDR (SDAM02_BASE_ADDR + 0x48)
-#define REBOOT_MODE_MASK 0xFE
+static int detect_pmic_model(struct udevice *dev)
+{
+	uint8_t rev_id[4] = {0};
+	int ret, i;
+	uint8_t pmic_model;
+
+	/* Read 4 bytes from PMIC REVID registers */
+	for (i = 0; i < 4; i++) {
+		ret = pmic_reg_read(dev, PMIC_METAL_REV_ADDR + i);
+		if (ret < 0) {
+			debug("Failed to read PMIC REVID register 0x%X: %d\n", 
+			      PMIC_METAL_REV_ADDR + i, ret);
+			return PMIC_IS_INVALID;
+		}
+		rev_id[i] = (uint8_t)ret;
+	}
+
+	/* Verify this is a Qualcomm PMIC device */
+	if (rev_id[2] != PM_TYPE_QC_DEVICE) {
+		debug("Not a Qualcomm PMIC (type=0x%02X)\n", rev_id[2]);
+		return PMIC_IS_INVALID;
+	}
+
+	pmic_model = rev_id[3];
+	debug("PMIC Model: 0x%02X (Metal=0x%02X, Layer=0x%02X)\n",
+	      pmic_model, rev_id[0], rev_id[1]);
+
+	return pmic_model;
+}
 
 static int check_fastboot_mode(void)
 {
 #ifdef CONFIG_DM_PMIC
 	struct udevice *dev;
 	int ret, reboot_reason, reg_val;
+	uint32_t pon_reset_addr;
+	uint8_t peripheral_subtype;
+	int pmic_model;
 
 	ret = pmic_get("pmic@0", &dev);
 	if (ret)
 		return ret;
-	reg_val = pmic_reg_read(dev, PON_RESET_REG_ADDR);
+
+	/* Detect PMIC model for address resolution */
+	pmic_model = detect_pmic_model(dev);
+	if (pmic_model == PMIC_IS_INVALID)
+		return -1;
+
+	peripheral_subtype = pmic_reg_read(dev, PON_PERPH_SUBTYPE_ADDR);
+
+	/* Select register address based on PMIC generation */
+	if (peripheral_subtype == PMIC_IS_SUBTYPE_4)
+		pon_reset_addr = PON_SOFT_RB_SPARE_ADDR;
+	else
+		pon_reset_addr = PON_RESET_REG_ADDR_SDAM;
+
+	debug("PON register: 0x%X (subtype=0x%X, model=0x%X)\n",
+	      pon_reset_addr, peripheral_subtype, pmic_model);
+
+	/* Read reboot reason */
+	reg_val = pmic_reg_read(dev, pon_reset_addr);
+	if (reg_val < 0) {
+		debug("Failed to read reboot reason: %d\n", reg_val);
+		return reg_val;
+	}
+
 	reboot_reason = (reg_val & REBOOT_MODE_MASK) >> 1;
+	debug("Reboot reason: 0x%02X (raw=0x%02X)\n", reboot_reason, reg_val);
+
 	if (reboot_reason == FASTBOOT_MODE) {
-		reg_val &= ~(REBOOT_MODE_MASK);
-		pmic_reg_write(dev, PON_RESET_REG_ADDR, (uint)reg_val);
-		ret = run_command("fastboot usb 0", 0);
+		log_info("Fastboot mode detected, entering fastboot...\n");
+
+		/* Clear reboot reason */
+		reg_val &= (~REBOOT_MODE_MASK);
+
+		if (pmic_model == PMIC_IS_PM855)
+			pon_reset_addr = PON_SOFT_RB_SPARE_ADDR;
+
+		ret = pmic_reg_write(dev, pon_reset_addr, reg_val);
+		if (ret != 0)
+			log_warning("Warning: Failed to clear reboot reason (%d)\n", ret);
+
+		/* Enter fastboot mode */
+		ret = run_command("run fastboot", 0);
 	}
 
 	return ret;
+#else
+	return 0;
 #endif
 }
 

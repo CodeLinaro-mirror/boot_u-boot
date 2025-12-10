@@ -42,4 +42,6 @@ void fastboot_ufs_flash_write(const char *cmd, void *download_buffer,
  */
 void fastboot_ufs_erase(const char *cmd, char *response);
 
+void fastboot_select_ufs_active_lun(const char *cmd, char *response);
+
 #endif
