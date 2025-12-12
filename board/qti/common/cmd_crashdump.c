@@ -2311,21 +2311,24 @@ int qcom_configure_ice_key_with_context(struct ice_config_sec *ice,
 		hex_salt_len = 128;
 	}
 
-	printf("\n data context \n");
-	for (i = 0; i < hex_data_len; i++) {
-		printf("%02x", hex_data_context[i]);
-	}
-	printf("\n");
-
-	if (hex_salt_context) {
-		printf(" salt context \n");
-		for (i = 0; i < hex_salt_len; i++) {
-			printf("%02x", hex_salt_context[i]);
+	if (dump_config->debug) {
+		printf("\n data context \n");
+		for (i = 0; i < hex_data_len; i++) {
+			printf("%02x", hex_data_context[i]);
 		}
 		printf("\n");
-	} else {
-		printf(" salt context: Not applicable for ECB mode\n");
+
+		if (hex_salt_context) {
+			printf(" salt context \n");
+			for (i = 0; i < hex_salt_len; i++) {
+				printf("%02x", hex_salt_context[i]);
+			}
+			printf("\n");
+		} else {
+			printf(" salt context: Not applicable for ECB mode\n");
+		}
 	}
+
 	do {
 		IPQ_SCM_ICE_KEY_CONFIGURE(param, seedtype, ice->key_size, ice->algo_mode,
 				      (uintptr_t)hex_data_context, hex_data_len,
@@ -2549,7 +2552,8 @@ int qcom_set_ice_config(crashdump_config_t *dump_config)
 		printf("ICE configuration failed, disabling crypto\n");
 		dump_config->encryption_enabled = 0;
 	} else {
-		printf("ICE Parameters configured successfully\n");
+		if (dump_config->debug)
+			printf("ICE Parameters configured successfully\n");
 	}
 
 	free(ice);
@@ -2807,6 +2811,26 @@ static int dump_to_dst(crashdump_config_t *dump_config,
 			return CMD_RET_FAILURE;
 		}
 		printf("done!!\n");
+
+		/* Align the compressed size to a 16-byte boundary only when
+		 * encryption is enabled, since OpenSSL requires 16-byte
+		 * alignment for decryption of compressed dumps(ecb)
+		 */
+		if (dump_config->encryption_enabled) {
+			uint64_t aligned_compressed_sz;
+			aligned_compressed_sz = roundup(compressed_out_sz, 16);
+			if (aligned_compressed_sz > compressed_out_sz) {
+				uint64_t padding_size = aligned_compressed_sz -
+							compressed_out_sz;
+				memset((void*)(uintptr_t)(
+					iface_cfg->comp_out_addr +
+					compressed_out_sz), 0x00, padding_size);
+				compressed_out_sz = aligned_compressed_sz;
+				if (dump_config->debug)
+				    printf("Applied %llu bytes of " \
+					"encryption padding\n", padding_size);
+			}
+		}
 
 		dump_entry->start_addr = iface_cfg->comp_out_addr;
 		dump_entry->size = compressed_out_sz;
