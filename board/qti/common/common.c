@@ -1830,6 +1830,7 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 		}
 	}
 
+	writel(0xFF, (uintptr_t)dev_cfg->host_ddr_status);
 	/*
 	 *flush dcache
 	 */
@@ -1843,7 +1844,6 @@ static int do_cal_qcn9224(struct cal_config *cfg, int index, int debug)
 	}
 
 	writel(lower_32_bits((uintptr_t)tlv), bar0_base + PCIE_LOCAL_RSV0);
-	writel(0xFF, (uintptr_t)dev_cfg->host_ddr_status);
 	writel(0, bar0_base + BHI_STATUS);
 	writel(upper_32_bits(load_addr), bar0_base + BHI_IMGADDR_HIGH);
 	writel(lower_32_bits(load_addr), bar0_base + BHI_IMGADDR_LOW);
