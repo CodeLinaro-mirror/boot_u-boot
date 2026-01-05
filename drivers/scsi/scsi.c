@@ -124,7 +124,7 @@ static void scsi_setup_write_ext(struct scsi_cmd *pccb, lbaint_t start,
 				 lbaint_t blocks)
 {
 	pccb->cmd[0] = SCSI_WRITE10;
-	pccb->cmd[1] = 0;
+	pccb->cmd[1] = 0x08; /* Set FUA bit to bypass write cache */
 	pccb->cmd[2] = (unsigned char)(start >> 24) & 0xff;
 	pccb->cmd[3] = (unsigned char)(start >> 16) & 0xff;
 	pccb->cmd[4] = (unsigned char)(start >> 8) & 0xff;
@@ -301,11 +301,6 @@ static ulong scsi_write(struct udevice *dev, lbaint_t blknr, lbaint_t blkcnt,
 		blks -= blocks;
 		buf_addr += pccb->datalen;
 	} while (blks != 0);
-
-	/* Flush the SCSI cache so we don't lose data on board reset. */
-	scsi_setup_sync_cache(pccb, 0, 0);
-	if (scsi_exec(bdev, pccb))
-		scsi_print_error(pccb);
 
 	debug("%s: end startblk " LBAF ", blccnt " LBAF " buffer %lX\n",
 	      __func__, start, blocks, buf_addr);
