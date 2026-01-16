@@ -14,6 +14,7 @@
 static char pin_name[MAX_PIN_NAME_LEN];
 
 static const struct pinctrl_function msm_pinctrl_functions[] = {
+	{"gpio", 0},
 	{"uart0_rfr", 1},
 	{"uart0_cts", 1},
 	{"uart0_rx", 1},
