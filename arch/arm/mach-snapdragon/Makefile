@@ -12,3 +12,4 @@ obj-$(CONFIG_OF_LIVE) += qcom_fixup_ddrinfo.o
 obj-$(CONFIG_OF_LIVE) += qcom_fixup_hypervisor.o
 obj-$(CONFIG_OF_LIVE) += qcom_fixup_subsetparts.o
 obj-$(CONFIG_OF_LIVE) += of_fixup.o
+obj-$(CONFIG_QCOM_FIT_MULTIDTB) += qcom_fit_multidtb.o

@@ -37,6 +37,7 @@
 #include <command.h>
 
 
+#include "qcom_fit_multidtb.h"
 #include "qcom-priv.h"
 
 #define FASTBOOT_MODE 0x2
@@ -701,6 +702,12 @@ int board_late_init(void)
 
 	/* Check reboot reason for fastboot*/
 	check_fastboot_mode();
+
+	/* Try FIT multi-DTB selection if enabled */
+	if (IS_ENABLED(CONFIG_QCOM_FIT_MULTIDTB)) {
+		if (qcom_fit_multidtb_setup() != 0)
+			log_debug("FIT multi-DTB selection not available or failed\n");
+	}
 
 	return 0;
 }
