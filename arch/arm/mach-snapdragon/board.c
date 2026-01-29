@@ -31,6 +31,7 @@
 #include <malloc.h>
 #include <fdt_support.h>
 #include <usb.h>
+#include <smem.h>
 #include <sort.h>
 #include <time.h>
 #include <command.h>
@@ -56,6 +57,13 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 enum qcom_boot_source qcom_boot_source __section(".data") = 0;
+
+/* SMEM cache structure */
+static struct {
+	struct udevice *smem_dev;
+	struct socinfo *soc_info;
+	struct usable_ram_partition_table *ram_partition_table;
+} smem_cache;
 
 static struct mm_region rbx_mem_map[CONFIG_NR_DRAM_BANKS + 2] = { { 0 } };
 
@@ -885,4 +893,88 @@ void enable_caches(void)
 		debug("carveout time: %lums\n", get_timer(carveout_start));
 	}
 	dcache_enable();
+}
+
+/**
+ * qcom_get_smem_device() - Get cached SMEM device
+ *
+ * This function provides cached access to the SMEM device.
+ * On first call, it initializes the SMEM device.
+ * Subsequent calls return the cached pointer.
+ *
+ * Return: Pointer to SMEM device on success, NULL on failure
+ */
+struct udevice *qcom_get_smem_device(void)
+{
+	if (smem_cache.smem_dev)
+		return smem_cache.smem_dev;
+
+	if (uclass_get_device(UCLASS_SMEM, 0, &smem_cache.smem_dev)) {
+		log_err("Failed to get SMEM device\n");
+		return NULL;
+	}
+
+	return smem_cache.smem_dev;
+}
+
+/**
+ * qcom_get_socinfo() - Get cached socinfo from SMEM
+ *
+ * This function provides cached access to the socinfo structure from SMEM.
+ * On first call, it initializes the SMEM device and retrieves the socinfo.
+ * Subsequent calls return the cached pointer.
+ *
+ * Return: Pointer to socinfo structure on success, NULL on failure
+ */
+struct socinfo *qcom_get_socinfo(void)
+{
+	size_t size;
+	struct udevice *dev;
+
+	if (smem_cache.soc_info)
+		return smem_cache.soc_info;
+
+	dev = qcom_get_smem_device();
+	if (!dev)
+		return NULL;
+
+	smem_cache.soc_info = smem_get(dev, 0, SMEM_HW_SW_BUILD_ID, &size);
+	if (!smem_cache.soc_info) {
+		log_err("Failed to get socinfo from SMEM\n");
+		return NULL;
+	}
+
+	return smem_cache.soc_info;
+}
+
+/**
+ * qcom_get_ram_partitions() - Get cached RAM partition table from SMEM
+ *
+ * This function provides cached access to the RAM partition table from SMEM.
+ * On first call, it retrieves the partition table from SMEM.
+ * Subsequent calls return the cached pointer.
+ *
+ * Return: Pointer to RAM partition table on success, NULL on failure
+ */
+struct usable_ram_partition_table *qcom_get_ram_partitions(void)
+{
+	size_t size;
+	struct udevice *dev;
+
+	if (smem_cache.ram_partition_table)
+		return smem_cache.ram_partition_table;
+
+	dev = qcom_get_smem_device();
+	if (!dev)
+		return NULL;
+
+	smem_cache.ram_partition_table = smem_get(dev, 0,
+						  SMEM_USABLE_RAM_PARTITION_TABLE,
+						  &size);
+	if (!smem_cache.ram_partition_table) {
+		log_err("Failed to get RAM partition table from SMEM\n");
+		return NULL;
+	}
+
+	return smem_cache.ram_partition_table;
 }
