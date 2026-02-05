@@ -25,7 +25,11 @@
 #include <dm/uclass.h>
 #include <dm/of_extra.h>
 #include <clk.h>
+#ifdef CONFIG_TARGET_IPQ9574
 #include <dt-bindings/clock/gcc-ipq9574.h>
+#elif defined(CONFIG_TARGET_IPQ5424)
+#include <dt-bindings/clock/gcc-ipq5424.h>
+#endif
 
 #define QCOM_ICE_REG_VERSION                    0x0008
 #define QCOM_ICE_REG_FUSE_SETTING               0x0010
