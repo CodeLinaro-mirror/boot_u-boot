@@ -90,6 +90,9 @@ DECLARE_GLOBAL_DATA_PTR;
 /* Max number of processors/hosts in a system */
 #define SMEM_HOST_COUNT		50
 
+/* Maximum number of SMEM memory regions */
+#define SMEM_MAX_REGIONS	4
+
 /**
  * struct smem_proc_comm - proc_comm communication struct (legacy)
  * @command:	current command to be executed
@@ -271,7 +274,7 @@ struct qcom_smem {
 	u32 item_count;
 
 	unsigned int num_regions;
-	struct smem_region regions[0];
+	struct smem_region regions[SMEM_MAX_REGIONS];
 };
 
 static struct smem_private_entry *
@@ -335,9 +338,6 @@ static void *cached_entry_to_item(struct smem_private_entry *e)
 
 	return p - le32_to_cpu(e->size);
 }
-
-/* Pointer to the one and only smem handle */
-static struct qcom_smem *__smem;
 
 static int qcom_smem_alloc_private(struct qcom_smem *smem,
 				   struct smem_partition_header *phdr,
@@ -425,6 +425,7 @@ static int qcom_smem_alloc_global(struct qcom_smem *smem,
 
 /**
  * qcom_smem_alloc() - allocate space for a smem item
+ * @dev:	smem device
  * @host:	remote processor id, or -1
  * @item:	smem item handle
  * @size:	number of bytes to be allocated
@@ -432,31 +433,30 @@ static int qcom_smem_alloc_global(struct qcom_smem *smem,
  * Allocate space for a given smem item of size @size, given that the item is
  * not yet allocated.
  */
-static int qcom_smem_alloc(unsigned int host, unsigned int item, size_t size)
+static int qcom_smem_alloc(struct udevice *dev, unsigned int host,
+                           unsigned int item, size_t size)
 {
+	struct qcom_smem *smem = dev_get_priv(dev);
 	struct smem_partition_header *phdr;
 	int ret;
 
-	if (!__smem)
-		return -ENOMEM;
-
 	if (item < SMEM_ITEM_LAST_FIXED) {
-		dev_err(__smem->dev,
+		dev_err(smem->dev,
 			"Rejecting allocation of static entry %d\n", item);
 		return -EINVAL;
 	}
 
-	if (WARN_ON(item >= __smem->item_count))
+	if (WARN_ON(item >= smem->item_count))
 		return -EINVAL;
 
-	if (host < SMEM_HOST_COUNT && __smem->partitions[host]) {
-		phdr = __smem->partitions[host];
-		ret = qcom_smem_alloc_private(__smem, phdr, item, size);
-	} else if (__smem->global_partition) {
-		phdr = __smem->global_partition;
-		ret = qcom_smem_alloc_private(__smem, phdr, item, size);
+	if (host < SMEM_HOST_COUNT && smem->partitions[host]) {
+		phdr = smem->partitions[host];
+		ret = qcom_smem_alloc_private(smem, phdr, item, size);
+	} else if (smem->global_partition) {
+		phdr = smem->global_partition;
+		ret = qcom_smem_alloc_private(smem, phdr, item, size);
 	} else {
-		ret = qcom_smem_alloc_global(__smem, item, size);
+		ret = qcom_smem_alloc_global(smem, item, size);
 	}
 
 	return ret;
@@ -549,6 +549,7 @@ invalid_canary:
 
 /**
  * qcom_smem_get() - resolve ptr of size of a smem item
+ * @dev:	smem device
  * @host:	the remote processor, or -1
  * @item:	smem item handle
  * @size:	pointer to be filled out with size of the item
@@ -556,60 +557,57 @@ invalid_canary:
  * Looks up smem item and returns pointer to it. Size of smem
  * item is returned in @size.
  */
-static void *qcom_smem_get(unsigned int host, unsigned int item, size_t *size)
+static void *qcom_smem_get(struct udevice *dev, unsigned int host,
+                           unsigned int item, size_t *size)
 {
+	struct qcom_smem *smem = dev_get_priv(dev);
 	struct smem_partition_header *phdr;
 	size_t cacheln;
-	void *ptr = ERR_PTR(-ENOMEM);
+	void *ptr;
 
-	if (!__smem)
-		return ptr;
-
-	if (WARN_ON(item >= __smem->item_count))
+	if (WARN_ON(item >= smem->item_count))
 		return ERR_PTR(-EINVAL);
 
-	if (host < SMEM_HOST_COUNT && __smem->partitions[host]) {
-		phdr = __smem->partitions[host];
-		cacheln = __smem->cacheline[host];
-		ptr = qcom_smem_get_private(__smem, phdr, cacheln, item, size);
-	} else if (__smem->global_partition) {
-		phdr = __smem->global_partition;
-		cacheln = __smem->global_cacheline;
-		ptr = qcom_smem_get_private(__smem, phdr, cacheln, item, size);
+	if (host < SMEM_HOST_COUNT && smem->partitions[host]) {
+		phdr = smem->partitions[host];
+		cacheln = smem->cacheline[host];
+		ptr = qcom_smem_get_private(smem, phdr, cacheln, item, size);
+	} else if (smem->global_partition) {
+		phdr = smem->global_partition;
+		cacheln = smem->global_cacheline;
+		ptr = qcom_smem_get_private(smem, phdr, cacheln, item, size);
 	} else {
-		ptr = qcom_smem_get_global(__smem, item, size);
+		ptr = qcom_smem_get_global(smem, item, size);
 	}
 
 	return ptr;
-
 }
 
 /**
  * qcom_smem_get_free_space() - retrieve amount of free space in a partition
+ * @dev:	smem device
  * @host:	the remote processor identifying a partition, or -1
  *
  * To be used by smem clients as a quick way to determine if any new
  * allocations has been made.
  */
-static int qcom_smem_get_free_space(unsigned int host)
+static int qcom_smem_get_free_space(struct udevice *dev, unsigned int host)
 {
+	struct qcom_smem *smem = dev_get_priv(dev);
 	struct smem_partition_header *phdr;
 	struct smem_header *header;
 	unsigned int ret;
 
-	if (!__smem)
-		return -ENOMEM;
-
-	if (host < SMEM_HOST_COUNT && __smem->partitions[host]) {
-		phdr = __smem->partitions[host];
+	if (host < SMEM_HOST_COUNT && smem->partitions[host]) {
+		phdr = smem->partitions[host];
 		ret = le32_to_cpu(phdr->offset_free_cached) -
 		      le32_to_cpu(phdr->offset_free_uncached);
-	} else if (__smem->global_partition) {
-		phdr = __smem->global_partition;
+	} else if (smem->global_partition) {
+		phdr = smem->global_partition;
 		ret = le32_to_cpu(phdr->offset_free_cached) -
 		      le32_to_cpu(phdr->offset_free_uncached);
 	} else {
-		header = __smem->regions[0].virt_base;
+		header = smem->regions[0].virt_base;
 		ret = le32_to_cpu(header->available);
 	}
 
@@ -848,24 +846,28 @@ static int qcom_smem_probe(struct udevice *dev)
 {
 	struct smem_header *header;
 	struct qcom_smem *smem;
-	size_t array_size;
 	int num_regions;
 	u32 version;
 	int ret;
-	//int node = dev_of_offset(dev);
 	int node = fdt_node_offset_by_compatible(gd->fdt_blob, 0, "qcom,smem");
 
-	if (__smem)
+	smem = dev_get_priv(dev);
+
+	/* Check if already probed - smem->dev will be set */
+	if (smem->dev == dev)
 		return 0;
+
+	memset(smem, 0, sizeof(*smem));
 
 	num_regions = 1;
 	if (fdtdec_lookup_phandle(gd->fdt_blob, node, "qcom,rpm-msg-ram") >= 0)
 		num_regions++;
 
-	array_size = num_regions * sizeof(struct smem_region);
-	smem = devm_kzalloc(dev, sizeof(*smem) + array_size, GFP_KERNEL);
-	if (!smem)
-		return -ENOMEM;
+	if (num_regions > SMEM_MAX_REGIONS) {
+		dev_err(dev, "Too many SMEM regions: %d (max %d)\n",
+			num_regions, SMEM_MAX_REGIONS);
+		return -EINVAL;
+	}
 
 	smem->dev = dev;
 	smem->num_regions = num_regions;
@@ -879,6 +881,7 @@ static int qcom_smem_probe(struct udevice *dev)
 					"qcom,rpm-msg-ram", 1);
 		if (ret)
 			return ret;
+
 	}
 
 	header = smem->regions[0].virt_base;
@@ -908,15 +911,12 @@ static int qcom_smem_probe(struct udevice *dev)
 	if (ret < 0 && ret != -ENOENT)
 		return ret;
 
-	__smem = smem;
-
 	return 0;
 }
 
 static int qcom_smem_remove(struct udevice *dev)
 {
-	__smem = NULL;
-
+	/* DM will automatically free private data */
 	return 0;
 }
 
@@ -938,4 +938,6 @@ U_BOOT_DRIVER(qcom_smem) = {
 	.ops = &msm_smem_ops,
 	.probe = qcom_smem_probe,
 	.remove = qcom_smem_remove,
+	.priv_auto = sizeof(struct qcom_smem),
+	.flags = DM_FLAG_PRE_RELOC,
 };

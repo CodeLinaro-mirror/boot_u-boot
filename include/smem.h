@@ -21,33 +21,36 @@ struct smem_ops {
 	/**
 	 * alloc() - allocate space for a smem item
 	 *
+	 * @dev:	SMEM device
 	 * @host:	remote processor id, or -1 for all processors.
 	 * @item:	smem item handle
 	 * @size:	number of bytes to be allocated
 	 * @return 0 if OK, -ve on error
 	 */
-	int (*alloc)(unsigned int host,
+	int (*alloc)(struct udevice *dev, unsigned int host,
 		unsigned int item, size_t size);
 
 	/**
 	 * get() - Resolve ptr of size of a smem item
 	 *
+	 * @dev:	SMEM device
 	 * @host:	the remote processor, of -1 for all processors.
 	 * @item:	smem item handle
 	 * @size:	pointer to be filled out with the size of the item
 	 * @return	pointer on success, NULL on error
 	 */
-	void *(*get)(unsigned int host,
+	void *(*get)(struct udevice *dev, unsigned int host,
 		unsigned int item, size_t *size);
 
 	/**
 	 * get_free_space() - Get free space in smem in bytes
 	 *
+	 * @dev:	SMEM device
 	 * @host:   the remote processor identifying a partition, or -1
 	 *			for all processors.
 	 * @return	free space, -ve on error
 	 */
-	int (*get_free_space)(unsigned int host);
+	int (*get_free_space)(struct udevice *dev, unsigned int host);
 };
 
 #define smem_get_ops(dev)	((struct smem_ops *)(dev)->driver->ops)

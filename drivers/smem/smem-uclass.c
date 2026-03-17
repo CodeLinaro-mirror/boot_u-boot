@@ -16,7 +16,7 @@ int smem_alloc(struct udevice *dev, unsigned int host,
 	if (!ops->alloc)
 		return -ENOSYS;
 
-	return ops->alloc(host, item, size);
+	return ops->alloc(dev, host, item, size);
 }
 
 void *smem_get(struct udevice *dev, unsigned int host,
@@ -27,7 +27,7 @@ void *smem_get(struct udevice *dev, unsigned int host,
 	if (!ops->get)
 		return NULL;
 
-	return ops->get(host, item, size);
+	return ops->get(dev, host, item, size);
 }
 
 int smem_get_free_space(struct udevice *dev, unsigned int host)
@@ -37,7 +37,7 @@ int smem_get_free_space(struct udevice *dev, unsigned int host)
 	if (!ops->get_free_space)
 		return -ENOSYS;
 
-	return ops->get_free_space(host);
+	return ops->get_free_space(dev, host);
 }
 
 UCLASS_DRIVER(smem) = {
