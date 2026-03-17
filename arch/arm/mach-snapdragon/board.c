@@ -77,10 +77,39 @@ static struct {
 
 int dram_init(void)
 {
-	/*
-	 * gd->ram_base / ram_size have been setup already
-	 * in qcom_parse_memory().
-	 */
+	struct udevice *dev;
+	struct usable_ram_partition_table *rpt;
+	struct ram_partition_entry *rpe;
+	size_t size;
+	int part;
+	phys_addr_t ram_end = 0;
+
+	if (uclass_get_device(UCLASS_SMEM, 0, &dev))
+		return 0;
+
+	rpt = smem_get(dev, 0, SMEM_USABLE_RAM_PARTITION_TABLE, &size);
+	if (!rpt)
+		return 0;
+
+	gd->ram_size = 0;
+	gd->ram_base = 0;
+
+	rpe = &rpt->ram_part_entry[0];
+	for (part = 0; part < rpt->num_partitions; part++, rpe++) {
+		if (rpe->partition_category != RAM_PARTITION_SDRAM ||
+		    rpe->partition_type != RAM_PARTITION_SYS_MEMORY)
+			continue;
+
+		if (!gd->ram_base)
+			gd->ram_base = rpe->start_address;
+
+		gd->ram_size += rpe->available_length;
+		ram_end = max(ram_end, rpe->start_address + rpe->available_length);
+	}
+
+	/* Adjust ram_size to span from base to highest end */
+	gd->ram_size = ram_end - gd->ram_base;
+
 	return 0;
 }
 
@@ -102,11 +131,32 @@ static int ddr_bank_cmp(const void *v1, const void *v2)
 /* This has to be done post-relocation since gd->bd isn't preserved */
 static void qcom_configure_bi_dram(void)
 {
-	int i;
+	struct udevice *dev;
+	struct usable_ram_partition_table *rpt;
+	struct ram_partition_entry *rpe;
+	size_t size;
+	int part, bank = 0;
 
-	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
-		gd->bd->bi_dram[i].start = prevbl_ddr_banks[i].start;
-		gd->bd->bi_dram[i].size = prevbl_ddr_banks[i].size;
+	if (uclass_get_device(UCLASS_SMEM, 0, &dev)) {
+		log_err("Failed to get SMEM device\n");
+		return;
+	}
+
+	rpt = smem_get(dev, 0, SMEM_USABLE_RAM_PARTITION_TABLE, &size);
+	if (!rpt) {
+		log_err("Failed to get RAM partitions from SMEM\n");
+		return;
+	}
+
+	rpe = &rpt->ram_part_entry[0];
+	for (part = 0; part < rpt->num_partitions && bank < CONFIG_NR_DRAM_BANKS; part++, rpe++) {
+		if (rpe->partition_category != RAM_PARTITION_SDRAM ||
+		    rpe->partition_type != RAM_PARTITION_SYS_MEMORY)
+			continue;
+
+		gd->bd->bi_dram[bank].start = rpe->start_address;
+		gd->bd->bi_dram[bank].size = rpe->available_length;
+		bank++;
 	}
 }
 
