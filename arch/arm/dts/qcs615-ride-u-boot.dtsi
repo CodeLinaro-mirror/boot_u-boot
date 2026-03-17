@@ -8,6 +8,7 @@
 		compatible = "qcom,smem";
 		memory-region = <&smem_region>;
 		hwlocks = <&tcsr_mutex 3>;
+		bootph-all;
 	};
 
 	/delete-node/ idle-states;
