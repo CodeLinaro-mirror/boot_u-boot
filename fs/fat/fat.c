@@ -51,128 +51,36 @@ static int fat_sect_size;
 #define DOS_FS_TYPE_OFFSET	0x36
 #define DOS_FS32_TYPE_OFFSET	0x52
 
-inline __u32 sect_to_block(__u32 sect, __u32 *off)
+#if IS_ENABLED(CONFIG_FS_FAT_HANDLE_SECTOR_SIZE_MISMATCH)
+static inline __u32 sect_to_block(__u32 sect, __u32 *off)
 {
+	const ulong blksz = cur_part_info.blksz;
+
 	*off = 0;
-	if (fat_sect_size && fat_sect_size < cur_part_info.blksz) {
-		int div = cur_part_info.blksz / fat_sect_size;
+	if (fat_sect_size && fat_sect_size < blksz) {
+		int div = blksz / fat_sect_size;
 
 		*off = sect % div;
 		return sect / div;
-	} else if (fat_sect_size && (fat_sect_size > cur_part_info.blksz)) {
-		return sect * (fat_sect_size / cur_part_info.blksz);
+	} else if (fat_sect_size && (fat_sect_size > blksz)) {
+		return sect * (fat_sect_size / blksz);
 	}
 
 	return sect;
 }
 
-inline __u32 size_to_blocks(__u32 size)
-{
-	return (size + (cur_part_info.blksz - 1)) / cur_part_info.blksz;
-}
-
-static int disk_read(__u32 sect, __u32 nr_sect, void *buf)
+static int disk_rw(__u32 sect, __u32 nr_sect, void *buf, bool read)
 {
 	int ret;
 	__u8 *block = NULL;
-	__u32 rem, size;
-	__u32 s, n;
+	__u32 rem, size, s, n;
+	const ulong blksz = cur_part_info.blksz;
+	const lbaint_t start = cur_part_info.start;
 
 	rem = nr_sect * fat_sect_size;
 	/*
 	 *           block N       block N + 1      block N + 2
-	 * +-+-+--+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-	 * | | | | |s|e|c|t|o|r| | |s|e|c|t|o|r| | |s|e|c|t|o|r| | | | |
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-	 * . . . |               |               |               | . . .
-	 * ------+---------------+---------------+---------------+------
-	 *            |<--- FAT reads in sectors          --->|
-	 *
-	 *            |  part 1  |   part 2      |  part 3    |
-	 *
-	 */
-
-	/* Do part 1 */
-	if (fat_sect_size) {
-		__u32 offset;
-
-		/* Read one block and copy out the leading sectors */
-		block = malloc_cache_aligned(cur_dev->blksz);
-		if (!block) {
-			printf("Error: allocating block: %lu\n", cur_dev->blksz);
-			return -1;
-		}
-
-		s = sect_to_block(sect, &offset);
-		offset = offset * fat_sect_size;
-
-		ret = blk_dread(cur_dev, cur_part_info.start + s, 1, block);
-		if (ret != 1) {
-			ret = -1;
-			goto exit;
-		}
-
-		if (rem > (cur_part_info.blksz - offset))
-			size = cur_part_info.blksz - offset;
-		else
-			size = rem;
-
-		memcpy(buf, block + offset, size);
-		rem -= size;
-		buf += size;
-		s++;
-	} else {
-		/*
-		 * fat_sect_size not being set implies, this is the first read
-		 * to partition. The first sector is being read to get the
-		 * FS meta data. The FAT sector size is got from this meta data.
-		 */
-		ret = blk_dread(cur_dev, cur_part_info.start + s, 1, buf);
-		if (ret != 1)
-			return -1;
-	}
-
-	/* Do part 2, read directly into the given buffer */
-	if (rem > cur_part_info.blksz) {
-		n = rem / cur_part_info.blksz;
-		ret = blk_dread(cur_dev, cur_part_info.start + s, n, buf);
-		if (ret != n) {
-			ret = -1;
-			goto exit;
-		}
-		buf += n * cur_part_info.blksz;
-		rem = rem % cur_part_info.blksz;
-		s += n;
-	}
-
-	/* Do part 3, read a block and copy the trailing sectors */
-	if (rem) {
-		ret = blk_dread(cur_dev, cur_part_info.start + s, 1, block);
-		if (ret != 1) {
-			ret = -1;
-			goto exit;
-		} else {
-			memcpy(buf, block, rem);
-		}
-	}
-exit:
-	if (block)
-		free(block);
-
-	return (ret == -1) ? -1 : nr_sect;
-}
-
-int disk_write(__u32 sect, __u32 nr_sect, void *buf)
-{
-	int ret;
-	__u8 *block = NULL;
-	__u32 rem, size;
-	__u32 s, n;
-
-	rem = nr_sect * fat_sect_size;
-	/*
-	 *           block N       block N + 1      block N + 2
-	 * +-+-+--+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 * | | | | |s|e|c|t|o|r| | |s|e|c|t|o|r| | |s|e|c|t|o|r| | | | |
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 * . . . |               |               |               | . . .
@@ -197,22 +105,26 @@ int disk_write(__u32 sect, __u32 nr_sect, void *buf)
 		s = sect_to_block(sect, &offset);
 		offset = offset * fat_sect_size;
 
-		ret = blk_dread(cur_dev, cur_part_info.start + s, 1, block);
+		ret = blk_dread(cur_dev, start + s, 1, block);
 		if (ret != 1) {
 			ret = -1;
 			goto exit;
 		}
 
-		if (rem > (cur_part_info.blksz - offset))
-			size = cur_part_info.blksz - offset;
+		if (rem > (blksz - offset))
+			size = blksz - offset;
 		else
 			size = rem;
 
-		memcpy(block + offset, buf, size);
-		ret = blk_dwrite(cur_dev, cur_part_info.start + s, 1, block);
-		if (ret != 1) {
-			ret = -1;
-			goto exit;
+		if (read) {
+			memcpy(buf, block + offset, size);
+		} else {
+			memcpy(block + offset, buf, size);
+			ret = blk_dwrite(cur_dev, start + s, 1, block);
+			if (ret != 1) {
+				ret = -1;
+				goto exit;
+			}
 		}
 
 		rem -= size;
@@ -220,32 +132,40 @@ int disk_write(__u32 sect, __u32 nr_sect, void *buf)
 		s++;
 	}
 
-	/* Do part 2, write directly from the given buffer */
-	if (rem > cur_part_info.blksz) {
-		n = rem / cur_part_info.blksz;
-		ret = blk_dwrite(cur_dev, cur_part_info.start + s, n, buf);
+	/* Do part 2, read/write directly to/from the given buffer */
+	if (rem > blksz) {
+		n = rem / blksz;
+
+		if (read)
+			ret = blk_dread(cur_dev, start + s, n, buf);
+		else
+			ret = blk_dwrite(cur_dev, start + s, n, buf);
+
 		if (ret != n) {
 			ret = -1;
 			goto exit;
 		}
-		buf += n * cur_part_info.blksz;
-		rem = rem % cur_part_info.blksz;
+		buf += n * blksz;
+		rem = rem % blksz;
 		s += n;
 	}
 
 	/* Do part 3, read a block and copy the trailing sectors */
 	if (rem) {
-		ret = blk_dread(cur_dev, cur_part_info.start + s, 1, block);
+		ret = blk_dread(cur_dev, start + s, 1, block);
 		if (ret != 1) {
 			ret = -1;
 			goto exit;
+		}
+		if (read) {
+			memcpy(buf, block, rem);
 		} else {
 			memcpy(block, buf, rem);
-		}
-		ret = blk_dwrite(cur_dev, cur_part_info.start + s, 1, block);
-		if (ret != 1) {
-			ret = -1;
-			goto exit;
+			ret = blk_dwrite(cur_dev, start + s, 1, block);
+			if (ret != 1) {
+				ret = -1;
+				goto exit;
+			}
 		}
 	}
 exit:
@@ -255,6 +175,32 @@ exit:
 	return (ret == -1) ? -1 : nr_sect;
 }
 
+static int disk_read(__u32 sect, __u32 nr_sect, void *buf)
+{
+	return disk_rw(sect, nr_sect, buf, true);
+}
+
+int disk_write(__u32 sect, __u32 nr_sect, void *buf)
+{
+	return disk_rw(sect, nr_sect, buf, false);
+}
+#else
+static int disk_read(__u32 block, __u32 nr_blocks, void *buf)
+{
+	ulong ret;
+
+	if (!cur_dev)
+		return -1;
+
+	ret = blk_dread(cur_dev, cur_part_info.start + block, nr_blocks, buf);
+
+	if (ret != nr_blocks)
+		return -1;
+
+	return ret;
+}
+#endif /* CONFIG_FS_FAT_HANDLE_SECTOR_SIZE_MISMATCH */
+
 int fat_set_blk_dev(struct blk_desc *dev_desc, struct disk_partition *info)
 {
 	ALLOC_CACHE_ALIGN_BUFFER(unsigned char, buffer, dev_desc->blksz);
@@ -263,7 +209,7 @@ int fat_set_blk_dev(struct blk_desc *dev_desc, struct disk_partition *info)
 	cur_part_info = *info;
 
 	/* Make sure it has a valid FAT header */
-	if (disk_read(0, 1, buffer) != 1) {
+	if (blk_dread(cur_dev, cur_part_info.start, 1, buffer) != 1) {
 		cur_dev = NULL;
 		return -1;
 	}
@@ -405,6 +351,11 @@ static __u32 get_fatent(fsdata *mydata, __u32 entry)
 		/* Write back the fatbuf to the disk */
 		if (flush_dirty_fat_buffer(mydata) < 0)
 			return -1;
+
+		if (getsize > FATBUFBLOCKS) {
+			debug("getsize is too large for bufptr\n");
+			getsize = FATBUFBLOCKS;
+		}
 
 		if (disk_read(startblock, getsize, bufptr) < 0) {
 			debug("Error reading FAT blocks\n");
@@ -767,8 +718,7 @@ read_bootsectandvi(boot_sector *bs, volume_info *volinfo, int *fatsize)
 	}
 
 	fat_sect_size = 0;
-
-	if (disk_read(0, 1, block) < 0) {
+	if (blk_dread(cur_dev, cur_part_info.start, 1, block) != 1) {
 		debug("Error: reading block\n");
 		ret = -1;
 		goto out_free;
@@ -840,10 +790,15 @@ static int get_fs_info(fsdata *mydata)
 	mydata->sect_size = get_unaligned_le16(bs.sector_size);
 	fat_sect_size = mydata->sect_size;
 	mydata->clust_size = bs.cluster_size;
-	if (mydata->sect_size != cur_part_info.blksz)
+	if (mydata->sect_size != cur_part_info.blksz) {
+		if (!IS_ENABLED(CONFIG_FS_FAT_HANDLE_SECTOR_SIZE_MISMATCH)) {
+			log_err("FAT sector size mismatch (fs=%u, dev=%lu)\n",
+				mydata->sect_size, cur_part_info.blksz);
+			return -1;
+		}
 		log_info("FAT sector size mismatch (fs=%u, dev=%lu)\n",
 			 mydata->sect_size, cur_part_info.blksz);
-
+	}
 	if (mydata->clust_size == 0) {
 		log_err("FAT cluster size not set\n");
 		return -1;
