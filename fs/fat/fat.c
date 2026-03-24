@@ -30,6 +30,9 @@
 /* maximum number of clusters for FAT12 */
 #define MAX_FAT12	0xFF4
 
+/* maximum blocks per read/write to avoid SDHCI timeout */
+#define MAX_BLOCKS_PER_TRANSFER 16384
+
 /*
  * Convert a string to lowercase.  Converts at most 'len' characters,
  * 'len' may be larger than the length of 'str' if 'str' is NULL
@@ -136,18 +139,26 @@ static int disk_rw(__u32 sect, __u32 nr_sect, void *buf, bool read)
 	if (rem > blksz) {
 		n = rem / blksz;
 
-		if (read)
-			ret = blk_dread(cur_dev, start + s, n, buf);
-		else
-			ret = blk_dwrite(cur_dev, start + s, n, buf);
+		/* Break large reads/writes into chunks */
+		while (n > 0) {
+			__u32 transfer_count = (n > MAX_BLOCKS_PER_TRANSFER) ? MAX_BLOCKS_PER_TRANSFER : n;
 
-		if (ret != n) {
-			ret = -1;
-			goto exit;
+			if (read)
+				ret = blk_dread(cur_dev, start + s, transfer_count, buf);
+			else
+				ret = blk_dwrite(cur_dev, start + s, transfer_count, buf);
+
+			if (ret != transfer_count) {
+				ret = -1;
+				goto exit;
+			}
+
+			buf += transfer_count * blksz;
+			s += transfer_count;
+			n -= transfer_count;
 		}
-		buf += n * blksz;
+
 		rem = rem % blksz;
-		s += n;
 	}
 
 	/* Do part 3, read a block and copy the trailing sectors */
