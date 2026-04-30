@@ -503,6 +503,7 @@ static int mmc_blk_probe(struct udevice *dev)
 	struct udevice *mmc_dev = dev_get_parent(dev);
 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(mmc_dev);
 	struct mmc *mmc = upriv->mmc;
+	struct blk_desc *bdesc = dev_get_uclass_plat(dev);
 	int ret;
 
 	ret = mmc_init(mmc);
@@ -510,6 +511,10 @@ static int mmc_blk_probe(struct udevice *dev)
 		debug("%s: mmc_init() failed (err=%d)\n", __func__, ret);
 		return ret;
 	}
+
+	/* Update removable flag based on device capabilities */
+	if (mmc->cfg->host_caps & MMC_CAP_NONREMOVABLE)
+		bdesc->removable = 0;
 
 	return 0;
 }
