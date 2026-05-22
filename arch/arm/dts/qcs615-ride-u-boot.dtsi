@@ -89,7 +89,7 @@
 		};
 
 		sdhc_1: mmc@7c4000 {
-			status = "disabled";
+			status = "okay";
 		};
 
 		sdhc_2: mmc@8804000 {

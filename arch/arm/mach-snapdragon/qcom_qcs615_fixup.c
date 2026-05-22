@@ -85,17 +85,6 @@ static int add_reserved_memory_node(struct fdt_header *fdt_ptr,
 void fixup_dt_handler(struct fdt_header *fdt_ptr)
 {
 	int ret, i;
-        u32 path_offset;
-	char prop_val[] = "disabled";
-
-        path_offset = fdt_path_offset(fdt_ptr, "/soc@0/mmc@7c4000");
-        if (path_offset < 0) {
-                log_err("Error getting mmc offset: %d\n", path_offset);
-                return;
-        }
-
-        ret = fixup_dt_node(fdt_ptr, path_offset, "status",
-                            (void *)prop_val, SET_PROP_STRING);
 
 	/* Add all reserved regions to kernel DTB */
 	for (i = 0; i < ARRAY_SIZE(mem_res_regions); i++) {
